@@ -56,7 +56,7 @@ a{{color:#1E3A8A;font-size:13.5px}}</style></head>
     <input type=checkbox name=reset value=1 style="width:auto;margin-right:6px">Rehacer la base de cero (borra lo guardado)</label>
   <button class=btn type=submit>Actualizar</button>
 </form>
-<p style="margin-top:18px"><a href="/">&larr; Volver al dashboard</a></p>
+<p style="margin-top:18px"><a href="/dashboard">&larr; Volver al dashboard</a></p>
 </div></body></html>"""
 
 LANDING = """<!doctype html><html lang=es><head><meta charset=utf-8>
@@ -75,11 +75,20 @@ def _admin_page(msg="", err=False):
     return ADMIN_HTML.format(msg=m, token_field=token_field)
 
 
-@app.route("/")
-def home():
+def _dashboard_response():
     if not pipeline.hay_datos():
         return Response(LANDING, mimetype="text/html")
     return Response(pipeline.render_dashboard(), mimetype="text/html")
+
+
+@app.route("/")
+def home():
+    return _dashboard_response()
+
+
+@app.route("/dashboard")
+def dashboard():
+    return _dashboard_response()
 
 
 @app.route("/admin")
