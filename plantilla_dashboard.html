@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Tiempos de reparto · Foxtrot · FichaYa - del Palacio</title>
+<title>Tiempos de reparto · Foxtrot · FichaYa - del Palacio S.A. - 2026</title>
 <style>
 :root{--ink:#15233B;--ink2:#26334d;--bg:#EEF1F5;--card:#FFFFFF;--line:#DCE2EA;--muted:#657085;
  --good:#16A34A;--bad:#DC2626;--amber:#D97706;--obj:#1E3A8A;--sec:#7C3AED;--cli:#0E7C6B}
@@ -58,7 +58,7 @@ tfoot td{font-weight:700;border-top:2px solid var(--line);border-bottom:none}
 .clientlist table{min-width:720px}
 @media(max-width:980px){.c5,.c4{grid-template-columns:repeat(2,1fr)}.grid{grid-template-columns:1fr!important}}
 </style></head><body>
-<header><div class="wrap"><div><h1>Tiempos de reparto · Foxtrot - FichaYA </h1>
+<header><div class="wrap"><div><h1>Tiempos de reparto · Foxtrot - FichaYA - 2026 </h1>
 <div class="sub" id="periodo">del Palacio S.A.</div></div>
 <div class="hcount"><b id="hc">0</b>rutas analizadas</div></div></header>
 <div class="wrap">
@@ -69,7 +69,7 @@ tfoot td{font-weight:700;border-top:2px solid var(--line);border-bottom:none}
   <div class="fg"><label>Chofer</label><select id="fCho"></select></div>
   <button class="reset" id="reset">Limpiar filtros</button>
  </div>
- <div class="tabs"><button class="tab active" id="tabMes">Mensual</button><button class="tab" id="tabDia">Diario</button><button class="tab" id="tabSem">Semanal</button><button class="tab" id="tabOnTime">On time</button><button class="tab" id="tabRechazos">Rechazos</button><button class="tab" id="tabCalidad">Calidad de los datos</button></div>
+ <div class="tabs"><button class="tab active" id="tabMes">Mensual</button><button class="tab" id="tabDia">Diario</button><button class="tab" id="tabSem">Semanal</button><button class="tab" id="tabOnTime">On time</button><button class="tab" id="tabOtif">OTIF</button><button class="tab" id="tabRechazos">Rechazos</button><button class="tab" id="tabCalidad">Calidad de los datos</button></div>
  <div id="operationalSummary">
  <div class="sectlbl">Tiempos</div>
  <div class="cards c5">
@@ -199,7 +199,8 @@ tfoot td{font-weight:700;border-top:2px solid var(--line);border-bottom:none}
    <div class="card" id="cRProm"><div class="k">Promedio diario</div><div class="v" id="kRProm">–</div><div class="obj">rechazos por día con actividad</div><div class="bar"><i id="bRProm"></i></div></div>
    <div class="card" id="cRPeak"><div class="k">Día pico</div><div class="v" id="kRPeak">–</div><div class="obj" id="oRPeak">mayor cantidad diaria</div><div class="bar"><i id="bRPeak"></i></div></div>
    <div class="card" id="cRTasa"><div class="k">% rechazo PDV</div><div class="v" id="kRTasa">–</div><div class="obj">rechazos / pedidos atendidos</div><div class="bar"><i id="bRTasa"></i></div></div>
-   <div class="card" id="cRPed"><div class="k">PDV atendidos</div><div class="v" id="kRPed">–</div><div class="obj">pedidos PDV del endpoint</div><div class="bar"><i id="bRPed"></i></div></div>
+   <div class="card" id="cRPed"><div class="k">Pedidos PDV atendidos</div><div class="v" id="kRPed">–</div><div class="obj">pedidos atendidos del endpoint</div><div class="bar"><i id="bRPed"></i></div></div>
+   <div class="card" id="cRPdv"><div class="k">PDV únicos</div><div class="v" id="kRPdv">–</div><div class="obj">puntos de venta únicos</div><div class="bar"><i id="bRPdv"></i></div></div>
    <div class="card" id="cRNds"><div class="k">NDS</div><div class="v" id="kRNds">–</div><div class="obj">promedio ponderado por pedidos</div><div class="bar"><i id="bRNds"></i></div></div>
    <div class="card" id="cRBl"><div class="k">% rechazo bultos</div><div class="v" id="kRBl">–</div><div class="obj">rechazo sobre bultos</div><div class="bar"><i id="bRBl"></i></div></div>
    <div class="card" id="cRHl"><div class="k">% rechazo HL</div><div class="v" id="kRHl">–</div><div class="obj">rechazo sobre hectolitros</div><div class="bar"><i id="bRHl"></i></div></div>
@@ -211,6 +212,23 @@ tfoot td{font-weight:700;border-top:2px solid var(--line);border-bottom:none}
   <div class="grid" style="grid-template-columns:1fr">
    <div class="panel"><h2>Día por día</h2><div class="note">Datos diarios importados desde el endpoint.</div>
     <div class="tblscroll clientlist"><table><thead><tr><th>Fecha</th><th>Bultos</th><th>Rechazo bultos</th><th>Rechazo bultos total</th><th>HL</th><th>Rechazo HL</th><th>Rechazo HL total</th><th>Salidas</th><th>PDV atendidos</th><th>PDV únicos</th><th>NDS</th><th>Ausentismo</th><th>% rechazo PDV</th><th>% rechazo blt.</th><th>% rechazo HL</th><th>Evento</th></tr></thead><tbody id="tbodyRech"></tbody></table></div></div>
+  </div>
+ </div>
+ <div id="viewOtif" style="display:none">
+  <div class="hint">OTIF por volumen. Fórmula: volumen entregado / volumen pedido. Se usa bultos como volumen pedido y rechazo_bultos_total como volumen no entregado.</div>
+  <div class="cards c4" style="margin-bottom:22px">
+   <div class="card" id="cOTIF"><div class="badge" id="gOTIF"></div><div class="k">OTIF bultos</div><div class="v" id="kOTIF">–</div><div class="obj">objetivo ≥ 95%</div><div class="bar"><i id="bOTIF"></i></div></div>
+   <div class="card" id="cOTIFVol"><div class="k">Volumen pedido</div><div class="v" id="kOTIFVol">–</div><div class="obj">bultos del endpoint</div><div class="bar"><i id="bOTIFVol"></i></div></div>
+   <div class="card" id="cOTIFEnt"><div class="k">Volumen entregado</div><div class="v" id="kOTIFEnt">–</div><div class="obj">bultos - rechazo total</div><div class="bar"><i id="bOTIFEnt"></i></div></div>
+   <div class="card" id="cOTIFNo"><div class="k">Volumen no entregado</div><div class="v" id="kOTIFNo">–</div><div class="obj">rechazo bultos total</div><div class="bar"><i id="bOTIFNo"></i></div></div>
+  </div>
+  <div class="grid" style="grid-template-columns:1fr 1fr">
+   <div class="panel"><h2>OTIF por mes</h2><div class="note">% volumen entregado sobre volumen pedido.</div><div class="chartbox" style="height:300px"><canvas id="chOtifMes"></canvas></div></div>
+   <div class="panel"><h2>No OTIF por mes</h2><div class="note">% volumen no entregado sobre volumen pedido.</div><div class="chartbox" style="height:300px"><canvas id="chNoOtifMes"></canvas></div></div>
+  </div>
+  <div class="grid" style="grid-template-columns:1fr">
+   <div class="panel"><h2>Mes por mes</h2><div class="note">Detalle mensual de volumen pedido, entregado y no entregado.</div>
+    <table><thead><tr><th>Mes</th><th>Volumen pedido</th><th>Volumen entregado</th><th>Volumen no entregado</th><th>OTIF</th><th>No OTIF</th></tr></thead><tbody id="tbodyOtif"></tbody></table></div>
   </div>
  </div>
 </div>
@@ -295,20 +313,30 @@ function topClientesSinVentana(scope){const g={};scope.forEach(r=>(r.clientes_si
 function otRows(items){return items.length?items.map(s=>'<tr><td>'+s.key+'</td><td>'+s.ev+'</td><td class="g">'+s.ok+'</td><td class="'+(s.bad?'r':'g')+'">'+s.bad+'</td><td class="'+(s.sin?'r':'g')+'">'+s.sin+'</td><td class="'+(s.p>=85?'g':'r')+'">'+(s.p==null?'–':r1(s.p)+'%')+'</td></tr>').join(''):emptyRow(6,'No hay pedidos para el filtro actual.')}
 function otChart(id,items){if(!chartsReady())return;if(ch[id])ch[id].destroy();const rows=items.filter(s=>s.p!=null).slice(0,14);
  ch[id]=new Chart(document.getElementById(id),{data:{labels:rows.map(s=>s.key),datasets:[{type:'bar',data:rows.map(s=>s.p),backgroundColor:rows.map(s=>s.p>=85?C.good:C.bad),borderRadius:4,maxBarThickness:22},{type:'line',data:rows.map(()=>85),borderColor:C.obj,borderWidth:2,borderDash:[6,4],pointRadius:0}]},
-  options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:x=>x.datasetIndex===1?'Objetivo 85%':r1(x.parsed.x)+'% · '+rows[x.dataIndex].ev+' pedidos eval.'}}},
-  scales:{x:{min:0,max:100,ticks:{callback:v=>v+'%',color:'#657085',font:{size:11}},grid:{color:'#eef1f5'}},y:{ticks:{color:'#26334d',font:{size:10}},grid:{display:false}}}}})}
+  options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,layout:{padding:{right:28}},plugins:{legend:{display:false},tooltip:{callbacks:{label:x=>x.datasetIndex===1?'Objetivo 85%':r1(x.parsed.x)+'% · '+rows[x.dataIndex].ev+' pedidos eval.'}}},
+  scales:{x:{min:0,max:100,ticks:{callback:v=>v+'%',color:'#657085',font:{size:11}},grid:{color:'#eef1f5'}},y:{ticks:{color:'#26334d',font:{size:10}},grid:{display:false}}}},plugins:[hLabels(0,v=>r1(v)+'%')]})}
+function hLabels(di,fmt){return {id:'hl'+di,afterDatasetsDraw(c){const{ctx}=c,m=c.getDatasetMeta(di);ctx.save();ctx.font='600 10px system-ui';ctx.fillStyle='#26334d';ctx.textAlign='left';ctx.textBaseline='middle';m.data.forEach((b,i)=>{const v=c.data.datasets[di].data[i];if(v!=null)ctx.fillText(fmt(v),b.x+6,b.y)});ctx.restore()}}}
 function rechazosScope(){return RECH.filter(r=>(state.mes==='__all'||r.fecha.slice(0,7)===state.mes))}
 function rechazosMes(rows){const g={};rows.forEach(r=>{const k=r.fecha.slice(0,7);g[k]=(g[k]||0)+(r.rechazos||0)});return Object.keys(g).sort().map(k=>({key:k,n:g[k]}))}
+function otifCalc(rows){const vol=rows.reduce((s,r)=>s+(r.bultos||0),0),no=rows.reduce((s,r)=>s+(r.rechazo_bultos_total||0),0),ent=vol-no;return{vol,no,ent,otif:vol?ent/vol*100:null,noOtif:vol?no/vol*100:null}}
+function otifMes(rows){const g={};rows.forEach(r=>{const k=r.fecha.slice(0,7);(g[k]=g[k]||[]).push(r)});return Object.keys(g).sort().map(k=>({key:k,...otifCalc(g[k])}))}
 function wavg(rows,val,w){const den=rows.reduce((s,r)=>s+(r[w]||0),0);return den?rows.reduce((s,r)=>s+(r[val]||0)*(r[w]||0),0)/den:null}
 function fmt0(v){return Math.round(v||0).toLocaleString('es-AR')}
 function fmtPct(v){return v==null?'–':r1(v)+'%'}
-function renderRechazos(){const rows=rechazosScope(),total=rows.reduce((s,r)=>s+(r.rechazos||0),0),pedTotal=rows.reduce((s,r)=>s+(r.pedidos_pdv_atendidos||0),0),dias=rows.filter(r=>(r.pedidos_pdv_atendidos||0)>0).length,peak=rows.reduce((m,r)=>(r.rechazos||0)>(m.rechazos||0)?r:m,{}),tasa=pedTotal?total/pedTotal*100:null,nds=wavg(rows,'nds','pedidos_pdv_atendidos'),pctB=wavg(rows,'pct_rechazo_bultos','bultos'),pctHl=wavg(rows,'pct_rechazo_hl','hl');
+function renderRechazos(){const rows=rechazosScope(),total=rows.reduce((s,r)=>s+(r.rechazos||0),0),pedTotal=rows.reduce((s,r)=>s+(r.pedidos_pdv_atendidos||0),0),pdvTotal=rows.reduce((s,r)=>s+(r.pdv_unicos||0),0),dias=rows.filter(r=>(r.pedidos_pdv_atendidos||0)>0).length,peak=rows.reduce((m,r)=>(r.rechazos||0)>(m.rechazos||0)?r:m,{}),tasa=pedTotal?total/pedTotal*100:null,nds=wavg(rows,'nds','pedidos_pdv_atendidos'),pctB=wavg(rows,'pct_rechazo_bultos','bultos'),pctHl=wavg(rows,'pct_rechazo_hl','hl');
  kRTotal.textContent=fmt0(total);kRProm.textContent=dias?r1(total/dias):'–';kRPeak.textContent=peak.fecha?dLbl(peak.fecha):'–';oRPeak.textContent=peak.fecha?(peak.rechazos||0)+' rechazos':'mayor cantidad diaria';kRTasa.textContent=fmtPct(tasa);
- kRPed.textContent=fmt0(pedTotal);kRNds.textContent=fmtPct(nds);kRBl.textContent=fmtPct(pctB);kRHl.textContent=fmtPct(pctHl);
- [cRTotal,cRProm,cRPeak,cRTasa,cRPed,cRNds,cRBl,cRHl].forEach(c=>c.style.setProperty('--accent',C.amber));[bRTotal,bRProm,bRPeak,bRTasa,bRPed,bRNds,bRBl,bRHl].forEach(b=>{b.style.background=C.amber;b.style.width='100%'});
- barGen('chRechDia',rows.map(r=>dLbl(r.fecha)),rows.map(r=>r.rechazos||0),v=>v,C.amber,null,false);
- const mes=rechazosMes(rows);barGen('chRechMes',mes.map(r=>mLbl(r.key)),mes.map(r=>r.n),v=>v,C.amber,null,false);
+ kRPed.textContent=fmt0(pedTotal);kRPdv.textContent=fmt0(pdvTotal);kRNds.textContent=fmtPct(nds);kRBl.textContent=fmtPct(pctB);kRHl.textContent=fmtPct(pctHl);
+ [cRTotal,cRProm,cRPeak,cRTasa,cRPed,cRPdv,cRNds,cRBl,cRHl].forEach(c=>c.style.setProperty('--accent',C.amber));[bRTotal,bRProm,bRPeak,bRTasa,bRPed,bRPdv,bRNds,bRBl,bRHl].forEach(b=>{b.style.background=C.amber;b.style.width='100%'});
+ barGen('chRechDia',rows.map(r=>dLbl(r.fecha)),rows.map(r=>r.rechazos||0),v=>v,()=>C.amber,null,rows.length<=31);
+ const mes=rechazosMes(rows);barGen('chRechMes',mes.map(r=>mLbl(r.key)),mes.map(r=>r.n),v=>v,()=>C.amber,null,true);
  tbodyRech.innerHTML=rows.length?rows.map(r=>{const aus=100-(r.nds||0),ev=r.evento||r.feriado||'';return '<tr><td>'+r.fecha+'</td><td>'+fmt0(r.bultos)+'</td><td class="'+((r.rechazo_bultos||0)?'r':'g')+'">'+r1(r.rechazo_bultos)+'</td><td class="'+((r.rechazo_bultos_total||0)?'r':'g')+'">'+r1(r.rechazo_bultos_total)+'</td><td>'+r1(r.hl)+'</td><td class="'+((r.rechazo_hl||0)?'r':'g')+'">'+r1(r.rechazo_hl)+'</td><td class="'+((r.rechazo_hl_total||0)?'r':'g')+'">'+r1(r.rechazo_hl_total)+'</td><td>'+fmt0(r.salidas)+'</td><td>'+fmt0(r.pedidos_pdv_atendidos)+'</td><td>'+fmt0(r.pdv_unicos)+'</td><td class="'+((r.nds||0)>=95?'g':'r')+'">'+fmtPct(r.nds)+'</td><td>'+r1(aus)+'</td><td class="'+((r.pct_rechazo_pedidos||0)>5?'r':'g')+'">'+fmtPct(r.pct_rechazo_pedidos)+'</td><td class="'+((r.pct_rechazo_bultos||0)>5?'r':'g')+'">'+fmtPct(r.pct_rechazo_bultos)+'</td><td class="'+((r.pct_rechazo_hl||0)>5?'r':'g')+'">'+fmtPct(r.pct_rechazo_hl)+'</td><td>'+ev+'</td></tr>'}).join(''):emptyRow(16,'No hay rechazos cargados para el filtro actual.');}
+function renderOtif(){const rows=rechazosScope(),o=otifCalc(rows),ok=o.otif!=null&&o.otif>=95,col=o.otif==null?C.obj:(ok?C.good:C.bad);
+ kOTIF.textContent=fmtPct(o.otif);kOTIFVol.textContent=fmt0(o.vol);kOTIFEnt.textContent=fmt0(o.ent);kOTIFNo.textContent=fmt0(o.no);
+ cOTIF.style.setProperty('--accent',col);bOTIF.style.background=col;bOTIF.style.width=Math.min(100,o.otif||0)+'%';gOTIF.className='badge '+(ok?'ok':'no');gOTIF.textContent=o.otif==null?'SIN DATOS':(ok?'OK':'BAJO');
+ [[cOTIFVol,bOTIFVol,C.obj],[cOTIFEnt,bOTIFEnt,C.good],[cOTIFNo,bOTIFNo,o.no?C.bad:C.good]].forEach(([c,b,color])=>{c.style.setProperty('--accent',color);b.style.background=color;b.style.width='100%'});
+ const mes=otifMes(rows);barGen('chOtifMes',mes.map(r=>mLbl(r.key)),mes.map(r=>r.otif),v=>fmtPct(v),v=>v>=95?C.good:C.bad,95,true);
+ barGen('chNoOtifMes',mes.map(r=>mLbl(r.key)),mes.map(r=>r.noOtif),v=>fmtPct(v),v=>v>5?C.bad:C.good,5,true);
+ tbodyOtif.innerHTML=mes.length?mes.map(r=>'<tr><td>'+mLbl(r.key)+'</td><td>'+fmt0(r.vol)+'</td><td class="g">'+fmt0(r.ent)+'</td><td class="'+(r.no?'r':'g')+'">'+fmt0(r.no)+'</td><td class="'+(r.otif>=95?'g':'r')+'">'+fmtPct(r.otif)+'</td><td class="'+((r.noOtif||0)>5?'r':'g')+'">'+fmtPct(r.noOtif)+'</td></tr>').join(''):emptyRow(6,'No hay datos OTIF cargados para el filtro actual.');}
 function renderCards(){const cards=R.filter(scopeCards),us=cards.filter(r=>r.usable);
  const aTml=avg(us.map(r=>r.tml)),aTi=avg(us.map(r=>r.ti)),aHr=avg(us.map(r=>r.horas));
  kTml.textContent=r1(aTml);kTi.textContent=r1(aTi);kHr.textContent=r2(aHr);kN.textContent=us.length;
@@ -399,14 +427,14 @@ function renderOnTime(){const scope=R.filter(full),o=onTime(scope),ok=o.p!=null&
  const msgSin=o.sin?'Hay '+o.sin+' pedidos sin ventana, pero esta carga no tiene el detalle por cliente. Volvé a subir Route Analytics, visitas Foxtrot y clientes para recalcular.':'No hay clientes sin ventana horaria cargada en el filtro actual.';
  tbodyOTClientes.innerHTML=fueraRows.length?fueraRows.map(c=>'<tr><td>'+c.cliente+'</td><td>'+c.nombre+'</td><td class="r">'+c.fuera+'</td><td>'+c.visita+'</td><td>'+c.ventana+'</td></tr>').join(''):emptyRow(5,msgFuera);
  tbodyOTClientesSin.innerHTML=sinRows.length?sinRows.map(c=>'<tr><td>'+c.cliente+'</td><td>'+c.nombre+'</td><td class="r">'+c.pedidos+'</td><td>'+c.motivo+'</td></tr>').join(''):emptyRow(4,msgSin);}
-function render(){renderCards();if(state.tab==='mes')renderMes();else if(state.tab==='dia')renderDia();else if(state.tab==='sem')renderSem();else if(state.tab==='calidad')renderCalidad();else if(state.tab==='rechazos')renderRechazos();else renderOnTime();}
+function render(){renderCards();if(state.tab==='mes')renderMes();else if(state.tab==='dia')renderDia();else if(state.tab==='sem')renderSem();else if(state.tab==='calidad')renderCalidad();else if(state.tab==='rechazos')renderRechazos();else if(state.tab==='otif')renderOtif();else renderOnTime();}
 ['fSuc','fMes','fCho'].forEach(id=>document.getElementById(id).addEventListener('change',e=>{state[{fSuc:'suc',fMes:'mes',fCho:'cho'}[id]]=e.target.value;render()}));
 reset.addEventListener('click',()=>{state.suc=state.mes=state.cho='__all';fSuc.value=fMes.value=fCho.value='__all';render()});
-function switchTab(t){state.tab=t;tabMes.classList.toggle('active',t==='mes');tabDia.classList.toggle('active',t==='dia');tabSem.classList.toggle('active',t==='sem');tabCalidad.classList.toggle('active',t==='calidad');tabRechazos.classList.toggle('active',t==='rechazos');
- document.getElementById('operationalSummary').style.display=(t==='rechazos'||t==='ontime'||t==='calidad')?'none':'';
- document.getElementById('viewMes').style.display=t==='mes'?'':'none';document.getElementById('viewDia').style.display=t==='dia'?'':'none';document.getElementById('viewSem').style.display=t==='sem'?'':'none';document.getElementById('viewCalidad').style.display=t==='calidad'?'':'none';document.getElementById('viewOnTime').style.display=t==='ontime'?'':'none';document.getElementById('viewRechazos').style.display=t==='rechazos'?'':'none';
+function switchTab(t){state.tab=t;tabMes.classList.toggle('active',t==='mes');tabDia.classList.toggle('active',t==='dia');tabSem.classList.toggle('active',t==='sem');tabOnTime.classList.toggle('active',t==='ontime');tabOtif.classList.toggle('active',t==='otif');tabRechazos.classList.toggle('active',t==='rechazos');tabCalidad.classList.toggle('active',t==='calidad');
+ document.getElementById('operationalSummary').style.display=(t==='rechazos'||t==='ontime'||t==='otif'||t==='calidad')?'none':'';
+ document.getElementById('viewMes').style.display=t==='mes'?'':'none';document.getElementById('viewDia').style.display=t==='dia'?'':'none';document.getElementById('viewSem').style.display=t==='sem'?'':'none';document.getElementById('viewCalidad').style.display=t==='calidad'?'':'none';document.getElementById('viewOnTime').style.display=t==='ontime'?'':'none';document.getElementById('viewOtif').style.display=t==='otif'?'':'none';document.getElementById('viewRechazos').style.display=t==='rechazos'?'':'none';
  if(t==='sem'&&!state.sem&&WEEKS.length)state.sem=WEEKS[WEEKS.length-1];render()}
-tabMes.addEventListener('click',()=>switchTab('mes'));tabDia.addEventListener('click',()=>switchTab('dia'));tabSem.addEventListener('click',()=>switchTab('sem'));tabCalidad.addEventListener('click',()=>switchTab('calidad'));tabRechazos.addEventListener('click',()=>switchTab('rechazos'));
+tabMes.addEventListener('click',()=>switchTab('mes'));tabDia.addEventListener('click',()=>switchTab('dia'));tabSem.addEventListener('click',()=>switchTab('sem'));tabOnTime.addEventListener('click',()=>switchTab('ontime'));tabOtif.addEventListener('click',()=>switchTab('otif'));tabRechazos.addEventListener('click',()=>switchTab('rechazos'));tabCalidad.addEventListener('click',()=>switchTab('calidad'));
 render();
 const chartScript=document.createElement('script');
 chartScript.src='https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js';
