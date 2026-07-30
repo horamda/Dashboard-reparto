@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tiempos de reparto · Foxtrot · Del Palacio</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root{--ink:#15233B;--ink2:#26334d;--bg:#EEF1F5;--card:#FFFFFF;--line:#DCE2EA;--muted:#657085;
+ --good:#16A34A;--bad:#DC2626;--amber:#D97706;--obj:#1E3A8A;--sec:#7C3AED;--cli:#0E7C6B}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--ink);font-size:14px;line-height:1.45;font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1240px;margin:0 auto;padding:0 20px 56px}
+header{background:var(--ink);color:#fff;padding:22px 0 20px;margin-bottom:20px;border-bottom:3px solid #C77D1A}
+header .wrap{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap}
+h1{font-size:21px;font-weight:700;letter-spacing:-.2px}.sub{color:#aab6cc;font-size:13px;margin-top:3px}
+.hcount{text-align:right;color:#cdd7e6;font-size:12px}.hcount b{display:block;font-size:26px;color:#fff;font-weight:700;line-height:1.1}
+.alert{display:none;align-items:center;gap:10px;background:#FEF2F2;border:1px solid #FCA5A5;border-left:4px solid var(--bad);color:#991B1B;border-radius:10px;padding:12px 16px;margin-bottom:18px;font-size:13.5px}
+.alert.show{display:flex}.alert b{font-weight:700}
+.filters{display:flex;gap:14px;flex-wrap:wrap;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin-bottom:16px}
+.fg{display:flex;flex-direction:column;gap:5px;min-width:150px;flex:1}
+.fg label{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--muted)}
+select{appearance:none;background:#fff url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6'><path d='M0 0l5 6 5-6z' fill='%23657085'/></svg>") no-repeat right 12px center;border:1px solid var(--line);border-radius:8px;padding:9px 32px 9px 12px;font-size:14px;color:var(--ink);cursor:pointer;font-family:inherit}
+select:focus{outline:2px solid #C77D1A;outline-offset:1px}
+.reset{align-self:flex-end;background:none;border:1px solid var(--line);border-radius:8px;padding:9px 14px;font-size:13px;color:var(--muted);cursor:pointer;font-family:inherit}
+.reset:hover{border-color:var(--ink);color:var(--ink)}
+.tabs{display:flex;gap:6px;margin-bottom:20px}
+.tab{background:var(--card);border:1px solid var(--line);border-radius:9px;padding:9px 20px;font-size:13.5px;font-weight:600;color:var(--muted);cursor:pointer;font-family:inherit}
+.tab.active{background:var(--ink);color:#fff;border-color:var(--ink)}
+.sectlbl{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--muted);margin:2px 0 10px}
+.hint{font-size:12.5px;color:var(--muted);background:#fff;border:1px dashed var(--line);border-radius:9px;padding:9px 13px;margin-bottom:16px}
+.cards{display:grid;gap:14px;margin-bottom:14px}
+.c5{grid-template-columns:repeat(5,1fr)}.c4{grid-template-columns:repeat(4,1fr)}.c2{grid-template-columns:repeat(2,1fr)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:15px 16px 14px;position:relative;overflow:hidden}
+.card::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--accent,var(--muted))}
+.card .k{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--muted)}
+.card .v{font-size:27px;font-weight:700;margin-top:7px;letter-spacing:-.5px;line-height:1}
+.card .obj{font-size:11.5px;color:var(--muted);font-weight:500;margin-top:4px}
+.card .bar{height:5px;border-radius:3px;background:#eef1f5;margin-top:9px;overflow:hidden}.card .bar i{display:block;height:100%;border-radius:3px}
+.card .badge{position:absolute;top:12px;right:12px;font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px}
+.badge.ok{background:#DCFCE7;color:#166534}.badge.no{background:#FEE2E2;color:#991B1B}
+.gauges{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:22px}
+.gcard{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px 8px;text-align:center}
+.gcard .gt{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--muted)}
+.gcard svg{width:100%;max-width:200px;height:auto;display:block;margin:2px auto 0}
+.gcard .gsub{font-size:11.5px;color:var(--muted);margin-top:-2px}
+@media(max-width:980px){.gauges{grid-template-columns:1fr}}
+.grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:16px}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px 18px}
+.panel h2{font-size:12.5px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--ink2)}
+.panel .note{font-size:11.5px;color:var(--muted);margin:2px 0 12px}
+.chartbox{position:relative;height:210px}
+table{width:100%;border-collapse:collapse;font-size:12.5px}
+th,td{padding:8px 8px;text-align:right;border-bottom:1px solid var(--line)}
+th:first-child,td:first-child{text-align:left}
+thead th{font-size:10.5px;text-transform:uppercase;letter-spacing:.3px;color:var(--muted);font-weight:600;border-bottom:2px solid var(--line)}
+tbody tr:hover{background:#f6f8fb}
+td.g{color:var(--good);font-weight:600}td.r{color:var(--bad);font-weight:600}
+tfoot td{font-weight:700;border-top:2px solid var(--line);border-bottom:none}
+.tblscroll{max-height:340px;overflow-y:auto}
+@media(max-width:980px){.c5,.c4{grid-template-columns:repeat(2,1fr)}.grid{grid-template-columns:1fr!important}}
+</style></head><body>
+<header><div class="wrap"><div><h1>Tiempos de reparto · Foxtrot</h1>
+<div class="sub">Del Palacio S.A. · Chascomús y Dolores · enero–julio 2026</div></div>
+<div class="hcount"><b id="hc">0</b>rutas analizadas</div></div></header>
+<div class="wrap">
+ <div class="alert" id="alert"><span>&#9888;</span><span><b id="alertN">0</b> rutas superan las <b>12 hs totales</b> — casi siempre rutas que el chofer no cerró en Foxtrot. Revisar cierres.</span></div>
+ <div class="filters">
+  <div class="fg"><label>Zona / Sucursal</label><select id="fSuc"></select></div>
+  <div class="fg"><label>Mes</label><select id="fMes"></select></div>
+  <div class="fg"><label>Chofer</label><select id="fCho"></select></div>
+  <button class="reset" id="reset">Limpiar filtros</button>
+ </div>
+ <div class="tabs"><button class="tab active" id="tabMes">Mensual</button><button class="tab" id="tabDia">Diario</button></div>
+ <div class="sectlbl">Tiempos</div>
+ <div class="cards c5">
+  <div class="card" id="cTml"><div class="k">TML · minutos</div><div class="v" id="kTml">–</div><div class="obj">objetivo 30 min</div><div class="bar"><i id="bTml"></i></div></div>
+  <div class="card" id="cTi"><div class="k">TI · minutos</div><div class="v" id="kTi">–</div><div class="obj">objetivo 30 min</div><div class="bar"><i id="bTi"></i></div></div>
+  <div class="card" id="cHr"><div class="k">Horas en ruta</div><div class="v" id="kHr">–</div><div class="obj">objetivo 7 h · máx 8 h</div><div class="bar"><i id="bHr"></i></div></div>
+  <div class="card" id="cN"><div class="k">Rutas</div><div class="v" id="kN">–</div><div class="obj">con cierre válido</div><div class="bar"><i style="width:100%;background:var(--ink2)"></i></div></div>
+  <div class="card" id="cW"><div class="k">Alerta +12 h</div><div class="v" id="kW">–</div><div class="obj">rutas fuera de rango</div><div class="bar"><i id="bW"></i></div></div>
+ </div>
+ <div class="sectlbl">Calidad Foxtrot</div>
+ <div class="cards c4" style="margin-bottom:22px">
+  <div class="card" id="cAs"><div class="badge" id="gAs"></div><div class="k">Adherencia secuencia</div><div class="v" id="kAs">–</div><div class="obj">objetivo ≥ 85%</div><div class="bar"><i id="bAs"></i></div></div>
+  <div class="card" id="cAc"><div class="badge" id="gAc"></div><div class="k">Adherencia al click</div><div class="v" id="kAc">–</div><div class="obj">objetivo ≥ 85%</div><div class="bar"><i id="bAc"></i></div></div>
+  <div class="card" id="cDk"><div class="badge" id="gDk"></div><div class="k">Dispersión km</div><div class="v" id="kDk">–</div><div class="obj" id="oDk">rango ±10%</div><div class="bar"><i id="bDk"></i></div></div>
+  <div class="card" id="cDh"><div class="badge" id="gDh"></div><div class="k">Dispersión hs</div><div class="v" id="kDh">–</div><div class="obj" id="oDh">rango ±10%</div><div class="bar"><i id="bDh"></i></div></div>
+ </div>
+
+ <div class="sectlbl">Medidores</div>
+ <div class="gauges">
+  <div class="gcard"><div class="gt">TML · minutos</div><div id="ggTml"></div><div class="gsub">objetivo 30</div></div>
+  <div class="gcard"><div class="gt">Tiempo en ruta</div><div id="ggHr"></div><div class="gsub">objetivo 7 h</div></div>
+  <div class="gcard"><div class="gt">TI · minutos</div><div id="ggTi"></div><div class="gsub">objetivo 30</div></div>
+ </div>
+ <div id="viewMes">
+  <div class="sectlbl">Cumplimiento de objetivos</div>
+  <div class="cards c2" style="margin-bottom:22px">
+   <div class="card" id="cTIcmp"><div class="badge" id="gTIcmp"></div><div class="k">Cumplimiento TI</div><div class="v" id="kTIcmp">–</div><div class="obj">≥65% de rutas validadas con TI ≤ 30 min</div><div class="bar"><i id="bTIcmp"></i></div></div>
+   <div class="card" id="cTMLcmp"><div class="badge" id="gTMLcmp"></div><div class="k">Cumplimiento TML</div><div class="v" id="kTMLcmp">–</div><div class="obj">≥65% de rutas validadas con TML ≤ 30 min</div><div class="bar"><i id="bTMLcmp"></i></div></div>
+  </div>
+  <div class="grid">
+   <div class="panel"><h2>TML por mes</h2><div class="note">Minutos · objetivo 30</div><div class="chartbox"><canvas id="chTml"></canvas></div></div>
+   <div class="panel"><h2>Tiempo en ruta por mes</h2><div class="note">Horas · objetivo 7</div><div class="chartbox"><canvas id="chHr"></canvas></div></div>
+   <div class="panel"><h2>TI por mes</h2><div class="note">Minutos · objetivo 30</div><div class="chartbox"><canvas id="chTi"></canvas></div></div>
+  </div>
+  <div class="grid" style="grid-template-columns:2fr 1fr">
+   <div class="panel"><h2>Mes por mes</h2><div class="note">Adherencia verde si ≥85%, rojo si no.</div>
+    <table id="tbl"><thead><tr><th>Mes</th><th>Rutas</th><th>TML</th><th>TI</th><th>Horas</th><th>Adh.sec</th><th>Adh.click</th></tr></thead><tbody id="tbody"></tbody><tfoot id="tfoot"></tfoot></table></div>
+   <div class="panel"><h2>Adherencia por mes</h2><div class="note">Secuencia y click · objetivo 85%</div><div class="chartbox"><canvas id="chAdh"></canvas></div></div>
+  </div>
+  <div class="grid" style="grid-template-columns:1fr 1fr">
+   <div class="panel"><h2>Adherencia x chofer</h2><div class="note">Secuencia y click · objetivo 85%</div><div class="chartbox" style="height:300px"><canvas id="chAdhCho"></canvas></div></div>
+   <div class="panel"><h2>Dispersión por mes</h2><div class="note">Rango ±10% · verde dentro, rojo fuera</div><div class="chartbox" style="height:300px"><canvas id="chDisp"></canvas></div></div>
+  </div>
+  <div class="grid" style="grid-template-columns:1fr"><div class="panel"><h2>Horas en ruta x chofer</h2><div class="note">Promedio · objetivo 7 h</div><div class="chartbox" style="height:300px"><canvas id="chCho"></canvas></div></div></div>
+ </div>
+
+ <div id="viewDia" style="display:none">
+  <div class="hint" id="hintDia"></div>
+  <div class="grid">
+   <div class="panel"><h2>TML por día</h2><div class="note">Minutos · objetivo 30</div><div class="chartbox"><canvas id="chTmlD"></canvas></div></div>
+   <div class="panel"><h2>Tiempo en ruta por día</h2><div class="note">Horas · objetivo 7</div><div class="chartbox"><canvas id="chHrD"></canvas></div></div>
+   <div class="panel"><h2>TI por día</h2><div class="note">Minutos · objetivo 30</div><div class="chartbox"><canvas id="chTiD"></canvas></div></div>
+  </div>
+  <div class="grid" style="grid-template-columns:1fr 1fr">
+   <div class="panel"><h2>Adherencia por día</h2><div class="note">Secuencia y click · objetivo 85%</div><div class="chartbox" style="height:280px"><canvas id="chAdhD"></canvas></div></div>
+   <div class="panel"><h2>Dispersión por día</h2><div class="note">Rango ±10% · verde dentro, rojo fuera</div><div class="chartbox" style="height:280px"><canvas id="chDispD"></canvas></div></div>
+  </div>
+  <div class="grid" style="grid-template-columns:1fr"><div class="panel"><h2>Día por día</h2><div class="note">Adherencia verde si ≥85%, rojo si no.</div>
+    <div class="tblscroll"><table id="tblD"><thead><tr><th>Día</th><th>Rutas</th><th>TML</th><th>TI</th><th>Horas</th><th>Adh.sec</th><th>Adh.click</th><th>Disp.km</th><th>Disp.hs</th></tr></thead><tbody id="tbodyD"></tbody></table></div></div></div>
+ </div>
+</div>
+<script>
+const DATA=__DATA__;const R=DATA.rutas,MESES=DATA.meses,OBJ=DATA.obj;const OA=OBJ.adh,OD=OBJ.disp;
+const C={good:'#16A34A',bad:'#DC2626',amber:'#D97706',obj:'#1E3A8A',sec:'#7C3AED',cli:'#0E7C6B'};
+const state={suc:'__all',mes:'__all',cho:'__all',tab:'mes'};
+const MM={'01':'Ene','02':'Feb','03':'Mar','04':'Abr','05':'May','06':'Jun','07':'Jul'};
+const mLbl=m=>MM[m.split('-')[1]]||m;const dLbl=f=>{const p=f.split('-');return p[2]+'/'+p[1]};
+const avg=a=>{a=a.filter(v=>v!=null);return a.length?a.reduce((s,v)=>s+v,0)/a.length:null};
+const r1=v=>v==null?'–':Math.round(v*10)/10;const r2=v=>v==null?'–':(Math.round(v*100)/100).toFixed(2);
+const sgn=v=>v==null?'–':(v>0?'+':'')+r1(v)+'%';
+const colLow=(v,o)=>v==null?C.obj:(v<=o?C.good:C.bad);
+const colRuta=v=>v==null?C.obj:(v<=OBJ.ruta?C.good:(v<=OBJ.ruta_max?C.amber:C.bad));
+const colAdh=v=>v==null?C.obj:(v>=OA?C.good:C.bad);
+const colDisp=v=>v==null?C.obj:(Math.abs(v)<=OD?C.good:C.bad);
+function opts(s,a,l){s.innerHTML='<option value="__all">'+l+'</option>'+a.map(v=>'<option value="'+v+'">'+(s.id==='fMes'?mLbl(v):v)+'</option>').join('')}
+opts(fSuc,DATA.sucursales,'Todas');opts(fMes,MESES,'Todos');opts(fCho,DATA.choferes,'Todos');
+const base=r=>(state.suc==='__all'||r.suc===state.suc)&&(state.cho==='__all'||r.chofer===state.cho);
+const full=r=>base(r)&&(state.mes==='__all'||r.mes===state.mes);
+function aggBy(field,scope){const g={};scope.forEach(r=>{(g[r[field]]=g[r[field]]||[]).push(r)});
+ return Object.keys(g).sort().map(k=>{const u=g[k];return{key:k,n:u.length,tml:avg(u.map(r=>r.tml)),ti:avg(u.map(r=>r.ti)),hr:avg(u.map(r=>r.horas)),as:avg(u.map(r=>r.adhsec)),ac:avg(u.map(r=>r.adhcli)),dk:avg(u.map(r=>r.dispkm)),dh:avg(u.map(r=>r.disphs))}})}
+let ch={};
+const hhmmH=h=>{const H=Math.floor(h),M=Math.round((h-H)*60);return M===60?(H+1)+':00':H+':'+String(M).padStart(2,'0')};
+function arcPath(r,d0,d1){const pol=deg=>{const a=(deg-180)*Math.PI/180;return[100+r*Math.cos(a),100+r*Math.sin(a)]};const[x0,y0]=pol(d0),[x1,y1]=pol(d1),lg=(d1-d0)>180?1:0;return 'M'+x0.toFixed(2)+' '+y0.toFixed(2)+' A'+r+' '+r+' 0 '+lg+' 1 '+x1.toFixed(2)+' '+y1.toFixed(2)}
+function gauge(id,value,max,obj,color,txt){const r=80,f=Math.max(0,Math.min(1,(value||0)/max));const pol=(rr,deg)=>{const a=(deg-180)*Math.PI/180;return[100+rr*Math.cos(a),100+rr*Math.sin(a)]};const od=(Math.min(obj,max)/max)*180,[ox0,oy0]=pol(r-13,od),[ox1,oy1]=pol(r+13,od);document.getElementById(id).innerHTML='<svg viewBox="0 0 200 118">'+'<path d="'+arcPath(r,0,180)+'" stroke="#EAEDF2" stroke-width="14" fill="none" stroke-linecap="round"/>'+'<path d="'+arcPath(r,0,Math.max(f*180,0.1))+'" stroke="'+color+'" stroke-width="14" fill="none" stroke-linecap="round"/>'+'<line x1="'+ox0.toFixed(1)+'" y1="'+oy0.toFixed(1)+'" x2="'+ox1.toFixed(1)+'" y2="'+oy1.toFixed(1)+'" stroke="#15233B" stroke-width="3"/>'+'<text x="100" y="90" text-anchor="middle" font-size="30" font-weight="700" fill="#15233B">'+txt+'</text>'+'<text x="16" y="114" font-size="10" fill="#657085">0</text>'+'<text x="184" y="114" text-anchor="end" font-size="10" fill="#657085">'+max+'</text></svg>'}
+function renderGauges(aTml,aHr,aTi){gauge('ggTml',aTml,58,OBJ.tml,colLow(aTml,OBJ.tml),aTml==null?'–':Math.round(aTml));gauge('ggHr',aHr,8,OBJ.ruta,colRuta(aHr),aHr==null?'–':hhmmH(aHr));gauge('ggTi',aTi,69,OBJ.ti,colLow(aTi,OBJ.ti),aTi==null?'–':Math.round(aTi))}
+function dLabels(idxs){return {id:'dl',afterDatasetsDraw(c){const{ctx}=c;ctx.save();ctx.font='600 10px system-ui';ctx.fillStyle='#26334d';ctx.textAlign='center';
+ idxs.forEach(di=>{const m=c.getDatasetMeta(di);m.data.forEach((b,i)=>{const v=c.data.datasets[di].data[i];if(v!=null)ctx.fillText(c.data.datasets[di]._fmt?c.data.datasets[di]._fmt(v):v,b.x,b.y-5)})});ctx.restore()}}}
+function barGen(id,labels,vals,fmt,colorFn,obj,showLbl){if(ch[id])ch[id].destroy();
+ const ds=[{type:'bar',data:vals,backgroundColor:vals.map(colorFn),borderRadius:3,maxBarThickness:34,_fmt:fmt},
+  {type:'line',data:vals.map(()=>obj),borderColor:C.obj,borderWidth:2,borderDash:[6,4],pointRadius:0,fill:false}];
+ ch[id]=new Chart(document.getElementById(id),{data:{labels,datasets:ds},options:{responsive:true,maintainAspectRatio:false,layout:{padding:{top:16}},
+  plugins:{legend:{display:false},tooltip:{callbacks:{label:x=>x.datasetIndex===1?'Objetivo '+fmt(obj):fmt(x.parsed.y)}}},
+  scales:{y:{beginAtZero:true,ticks:{color:'#657085',font:{size:11}},grid:{color:'#eef1f5'}},x:{ticks:{color:'#657085',font:{size:10},maxRotation:60,minRotation:labels.length>12?45:0},grid:{display:false}}}},plugins:showLbl?[dLabels([0])]:[]})}
+function adhChart(id,labels,sV,cV){if(ch[id])ch[id].destroy();
+ ch[id]=new Chart(document.getElementById(id),{data:{labels,datasets:[
+  {type:'line',label:'Secuencia',data:sV,borderColor:C.sec,borderWidth:2.5,tension:.3,pointRadius:labels.length>15?0:3,fill:false},
+  {type:'line',label:'Click',data:cV,borderColor:C.cli,borderWidth:2.5,tension:.3,pointRadius:labels.length>15?0:3,fill:false},
+  {type:'line',label:'Objetivo 85%',data:sV.map(()=>OA),borderColor:C.bad,borderWidth:2,borderDash:[6,4],pointRadius:0,fill:false}]},
+  options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:true,labels:{boxWidth:10,font:{size:10}}},tooltip:{callbacks:{label:x=>x.dataset.label+': '+r1(x.parsed.y)+'%'}}},
+  scales:{y:{suggestedMin:40,suggestedMax:100,ticks:{callback:v=>v+'%',color:'#657085',font:{size:11}},grid:{color:'#eef1f5'}},x:{ticks:{color:'#657085',font:{size:10},maxRotation:60,minRotation:labels.length>12?45:0},grid:{display:false}}}}})}
+function dispChart(id,labels,kV,hV){if(ch[id])ch[id].destroy();
+ ch[id]=new Chart(document.getElementById(id),{data:{labels,datasets:[
+  {type:'bar',label:'Km',data:kV,backgroundColor:kV.map(colDisp),borderRadius:3,maxBarThickness:18},
+  {type:'bar',label:'Hs',data:hV,backgroundColor:hV.map(colDisp),borderRadius:3,maxBarThickness:18},
+  {type:'line',label:'+10%',data:kV.map(()=>OD),borderColor:C.good,borderWidth:1.5,borderDash:[5,4],pointRadius:0},
+  {type:'line',label:'-10%',data:kV.map(()=>-OD),borderColor:C.good,borderWidth:1.5,borderDash:[5,4],pointRadius:0}]},
+  options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:true,labels:{boxWidth:10,font:{size:10},filter:i=>['Km','Hs'].includes(i.text)}},
+   tooltip:{callbacks:{label:x=>x.dataset.label+': '+sgn(x.parsed.y)+(['Km','Hs'].includes(x.dataset.label)?(Math.abs(x.parsed.y)<=OD?' (dentro)':' (fuera)'):'')}}},
+   scales:{y:{ticks:{callback:v=>v+'%',color:'#657085',font:{size:11}},grid:{color:'#eef1f5'}},x:{ticks:{color:'#657085',font:{size:10},maxRotation:60,minRotation:labels.length>12?45:0},grid:{display:false}}}}})}
+function rowsHtml(items,keyFmt){return items.map(s=>{const cl=(v,o)=>v==null?'':(v<=o?'g':'r'),ca=v=>v==null?'':(v>=OA?'g':'r'),cd=v=>v==null?'':(Math.abs(v)<=OD?'g':'r');
+  return '<tr><td>'+keyFmt(s.key)+'</td><td>'+s.n+'</td><td class="'+cl(s.tml,OBJ.tml)+'">'+r1(s.tml)+'</td><td class="'+cl(s.ti,OBJ.ti)+'">'+r1(s.ti)+'</td><td class="'+cl(s.hr,OBJ.ruta)+'">'+r2(s.hr)+'</td><td class="'+ca(s.as)+'">'+(s.as==null?'–':r1(s.as)+'%')+'</td><td class="'+ca(s.ac)+'">'+(s.ac==null?'–':r1(s.ac)+'%')+'</td>'+(keyFmt===dLbl?('<td class="'+cd(s.dk)+'">'+sgn(s.dk)+'</td><td class="'+cd(s.dh)+'">'+sgn(s.dh)+'</td>'):'')+'</tr>'}).join('')}
+function renderCards(){const cards=R.filter(full),us=cards.filter(r=>r.usable);
+ const aTml=avg(us.map(r=>r.tml)),aTi=avg(us.map(r=>r.ti)),aHr=avg(us.map(r=>r.horas));
+ kTml.textContent=r1(aTml);kTi.textContent=r1(aTi);kHr.textContent=r2(aHr);kN.textContent=us.length;
+ const set=(p,val,col,max)=>{document.getElementById('c'+p).style.setProperty('--accent',col);const b=document.getElementById('b'+p);b.style.background=col;b.style.width=Math.min(100,Math.abs(val/max)*100)+'%'};
+ set('Tml',aTml||0,colLow(aTml,OBJ.tml),58);set('Ti',aTi||0,colLow(aTi,OBJ.ti),69);set('Hr',aHr||0,colRuta(aHr),OBJ.ruta_max);
+ const na=cards.filter(r=>r.alerta).length;kW.textContent=na;set('W',na,na>0?C.bad:C.good,Math.max(1,cards.length));
+ document.getElementById('alert').classList.toggle('show',na>0);alertN.textContent=na;hc.textContent=us.length;
+ const aAs=avg(us.map(r=>r.adhsec)),aAc=avg(us.map(r=>r.adhcli)),aDk=avg(us.map(r=>r.dispkm)),aDh=avg(us.map(r=>r.disphs));
+ kAs.textContent=aAs==null?'–':r1(aAs)+'%';kAc.textContent=aAc==null?'–':r1(aAc)+'%';kDk.textContent=sgn(aDk);kDh.textContent=sgn(aDh);
+ set('As',aAs||0,colAdh(aAs),100);set('Ac',aAc||0,colAdh(aAc),100);set('Dk',aDk||0,colDisp(aDk),50);set('Dh',aDh||0,colDisp(aDh),50);
+ const bg=(id,ok,v)=>{const el=document.getElementById(id);if(v==null){el.className='badge';el.textContent='';return}el.className='badge '+(ok?'ok':'no');el.textContent=ok?'OK':(id[1]==='D'?'FUERA':'BAJO')};
+ bg('gAs',aAs>=OA,aAs);bg('gAc',aAc>=OA,aAc);bg('gDk',Math.abs(aDk)<=OD,aDk);bg('gDh',Math.abs(aDh)<=OD,aDh);
+ const ck=us.filter(r=>r.dispkm!=null).length,cud=us.length||1;oDk.textContent='rango ±10% · '+Math.round(100*ck/cud)+'% cob.';oDh.textContent='rango ±10% · '+Math.round(100*ck/cud)+'% cob.';renderGauges(aTml,aHr,aTi);}
+function renderMes(){const usM=R.filter(r=>r.usable&&full(r));const OC=65;const cmp=(k,o)=>{const a=usM.map(r=>r[k]).filter(v=>v!=null);return a.length?a.filter(v=>v<=o).length/a.length*100:null};[["TI","ti",OBJ.ti],["TML","tml",OBJ.tml]].forEach(([p,k,o])=>{const c=cmp(k,o),ok=c!=null&&c>=OC,col=c==null?C.obj:(ok?C.good:C.bad);document.getElementById("c"+p+"cmp").style.setProperty("--accent",col);document.getElementById("k"+p+"cmp").textContent=c==null?"–":r1(c)+"%";const b=document.getElementById("b"+p+"cmp");b.style.background=col;b.style.width=Math.min(100,c||0)+"%";const bg=document.getElementById("g"+p+"cmp");bg.className="badge "+(ok?"ok":"no");bg.textContent=ok?"CUMPLE":"NO";});const ser=aggBy('mes',R.filter(r=>r.usable&&base(r)));
+ const lab=ser.map(s=>mLbl(s.key));
+ barGen('chTml',lab,ser.map(s=>s.tml),v=>r1(v)+'',v=>colLow(v,OBJ.tml),OBJ.tml,true);
+ barGen('chHr',lab,ser.map(s=>s.hr),v=>r2(v),colRuta,OBJ.ruta,true);
+ barGen('chTi',lab,ser.map(s=>s.ti),v=>r1(v)+'',v=>colLow(v,OBJ.ti),OBJ.ti,true);
+ tbody.innerHTML=rowsHtml(ser,mLbl);
+ const tot=R.filter(r=>r.usable&&base(r));
+ tfoot.innerHTML='<tr><td>Total</td><td>'+tot.length+'</td><td>'+r1(avg(tot.map(r=>r.tml)))+'</td><td>'+r1(avg(tot.map(r=>r.ti)))+'</td><td>'+r2(avg(tot.map(r=>r.horas)))+'</td><td>'+r1(avg(tot.map(r=>r.adhsec)))+'%</td><td>'+r1(avg(tot.map(r=>r.adhcli)))+'%</td></tr>';
+ adhChart('chAdh',lab,ser.map(s=>s.as),ser.map(s=>s.ac));
+ dispChart('chDisp',lab,ser.map(s=>s.dk),ser.map(s=>s.dh));
+ // adherencia y horas x chofer
+ const cho=aggBy('chofer',R.filter(r=>r.usable&&full(r)));
+ if(ch.adhc)ch.adhc.destroy();const rc=cho.slice().sort((a,b)=>(b.as||0)-(a.as||0));
+ ch.adhc=new Chart(document.getElementById('chAdhCho'),{data:{labels:rc.map(r=>r.key.split(' ').slice(0,2).map((w,i)=>i?w[0]:w).join(' ')),datasets:[
+   {type:'bar',label:'Secuencia',data:rc.map(r=>r.as),backgroundColor:C.sec+'cc',borderRadius:3,maxBarThickness:15},
+   {type:'bar',label:'Click',data:rc.map(r=>r.ac),backgroundColor:C.cli+'cc',borderRadius:3,maxBarThickness:15},
+   {type:'line',label:'Obj 85%',data:rc.map(()=>OA),borderColor:C.bad,borderWidth:2,borderDash:[6,4],pointRadius:0}]},
+   options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:true,labels:{boxWidth:10,font:{size:10}}},tooltip:{callbacks:{label:x=>x.dataset.label+': '+r1(x.parsed.y)+'%'}}},
+    scales:{y:{suggestedMax:100,ticks:{callback:v=>v+'%',color:'#657085',font:{size:11}},grid:{color:'#eef1f5'}},x:{ticks:{color:'#26334d',font:{size:10},maxRotation:60,minRotation:45},grid:{display:false}}}}});
+ const rh=cho.slice().sort((a,b)=>(b.hr||0)-(a.hr||0));if(ch.cho)ch.cho.destroy();
+ ch.cho=new Chart(document.getElementById('chCho'),{data:{labels:rh.map(r=>r.key.split(' ').slice(0,2).map((w,i)=>i?w[0]:w).join(' ')),
+   datasets:[{type:'bar',data:rh.map(r=>r.hr),backgroundColor:rh.map(r=>colRuta(r.hr)),borderRadius:4,maxBarThickness:22},{type:'line',data:rh.map(()=>OBJ.ruta),borderColor:C.obj,borderWidth:2,borderDash:[6,4],pointRadius:0}]},
+   options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:x=>x.datasetIndex===1?'Objetivo 7 h':r2(x.parsed.x)+' h · '+rh[x.dataIndex].n+' rutas'}}},
+    scales:{x:{beginAtZero:true,ticks:{callback:v=>r1(v)+'h',color:'#657085',font:{size:11}},grid:{color:'#eef1f5'}},y:{ticks:{color:'#26334d',font:{size:11}},grid:{display:false}}}}});}
+function renderDia(){
+ const scope=R.filter(r=>r.usable&&base(r)&&(state.mes==='__all'||r.mes===state.mes));
+ const dd=aggBy('fecha',scope);const lab=dd.map(s=>dLbl(s.key));const few=dd.length<=20;
+ document.getElementById('hintDia').innerHTML=state.mes==='__all'
+   ? '<b>Mostrando todos los días</b> del período. Elegí un <b>Mes</b> arriba para ver el detalle diario de ese mes.'
+   : '<b>Detalle diario de '+mLbl(state.mes)+' 2026</b> · '+dd.length+' días con reparto.';
+ barGen('chTmlD',lab,dd.map(s=>s.tml),v=>r1(v)+'',v=>colLow(v,OBJ.tml),OBJ.tml,few);
+ barGen('chHrD',lab,dd.map(s=>s.hr),v=>r2(v),colRuta,OBJ.ruta,few);
+ barGen('chTiD',lab,dd.map(s=>s.ti),v=>r1(v)+'',v=>colLow(v,OBJ.ti),OBJ.ti,few);
+ adhChart('chAdhD',lab,dd.map(s=>s.as),dd.map(s=>s.ac));
+ dispChart('chDispD',lab,dd.map(s=>s.dk),dd.map(s=>s.dh));
+ tbodyD.innerHTML=rowsHtml(dd,dLbl);}
+function render(){renderCards();if(state.tab==='mes')renderMes();else renderDia();}
+['fSuc','fMes','fCho'].forEach(id=>document.getElementById(id).addEventListener('change',e=>{state[{fSuc:'suc',fMes:'mes',fCho:'cho'}[id]]=e.target.value;render()}));
+reset.addEventListener('click',()=>{state.suc=state.mes=state.cho='__all';fSuc.value=fMes.value=fCho.value='__all';render()});
+function switchTab(t){state.tab=t;tabMes.classList.toggle('active',t==='mes');tabDia.classList.toggle('active',t==='dia');
+ document.getElementById('viewMes').style.display=t==='mes'?'':'none';document.getElementById('viewDia').style.display=t==='dia'?'':'none';render()}
+tabMes.addEventListener('click',()=>switchTab('mes'));tabDia.addEventListener('click',()=>switchTab('dia'));
+render();
+</script></body></html>
