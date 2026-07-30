@@ -130,6 +130,7 @@ tfoot td{font-weight:700;border-top:2px solid var(--line);border-bottom:none}
  </div>
  <div id="viewSem" style="display:none">
   <div class="filters" style="margin-bottom:16px"><div class="fg"><label>Semana (lunes a sábado)</label><select id="fSem"></select></div></div>
+  <div class="hint" id="hintSem"></div>
   <div class="grid">
    <div class="panel"><h2>TML por día</h2><div class="note">Minutos · objetivo 30</div><div class="chartbox"><canvas id="chTmlS"></canvas></div></div>
    <div class="panel"><h2>Tiempo en ruta por día</h2><div class="note">Horas · objetivo 7</div><div class="chartbox"><canvas id="chHrS"></canvas></div></div>
@@ -156,19 +157,22 @@ const colLow=(v,o)=>v==null?C.obj:(v<=o?C.good:C.bad);
 const colRuta=v=>v==null?C.obj:(v<=OBJ.ruta?C.good:(v<=OBJ.ruta_max?C.amber:C.bad));
 const colAdh=v=>v==null?C.obj:(v>=OA?C.good:C.bad);
 const colDisp=v=>v==null?C.obj:(Math.abs(v)<=OD?C.good:C.bad);
-function weekKey(f){const d=new Date(f+'T00:00:00Z');const g=d.getUTCDay();const diff=(g===0?6:g-1);d.setUTCDate(d.getUTCDate()-diff);return d.toISOString().slice(0,10)}
-function addDaysUTC(f,n){const d=new Date(f+'T00:00:00Z');d.setUTCDate(d.getUTCDate()+n);return d.toISOString().slice(0,10)}
 function opts(s,a,l){s.innerHTML='<option value="__all">'+l+'</option>'+a.map(v=>'<option value="'+v+'">'+(s.id==='fMes'?mLbl(v):v)+'</option>').join('')}
 opts(fSuc,DATA.sucursales,'Todas');opts(fMes,MESES,'Todos');opts(fCho,DATA.choferes,'Todos');
-const WEEKS=[...new Set(R.map(r=>weekKey(r.fecha)))].sort();
-fSem.innerHTML=WEEKS.map(w=>'<option value="'+w+'">'+weekLabel(w)+'</option>').join('');
-state.sem=WEEKS.length?WEEKS[WEEKS.length-1]:null;fSem.value=state.sem;
+const semData=[...new Set(R.map(r=>weekKey(r.fecha)))].sort();
+const anios=[...new Set(R.map(r=>+r.fecha.slice(0,4)))].sort();
+const y0=anios[0]||new Date().getUTCFullYear(),y1=anios[anios.length-1]||y0;
+let _w=weekKey(y0+'-01-01');const _last=weekKey(y1+'-12-31');const WEEKS=[];
+while(_w<=_last){WEEKS.push(_w);_w=addDaysUTC(_w,7);}
+const _conDatos=new Set(semData);
+fSem.innerHTML=WEEKS.map((w,i)=>'<option value="'+w+'">Sem '+(i+1)+' · '+weekLabel(w)+(_conDatos.has(w)?'':' — sin datos')+'</option>').join('');
+state.sem=semData.length?semData[semData.length-1]:WEEKS[WEEKS.length-1];fSem.value=state.sem;
 fSem.addEventListener('change',e=>{state.sem=e.target.value;render()});
 const base=r=>(state.suc==='__all'||r.suc===state.suc)&&(state.cho==='__all'||r.chofer===state.cho);
 const full=r=>base(r)&&(state.mes==='__all'||r.mes===state.mes);
 function weekKey(f){const d=new Date(f+'T00:00:00Z');const g=d.getUTCDay();const diff=(g===0?6:g-1);d.setUTCDate(d.getUTCDate()-diff);return d.toISOString().slice(0,10)}
 function addDaysUTC(f,n){const d=new Date(f+'T00:00:00Z');d.setUTCDate(d.getUTCDate()+n);return d.toISOString().slice(0,10)}
-function weekLabel(m){return dLbl(m)+' al '+dLbl(addDaysUTC(m,5))}
+const weekLabel=m=>dLbl(m)+' al '+dLbl(addDaysUTC(m,5));
 const WD=['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'];
 const wdLbl=f=>{const d=new Date(f+'T00:00:00Z');const g=d.getUTCDay();return WD[(g===0?6:g-1)]+' '+dLbl(f)};
 const scopeCards=r=>state.tab==='sem'?(base(r)&&weekKey(r.fecha)===state.sem):full(r);
@@ -256,6 +260,7 @@ function renderDia(){
  tbodyD.innerHTML=rowsHtml(dd,dLbl,true);}
 function renderSem(){if(!state.sem&&WEEKS.length)state.sem=WEEKS[WEEKS.length-1];
  const dd=aggBy('fecha',R.filter(r=>r.usable&&base(r)&&weekKey(r.fecha)===state.sem));const lab=dd.map(s=>wdLbl(s.key));
+ document.getElementById('hintSem').innerHTML=dd.length?('<b>Semana '+weekLabel(state.sem)+'</b> · '+dd.length+' días con reparto'):('<b>Semana '+weekLabel(state.sem)+'</b> · sin datos en esta semana');
  barGen('chTmlS',lab,dd.map(s=>s.tml),v=>r1(v)+'',v=>colLow(v,OBJ.tml),OBJ.tml,true);
  barGen('chHrS',lab,dd.map(s=>s.hr),v=>r2(v),colRuta,OBJ.ruta,true);
  barGen('chTiS',lab,dd.map(s=>s.ti),v=>r1(v)+'',v=>colLow(v,OBJ.ti),OBJ.ti,true);
