@@ -51,6 +51,8 @@ a{{color:#1E3A8A;font-size:13.5px}}</style></head>
   <input type=file name=xls accept=".xls,.xlsx" required>
   <label>CSV de visitas (opcional, para recuperar rutas sin cierre)</label>
   <input type=file name=csv accept=".csv" multiple>
+  <label>CSV de clientes (opcional, actualiza ventanas horarias)</label>
+  <input type=file name=clientes accept=".csv">
   {token_field}
   <label style="text-transform:none;font-weight:400;color:#15233B;margin-top:14px">
     <input type=checkbox name=reset value=1 style="width:auto;margin-right:6px">Rehacer la base de cero (borra lo guardado)</label>
@@ -103,27 +105,35 @@ def actualizar():
     xls = request.files.get("xls")
     if not xls or xls.filename == "":
         return Response(_admin_page("Falta el archivo de export.", err=True), mimetype="text/html", status=400)
+    clientes = request.files.get("clientes")
     csvs = [(f.stream, f.filename) for f in request.files.getlist("csv") if f and f.filename]
     reset = request.form.get("reset") == "1"
     try:
+        clientes_importados = None
+        if clientes and clientes.filename:
+            clientes_importados = pipeline.actualizar_clientes(clientes.stream)
         st = pipeline.actualizar(xls.stream, xls.filename, csvs, reset=reset)
     except Exception as e:
         return Response(_admin_page(f"Error procesando el export: {e}", err=True), mimetype="text/html", status=400)
     msg = (f"Listo. Rutas nuevas agregadas: {st['agregadas']} · total en base: {st['total']} "
            f"({st['validas']} válidas, {st['sin_cierre']} sin cierre). "
            f"TML {st['tml_prom']} min ({st['tml_cumpl']}% cumple) · TI {st['ti_prom']} min ({st['ti_cumpl']}% cumple).")
+    if clientes_importados is not None:
+        msg += f" Clientes importados: {clientes_importados}."
     return Response(_admin_page(msg), mimetype="text/html")
 
 
 @app.route("/salud")
 def salud():
     base = pipeline.storage.load_all()
+    clientes = pipeline.storage.load_clientes()
     return {
         "ok": True,
         "backend": pipeline.storage.backend_name(),
         "con_datos": len(base) > 0,
         "rutas": len(base),
         "validas": len([r for r in base.values() if r.get("usable")]),
+        "clientes": len(clientes),
     }
 
 

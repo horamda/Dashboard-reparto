@@ -7,7 +7,7 @@ Base incremental: cada ruta se identifica por Route ID y su TI/TML aleatorio es
 determinístico por ID, así una ruta ya cargada nunca cambia de valor al actualizar.
 """
 
-import os, json, hashlib
+import os, json, hashlib, re
 import numpy as np
 import pandas as pd
 
@@ -46,26 +46,155 @@ def _leer_excel(f, filename=""):
     return pd.read_excel(f, engine=eng)
 
 
-def _mapa_correccion(csv_files):
+def _norm_id(v):
+    if pd.isna(v):
+        return ""
+    s = str(v).strip()
+    if re.fullmatch(r"\d+\.0", s):
+        s = s[:-2]
+    return s
+
+
+def _time_to_min(h, m="0"):
+    return int(h) * 60 + int(m)
+
+
+def parse_horario_entrega(texto):
+    """Convierte '09:00 A 13:00 Y DE 17:00 A 21:00' en rangos en minutos."""
+    if pd.isna(texto):
+        return []
+    s = str(texto).upper().strip()
+    if not s or s in {"0", "0.00%", "NAN"}:
+        return []
+    s = (s.replace("HS", "").replace("HRS", "").replace("HORAS", "")
+           .replace("–", " A ").replace("-", " A ").replace("A.", "A"))
+    pairs = re.findall(r"(\d{1,2})(?::(\d{2}))?\s*(?:A|/|HASTA)\s*(\d{1,2})(?::(\d{2}))?", s)
+    rangos = []
+    for h1, m1, h2, m2 in pairs:
+        ini = _time_to_min(h1, m1 or "0")
+        fin = _time_to_min(h2, m2 or "0")
+        if 0 <= ini < 24 * 60 and 0 < fin <= 24 * 60 and ini != fin:
+            rangos.append({"ini": ini, "fin": fin})
+    return rangos
+
+
+def _en_ventana(ts, ventanas):
+    if pd.isna(ts) or not ventanas:
+        return None
+    minuto = int(ts.hour) * 60 + int(ts.minute)
+    for v in ventanas:
+        ini, fin = v["ini"], v["fin"]
+        if ini <= fin and ini <= minuto <= fin:
+            return True
+        if ini > fin and (minuto >= ini or minuto <= fin):
+            return True
+    return False
+
+
+def procesar_clientes(clientes_file):
+    c = pd.read_csv(clientes_file, sep=";", dtype=str, encoding="cp1252")
+    out = {}
+    for _, r in c.iterrows():
+        cliente = _norm_id(r.get("Cliente"))
+        if not cliente:
+            continue
+        horario = r.get("Horario de entrega")
+        ventanas = parse_horario_entrega(horario)
+        out[cliente] = {
+            "cliente": cliente,
+            "sucursal": _norm_id(r.get("Sucursal")),
+            "razon_social": "" if pd.isna(r.get("Razon social")) else str(r.get("Razon social")).strip(),
+            "nombre": "" if pd.isna(r.get("Nombre de fantasia")) else str(r.get("Nombre de fantasia")).strip(),
+            "horario_entrega": "" if pd.isna(horario) else str(horario).strip(),
+            "ventanas": ventanas,
+        }
+    return out
+
+
+def actualizar_clientes(clientes_file):
+    clientes = procesar_clientes(clientes_file)
+    return storage.replace_clientes(clientes)
+
+
+def _pick_col(df, candidates):
+    lookup = {str(c).strip().lower(): c for c in df.columns}
+    for name in candidates:
+        col = lookup.get(name.lower())
+        if col is not None:
+            return col
+    for c in df.columns:
+        low = str(c).lower()
+        if any(name.lower() in low for name in candidates):
+            return c
+    return None
+
+
+def _leer_csv_visitas(csv_files):
     frames = []
     for f, name in csv_files:
         try:
+            if hasattr(f, "seek"):
+                f.seek(0)
             c = pd.read_csv(f)
         except Exception:
             continue
         if "Route ID" not in c.columns:
             continue
+        c = c.copy()
         c["click"] = pd.to_datetime(c.get("Driver Click Timestamp"), errors="coerce")
         c["vs"] = pd.to_datetime(c.get("Visit Start Timestamp"), errors="coerce")
         c["visend"] = c["vs"] + pd.to_timedelta(c["Visit Duration Seconds"], "s") \
             if "Visit Duration Seconds" in c.columns else c["vs"]
-        frames.append(c[["Route ID", "click", "visend"]])
+        frames.append(c)
     if not frames:
+        return pd.DataFrame()
+    return pd.concat(frames, ignore_index=True)
+
+
+def _mapa_correccion(csv_files):
+    c = _leer_csv_visitas(csv_files)
+    if c.empty:
         return {}
-    c = pd.concat(frames, ignore_index=True)
     lv = c.groupby("Route ID").agg(u1=("click", "max"), u2=("visend", "max"))
     lv["f"] = lv["u1"].fillna(lv["u2"])
     return lv["f"].to_dict()
+
+
+def _mapa_ontime(csv_files):
+    visitas = _leer_csv_visitas(csv_files)
+    clientes = storage.load_clientes()
+    if visitas.empty or not clientes:
+        return {}
+    cli_col = _pick_col(visitas, ["Customer ID", "Customer Id", "Customer", "Client ID", "Cliente"])
+    if cli_col is None:
+        return {}
+    ts = visitas["click"].fillna(visitas["vs"])
+    visitas = visitas.assign(cliente=visitas[cli_col].map(_norm_id), paso=ts)
+    stats = {}
+    for rid, grp in visitas.groupby("Route ID"):
+        total = ontime = fuera = sin_ventana = 0
+        for _, v in grp.iterrows():
+            cliente = clientes.get(v["cliente"])
+            if not cliente:
+                continue
+            total += 1
+            ok = _en_ventana(v["paso"], cliente.get("ventanas", []))
+            if ok is True:
+                ontime += 1
+            elif ok is False:
+                fuera += 1
+            else:
+                sin_ventana += 1
+        if total:
+            evaluables = ontime + fuera
+            stats[str(rid)] = {
+                "pdv_total": int(total),
+                "pdv_ontime": int(ontime),
+                "pdv_fuera_ontime": int(fuera),
+                "pdv_sin_ventana": int(sin_ventana),
+                "ontime_pct": round(100 * ontime / evaluables, 1) if evaluables else None,
+            }
+    return stats
 
 
 def procesar_export(xls_file, xls_name="", csv_files=None):
@@ -79,6 +208,7 @@ def procesar_export(xls_file, xls_name="", csv_files=None):
     same_day = x["fox_ini"].dt.date == x["fox_fin"].dt.date
     x["raw_h"] = (x["fox_fin"] - x["fox_ini"]).dt.total_seconds() / 3600
     fmap = _mapa_correccion(csv_files)
+    omap = _mapa_ontime(csv_files)
 
     x["fin_final"] = x["fox_fin"]; x["usable"] = False
     for i in x[valid].index:
@@ -99,6 +229,8 @@ def procesar_export(xls_file, xls_name="", csv_files=None):
         rec = {"rid": rid, "suc": r["suc"], "chofer": r["Driver Name"],
                "mes": r["fox_ini"].strftime("%Y-%m"), "fecha": r["fox_ini"].strftime("%Y-%m-%d"),
                "usable": usable, "alerta": bool(ah > OBJ["alerta_h"])}
+        if rid in omap:
+            rec.update(omap[rid])
         if usable:
             g = rng_de_ruta(rid)
             rec.update({"ti": _clamp_normal(g, TI_CENTRO, TI_SD, 25, 45),

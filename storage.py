@@ -36,6 +36,7 @@ DATABASE_URL = _database_url_from_env()
 AQUI = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.environ.get("DATA_DIR", os.path.join(AQUI, "data"))
 JSON_PATH = os.path.join(DATA_DIR, "datos_dashboard.json")
+CLIENTES_JSON_PATH = os.path.join(DATA_DIR, "clientes_dashboard.json")
 
 BACKEND = "postgres" if DATABASE_URL else "json"
 
@@ -58,6 +59,12 @@ if BACKEND == "postgres":
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS rutas_dashboard (
                     rid TEXT PRIMARY KEY,
+                    rec JSONB NOT NULL
+                );
+            """)
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS clientes_dashboard (
+                    cliente TEXT PRIMARY KEY,
                     rec JSONB NOT NULL
                 );
             """)
@@ -91,6 +98,23 @@ if BACKEND == "postgres":
         with _conn() as cn, cn.cursor() as cur:
             cur.execute("TRUNCATE rutas_dashboard;")
 
+    def load_clientes():
+        with _conn() as cn, cn.cursor() as cur:
+            cur.execute("SELECT cliente, rec FROM clientes_dashboard;")
+            return {cliente: rec for cliente, rec in cur.fetchall()}
+
+    def replace_clientes(recs):
+        with _conn() as cn, cn.cursor() as cur:
+            cur.execute("TRUNCATE clientes_dashboard;")
+            if recs:
+                rows = [(cliente, _extras.Json(rec)) for cliente, rec in recs.items()]
+                _extras.execute_values(
+                    cur,
+                    "INSERT INTO clientes_dashboard (cliente, rec) VALUES %s;",
+                    rows,
+                )
+        return len(recs)
+
 
 # ========================= JSON =========================
 else:
@@ -122,3 +146,16 @@ else:
     def reset():
         if os.path.exists(JSON_PATH):
             os.remove(JSON_PATH)
+
+    def load_clientes():
+        if os.path.exists(CLIENTES_JSON_PATH):
+            try:
+                return json.load(open(CLIENTES_JSON_PATH, encoding="utf-8"))["clientes"]
+            except Exception:
+                return {}
+        return {}
+
+    def replace_clientes(recs):
+        os.makedirs(DATA_DIR, exist_ok=True)
+        json.dump({"clientes": recs}, open(CLIENTES_JSON_PATH, "w", encoding="utf-8"), ensure_ascii=False)
+        return len(recs)
