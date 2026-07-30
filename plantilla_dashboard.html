@@ -156,6 +156,8 @@ const colLow=(v,o)=>v==null?C.obj:(v<=o?C.good:C.bad);
 const colRuta=v=>v==null?C.obj:(v<=OBJ.ruta?C.good:(v<=OBJ.ruta_max?C.amber:C.bad));
 const colAdh=v=>v==null?C.obj:(v>=OA?C.good:C.bad);
 const colDisp=v=>v==null?C.obj:(Math.abs(v)<=OD?C.good:C.bad);
+function weekKey(f){const d=new Date(f+'T00:00:00Z');const g=d.getUTCDay();const diff=(g===0?6:g-1);d.setUTCDate(d.getUTCDate()-diff);return d.toISOString().slice(0,10)}
+function addDaysUTC(f,n){const d=new Date(f+'T00:00:00Z');d.setUTCDate(d.getUTCDate()+n);return d.toISOString().slice(0,10)}
 function opts(s,a,l){s.innerHTML='<option value="__all">'+l+'</option>'+a.map(v=>'<option value="'+v+'">'+(s.id==='fMes'?mLbl(v):v)+'</option>').join('')}
 opts(fSuc,DATA.sucursales,'Todas');opts(fMes,MESES,'Todos');opts(fCho,DATA.choferes,'Todos');
 const WEEKS=[...new Set(R.map(r=>weekKey(r.fecha)))].sort();
