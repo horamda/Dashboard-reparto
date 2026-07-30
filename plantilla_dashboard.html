@@ -168,7 +168,7 @@ const base=r=>(state.suc==='__all'||r.suc===state.suc)&&(state.cho==='__all'||r.
 const full=r=>base(r)&&(state.mes==='__all'||r.mes===state.mes);
 function weekKey(f){const d=new Date(f+'T00:00:00Z');const g=d.getUTCDay();const diff=(g===0?6:g-1);d.setUTCDate(d.getUTCDate()-diff);return d.toISOString().slice(0,10)}
 function addDaysUTC(f,n){const d=new Date(f+'T00:00:00Z');d.setUTCDate(d.getUTCDate()+n);return d.toISOString().slice(0,10)}
-const weekLabel=m=>dLbl(m)+' al '+dLbl(addDaysUTC(m,5));
+function weekLabel(m){return dLbl(m)+' al '+dLbl(addDaysUTC(m,5))}
 const WD=['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'];
 const wdLbl=f=>{const d=new Date(f+'T00:00:00Z');const g=d.getUTCDay();return WD[(g===0?6:g-1)]+' '+dLbl(f)};
 const scopeCards=r=>state.tab==='sem'?(base(r)&&weekKey(r.fecha)===state.sem):full(r);
