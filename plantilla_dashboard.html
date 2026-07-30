@@ -1,7 +1,6 @@
 <!DOCTYPE html>
 <html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Tiempos de reparto · Foxtrot · Del Palacio</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <style>
 :root{--ink:#15233B;--ink2:#26334d;--bg:#EEF1F5;--card:#FFFFFF;--line:#DCE2EA;--muted:#657085;
  --good:#16A34A;--bad:#DC2626;--amber:#D97706;--obj:#1E3A8A;--sec:#7C3AED;--cli:#0E7C6B}
@@ -172,33 +171,34 @@ const base=r=>(state.suc==='__all'||r.suc===state.suc)&&(state.cho==='__all'||r.
 const full=r=>base(r)&&(state.mes==='__all'||r.mes===state.mes);
 function weekKey(f){const d=new Date(f+'T00:00:00Z');const g=d.getUTCDay();const diff=(g===0?6:g-1);d.setUTCDate(d.getUTCDate()-diff);return d.toISOString().slice(0,10)}
 function addDaysUTC(f,n){const d=new Date(f+'T00:00:00Z');d.setUTCDate(d.getUTCDate()+n);return d.toISOString().slice(0,10)}
-const weekLabel=m=>dLbl(m)+' al '+dLbl(addDaysUTC(m,5));
+function weekLabel(m){return dLbl(m)+' al '+dLbl(addDaysUTC(m,5))}
 const WD=['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'];
 const wdLbl=f=>{const d=new Date(f+'T00:00:00Z');const g=d.getUTCDay();return WD[(g===0?6:g-1)]+' '+dLbl(f)};
 const scopeCards=r=>state.tab==='sem'?(base(r)&&weekKey(r.fecha)===state.sem):full(r);
 function aggBy(field,scope){const g={};scope.forEach(r=>{(g[r[field]]=g[r[field]]||[]).push(r)});
  return Object.keys(g).sort().map(k=>{const u=g[k];return{key:k,n:u.length,tml:avg(u.map(r=>r.tml)),ti:avg(u.map(r=>r.ti)),hr:avg(u.map(r=>r.horas)),as:avg(u.map(r=>r.adhsec)),ac:avg(u.map(r=>r.adhcli)),dk:avg(u.map(r=>r.dispkm)),dh:avg(u.map(r=>r.disphs))}})}
 let ch={};
+const chartsReady=()=>typeof Chart!=='undefined';
 const hhmmH=h=>{const H=Math.floor(h),M=Math.round((h-H)*60);return M===60?(H+1)+':00':H+':'+String(M).padStart(2,'0')};
 function arcPath(r,d0,d1){const pol=deg=>{const a=(deg-180)*Math.PI/180;return[100+r*Math.cos(a),100+r*Math.sin(a)]};const[x0,y0]=pol(d0),[x1,y1]=pol(d1),lg=(d1-d0)>180?1:0;return 'M'+x0.toFixed(2)+' '+y0.toFixed(2)+' A'+r+' '+r+' 0 '+lg+' 1 '+x1.toFixed(2)+' '+y1.toFixed(2)}
 function gauge(id,value,max,obj,color,txt){const r=80,f=Math.max(0,Math.min(1,(value||0)/max));const pol=(rr,deg)=>{const a=(deg-180)*Math.PI/180;return[100+rr*Math.cos(a),100+rr*Math.sin(a)]};const od=(Math.min(obj,max)/max)*180,[ox0,oy0]=pol(r-13,od),[ox1,oy1]=pol(r+13,od);document.getElementById(id).innerHTML='<svg viewBox="0 0 200 118">'+'<path d="'+arcPath(r,0,180)+'" stroke="#EAEDF2" stroke-width="14" fill="none" stroke-linecap="round"/>'+'<path d="'+arcPath(r,0,Math.max(f*180,0.1))+'" stroke="'+color+'" stroke-width="14" fill="none" stroke-linecap="round"/>'+'<line x1="'+ox0.toFixed(1)+'" y1="'+oy0.toFixed(1)+'" x2="'+ox1.toFixed(1)+'" y2="'+oy1.toFixed(1)+'" stroke="#15233B" stroke-width="3"/>'+'<text x="100" y="90" text-anchor="middle" font-size="30" font-weight="700" fill="#15233B">'+txt+'</text>'+'<text x="16" y="114" font-size="10" fill="#657085">0</text>'+'<text x="184" y="114" text-anchor="end" font-size="10" fill="#657085">'+max+'</text></svg>'}
 function renderGauges(aTml,aHr,aTi){gauge('ggTml',aTml,58,OBJ.tml,colLow(aTml,OBJ.tml),aTml==null?'–':Math.round(aTml));gauge('ggHr',aHr,8,OBJ.ruta,colRuta(aHr),aHr==null?'–':hhmmH(aHr));gauge('ggTi',aTi,69,OBJ.ti,colLow(aTi,OBJ.ti),aTi==null?'–':Math.round(aTi))}
 function dLabels(idxs){return {id:'dl',afterDatasetsDraw(c){const{ctx}=c;ctx.save();ctx.font='600 10px system-ui';ctx.fillStyle='#26334d';ctx.textAlign='center';
  idxs.forEach(di=>{const m=c.getDatasetMeta(di);m.data.forEach((b,i)=>{const v=c.data.datasets[di].data[i];if(v!=null)ctx.fillText(c.data.datasets[di]._fmt?c.data.datasets[di]._fmt(v):v,b.x,b.y-5)})});ctx.restore()}}}
-function barGen(id,labels,vals,fmt,colorFn,obj,showLbl){if(ch[id])ch[id].destroy();
+function barGen(id,labels,vals,fmt,colorFn,obj,showLbl){if(!chartsReady())return;if(ch[id])ch[id].destroy();
  const ds=[{type:'bar',data:vals,backgroundColor:vals.map(colorFn),borderRadius:3,maxBarThickness:34,_fmt:fmt},
   {type:'line',data:vals.map(()=>obj),borderColor:C.obj,borderWidth:2,borderDash:[6,4],pointRadius:0,fill:false}];
  ch[id]=new Chart(document.getElementById(id),{data:{labels,datasets:ds},options:{responsive:true,maintainAspectRatio:false,layout:{padding:{top:16}},
   plugins:{legend:{display:false},tooltip:{callbacks:{label:x=>x.datasetIndex===1?'Objetivo '+fmt(obj):fmt(x.parsed.y)}}},
   scales:{y:{beginAtZero:true,ticks:{color:'#657085',font:{size:11}},grid:{color:'#eef1f5'}},x:{ticks:{color:'#657085',font:{size:10},maxRotation:60,minRotation:labels.length>12?45:0},grid:{display:false}}}},plugins:showLbl?[dLabels([0])]:[]})}
-function adhChart(id,labels,sV,cV){if(ch[id])ch[id].destroy();
+function adhChart(id,labels,sV,cV){if(!chartsReady())return;if(ch[id])ch[id].destroy();
  ch[id]=new Chart(document.getElementById(id),{data:{labels,datasets:[
   {type:'line',label:'Secuencia',data:sV,borderColor:C.sec,borderWidth:2.5,tension:.3,pointRadius:labels.length>15?0:3,fill:false},
   {type:'line',label:'Click',data:cV,borderColor:C.cli,borderWidth:2.5,tension:.3,pointRadius:labels.length>15?0:3,fill:false},
   {type:'line',label:'Objetivo 85%',data:sV.map(()=>OA),borderColor:C.bad,borderWidth:2,borderDash:[6,4],pointRadius:0,fill:false}]},
   options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:true,labels:{boxWidth:10,font:{size:10}}},tooltip:{callbacks:{label:x=>x.dataset.label+': '+r1(x.parsed.y)+'%'}}},
   scales:{y:{suggestedMin:40,suggestedMax:100,ticks:{callback:v=>v+'%',color:'#657085',font:{size:11}},grid:{color:'#eef1f5'}},x:{ticks:{color:'#657085',font:{size:10},maxRotation:60,minRotation:labels.length>12?45:0},grid:{display:false}}}}})}
-function dispChart(id,labels,kV,hV){if(ch[id])ch[id].destroy();
+function dispChart(id,labels,kV,hV){if(!chartsReady())return;if(ch[id])ch[id].destroy();
  ch[id]=new Chart(document.getElementById(id),{data:{labels,datasets:[
   {type:'bar',label:'Km',data:kV,backgroundColor:kV.map(colDisp),borderRadius:3,maxBarThickness:18},
   {type:'bar',label:'Hs',data:hV,backgroundColor:hV.map(colDisp),borderRadius:3,maxBarThickness:18},
@@ -234,7 +234,7 @@ function renderMes(){const usM=R.filter(r=>r.usable&&full(r));const OC=65;const 
  dispChart('chDisp',lab,ser.map(s=>s.dk),ser.map(s=>s.dh));
  // adherencia y horas x chofer
  const cho=aggBy('chofer',R.filter(r=>r.usable&&full(r)));
- if(ch.adhc)ch.adhc.destroy();const rc=cho.slice().sort((a,b)=>(b.as||0)-(a.as||0));
+ if(!chartsReady())return;if(ch.adhc)ch.adhc.destroy();const rc=cho.slice().sort((a,b)=>(b.as||0)-(a.as||0));
  ch.adhc=new Chart(document.getElementById('chAdhCho'),{data:{labels:rc.map(r=>r.key.split(' ').slice(0,2).map((w,i)=>i?w[0]:w).join(' ')),datasets:[
    {type:'bar',label:'Secuencia',data:rc.map(r=>r.as),backgroundColor:C.sec+'cc',borderRadius:3,maxBarThickness:15},
    {type:'bar',label:'Click',data:rc.map(r=>r.ac),backgroundColor:C.cli+'cc',borderRadius:3,maxBarThickness:15},
@@ -275,4 +275,9 @@ function switchTab(t){state.tab=t;tabMes.classList.toggle('active',t==='mes');ta
  if(t==='sem'&&!state.sem&&WEEKS.length)state.sem=WEEKS[WEEKS.length-1];render()}
 tabMes.addEventListener('click',()=>switchTab('mes'));tabDia.addEventListener('click',()=>switchTab('dia'));tabSem.addEventListener('click',()=>switchTab('sem'));
 render();
+const chartScript=document.createElement('script');
+chartScript.src='https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js';
+chartScript.async=true;
+chartScript.onload=()=>render();
+document.head.appendChild(chartScript);
 </script></body></html>
