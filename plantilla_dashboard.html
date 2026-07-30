@@ -60,7 +60,7 @@ tfoot td{font-weight:700;border-top:2px solid var(--line);border-bottom:none}
 <div class="sub" id="periodo">del Palacio S.A.</div></div>
 <div class="hcount"><b id="hc">0</b>rutas analizadas</div></div></header>
 <div class="wrap">
- <div class="alert" id="alert"><span>&#9888;</span><span><b id="alertN">0</b> rutas con más de <b>12 hs totales</b>: se consideran <b>datos corruptos o no confiables</b> y quedan fuera de los indicadores operativos.</span></div>
+ <div class="alert" id="alert"><span>&#9888;</span><span><b id="alertN">0</b> rutas no confiables : se consideran <b>datos corruptos o no confiables</b> y quedan fuera de los indicadores operativos.</span></div>
  <div class="filters">
   <div class="fg"><label>Zona / Sucursal</label><select id="fSuc"></select></div>
   <div class="fg"><label>Mes</label><select id="fMes"></select></div>
@@ -153,7 +153,7 @@ tfoot td{font-weight:700;border-top:2px solid var(--line);border-bottom:none}
   </div>
   <div class="grid">
    <div class="panel"><h2>Calidad de datos por mes</h2><div class="note">% de rutas confiables · objetivo ≥85%</div><div class="chartbox"><canvas id="chDQ"></canvas></div></div>
-   <div class="panel" style="grid-column:span 2"><h2>Detalle mensual de calidad</h2><div class="note">Datos corruptos = rutas con más de 12 horas.</div>
+   <div class="panel" style="grid-column:span 2"><h2>Detalle mensual de calidad</h2><div class="note">Datos corruptos = rutas no confiables.</div>
     <table><thead><tr><th>Mes</th><th>Total</th><th>Confiables</th><th>Corruptos / no confiables</th><th>Calidad</th></tr></thead><tbody id="tbodyQ"></tbody></table></div>
   </div>
  </div>
@@ -326,7 +326,6 @@ function render(){renderCards();if(state.tab==='mes')renderMes();else if(state.t
 reset.addEventListener('click',()=>{state.suc=state.mes=state.cho='__all';fSuc.value=fMes.value=fCho.value='__all';render()});
 function switchTab(t){state.tab=t;tabMes.classList.toggle('active',t==='mes');tabDia.classList.toggle('active',t==='dia');tabSem.classList.toggle('active',t==='sem');tabCalidad.classList.toggle('active',t==='calidad');tabOnTime.classList.toggle('active',t==='ontime');
  document.getElementById('viewMes').style.display=t==='mes'?'':'none';document.getElementById('viewDia').style.display=t==='dia'?'':'none';document.getElementById('viewSem').style.display=t==='sem'?'':'none';document.getElementById('viewCalidad').style.display=t==='calidad'?'':'none';document.getElementById('viewOnTime').style.display=t==='ontime'?'':'none';
- document.getElementById('operationalSummary').style.display=t==='ontime'?'none':'';
  if(t==='sem'&&!state.sem&&WEEKS.length)state.sem=WEEKS[WEEKS.length-1];render()}
 tabMes.addEventListener('click',()=>switchTab('mes'));tabDia.addEventListener('click',()=>switchTab('dia'));tabSem.addEventListener('click',()=>switchTab('sem'));tabCalidad.addEventListener('click',()=>switchTab('calidad'));tabOnTime.addEventListener('click',()=>switchTab('ontime'));
 render();
