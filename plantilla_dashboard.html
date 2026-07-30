@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Tiempos de reparto · Foxtrot · Del Palacio</title>
+<title>Tiempos de reparto · Foxtrot · FichaYa - del Palacio</title>
 <style>
 :root{--ink:#15233B;--ink2:#26334d;--bg:#EEF1F5;--card:#FFFFFF;--line:#DCE2EA;--muted:#657085;
  --good:#16A34A;--bad:#DC2626;--amber:#D97706;--obj:#1E3A8A;--sec:#7C3AED;--cli:#0E7C6B}
@@ -56,8 +56,8 @@ tfoot td{font-weight:700;border-top:2px solid var(--line);border-bottom:none}
 .tblscroll{max-height:340px;overflow-y:auto}
 @media(max-width:980px){.c5,.c4{grid-template-columns:repeat(2,1fr)}.grid{grid-template-columns:1fr!important}}
 </style></head><body>
-<header><div class="wrap"><div><h1>Tiempos de reparto · Foxtrot</h1>
-<div class="sub">Del Palacio S.A. · Chascomús y Dolores · enero–julio 2026</div></div>
+<header><div class="wrap"><div><h1>Tiempos de reparto · Foxtrot - FichaYA </h1>
+<div class="sub" id="periodo">del Palacio S.A.</div></div>
 <div class="hcount"><b id="hc">0</b>rutas analizadas</div></div></header>
 <div class="wrap">
  <div class="alert" id="alert"><span>&#9888;</span><span><b id="alertN">0</b> rutas superan las <b>12 hs totales</b> — casi siempre rutas que el chofer no cerró en Foxtrot. Revisar cierres.</span></div>
@@ -149,6 +149,8 @@ const C={good:'#16A34A',bad:'#DC2626',amber:'#D97706',obj:'#1E3A8A',sec:'#7C3AED
 const state={suc:'__all',mes:'__all',cho:'__all',tab:'mes',sem:null};
 const MM={'01':'Ene','02':'Feb','03':'Mar','04':'Abr','05':'May','06':'Jun','07':'Jul'};
 const mLbl=m=>MM[m.split('-')[1]]||m;const dLbl=f=>{const p=f.split('-');return p[2]+'/'+p[1]};
+const periodoLbl=()=>{if(!R.length)return'del Palacio S.A. · sin datos cargados';const fs=R.map(r=>r.fecha).sort(),a=fs[0],b=fs[fs.length-1],fmt=f=>{const p=f.split('-');return p[2]+'/'+p[1]+'/'+p[0].slice(2)};return'del Palacio S.A. · '+fmt(a)+' al '+fmt(b)};
+periodo.textContent=periodoLbl();
 const avg=a=>{a=a.filter(v=>v!=null);return a.length?a.reduce((s,v)=>s+v,0)/a.length:null};
 const r1=v=>v==null?'–':Math.round(v*10)/10;const r2=v=>v==null?'–':(Math.round(v*100)/100).toFixed(2);
 const sgn=v=>v==null?'–':(v>0?'+':'')+r1(v)+'%';
