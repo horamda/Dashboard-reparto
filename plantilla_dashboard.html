@@ -67,7 +67,7 @@ tfoot td{font-weight:700;border-top:2px solid var(--line);border-bottom:none}
   <div class="fg"><label>Chofer</label><select id="fCho"></select></div>
   <button class="reset" id="reset">Limpiar filtros</button>
  </div>
- <div class="tabs"><button class="tab active" id="tabMes">Mensual</button><button class="tab" id="tabDia">Diario</button><button class="tab" id="tabSem">Semanal</button><button class="tab" id="tabCalidad">Calidad de datos</button></div>
+ <div class="tabs"><button class="tab active" id="tabMes">Mensual</button><button class="tab" id="tabDia">Diario</button><button class="tab" id="tabSem">Semanal</button><button class="tab" id="tabCalidad">Calidad de datos</button><button class="tab" id="tabOnTime">On time</button></div>
  <div class="sectlbl">Tiempos</div>
  <div class="cards c5">
   <div class="card" id="cTml"><div class="k">TML · minutos</div><div class="v" id="kTml">–</div><div class="obj">objetivo 30 min</div><div class="bar"><i id="bTml"></i></div></div>
@@ -155,6 +155,20 @@ tfoot td{font-weight:700;border-top:2px solid var(--line);border-bottom:none}
     <table><thead><tr><th>Mes</th><th>Total</th><th>Confiables</th><th>Corruptos / no confiables</th><th>Calidad</th></tr></thead><tbody id="tbodyQ"></tbody></table></div>
   </div>
  </div>
+ <div id="viewOnTime" style="display:none">
+  <div class="hint">On time compara el horario real de visita Foxtrot contra la ventana horaria del cliente. Se usa Visit Start Timestamp como hora de paso.</div>
+  <div class="cards c4" style="margin-bottom:22px">
+   <div class="card" id="cOT"><div class="badge" id="gOT"></div><div class="k">On time</div><div class="v" id="kOT">–</div><div class="obj">PDV entregados dentro de ventana</div><div class="bar"><i id="bOT"></i></div></div>
+   <div class="card" id="cOTOk"><div class="k">PDV on time</div><div class="v" id="kOTOk">–</div><div class="obj">dentro de rango horario</div><div class="bar"><i id="bOTOk"></i></div></div>
+   <div class="card" id="cOTBad"><div class="k">Fuera de on time</div><div class="v" id="kOTBad">–</div><div class="obj">fuera de rango horario</div><div class="bar"><i id="bOTBad"></i></div></div>
+   <div class="card" id="cOTNoWin"><div class="k">Sin ventana</div><div class="v" id="kOTNoWin">–</div><div class="obj">clientes sin horario útil</div><div class="bar"><i id="bOTNoWin"></i></div></div>
+  </div>
+  <div class="grid">
+   <div class="panel"><h2>On time por mes</h2><div class="note">% de PDV dentro de ventana horaria</div><div class="chartbox"><canvas id="chOT"></canvas></div></div>
+   <div class="panel" style="grid-column:span 2"><h2>Detalle mensual on time</h2><div class="note">Solo calcula porcentaje sobre PDV con ventana horaria evaluable.</div>
+    <table><thead><tr><th>Mes</th><th>PDV evaluables</th><th>On time</th><th>Fuera</th><th>Sin ventana</th><th>% On time</th></tr></thead><tbody id="tbodyOT"></tbody></table></div>
+  </div>
+ </div>
 </div>
 <script>
 const DATA=__DATA__;const R=DATA.rutas,MESES=DATA.meses,OBJ=DATA.obj;const OA=OBJ.adh,OD=OBJ.disp;
@@ -227,6 +241,8 @@ function rowsHtml(items,keyFmt,withDisp){return items.map(s=>{const cl=(v,o)=>v=
   return '<tr><td>'+keyFmt(s.key)+'</td><td>'+s.n+'</td><td class="'+cl(s.tml,OBJ.tml)+'">'+r1(s.tml)+'</td><td class="'+cl(s.ti,OBJ.ti)+'">'+r1(s.ti)+'</td><td class="'+cl(s.hr,OBJ.ruta)+'">'+r2(s.hr)+'</td><td class="'+ca(s.as)+'">'+(s.as==null?'–':r1(s.as)+'%')+'</td><td class="'+ca(s.ac)+'">'+(s.ac==null?'–':r1(s.ac)+'%')+'</td>'+(withDisp?('<td class="'+cd(s.dk)+'">'+sgn(s.dk)+'</td><td class="'+cd(s.dh)+'">'+sgn(s.dh)+'</td>'):'')+'</tr>'}).join('')}
 function quality(scope){const total=scope.length,bad=scope.filter(r=>r.alerta).length,good=total-bad,p=total?good/total*100:null;return{total,bad,good,p}}
 function qualityByMonth(scope){const g={};scope.forEach(r=>{(g[r.mes]=g[r.mes]||[]).push(r)});return Object.keys(g).sort().map(k=>{const q=quality(g[k]);return{key:k,total:q.total,bad:q.bad,good:q.good,p:q.p}})}
+function onTime(scope){let ok=0,bad=0,sin=0,total=0;scope.forEach(r=>{ok+=r.pdv_ontime||0;bad+=r.pdv_fuera_ontime||0;sin+=r.pdv_sin_ventana||0;total+=r.pdv_total||0});const ev=ok+bad;return{ok,bad,sin,total,ev,p:ev?ok/ev*100:null}}
+function onTimeByMonth(scope){const g={};scope.forEach(r=>{(g[r.mes]=g[r.mes]||[]).push(r)});return Object.keys(g).sort().map(k=>{const o=onTime(g[k]);return{key:k,ok:o.ok,bad:o.bad,sin:o.sin,total:o.total,ev:o.ev,p:o.p}})}
 function renderCards(){const cards=R.filter(scopeCards),us=cards.filter(r=>r.usable);
  const aTml=avg(us.map(r=>r.tml)),aTi=avg(us.map(r=>r.ti)),aHr=avg(us.map(r=>r.horas));
  kTml.textContent=r1(aTml);kTi.textContent=r1(aTi);kHr.textContent=r2(aHr);kN.textContent=us.length;
@@ -293,13 +309,23 @@ function renderCalidad(){const scope=R.filter(full),q=quality(scope),ok=q.p!=nul
  const ser=qualityByMonth(R.filter(base)),lab=ser.map(s=>mLbl(s.key));
  barGen('chDQ',lab,ser.map(s=>s.p),v=>r1(v)+'%',v=>v>=OBJ_DQ?C.good:C.bad,OBJ_DQ,true);
  tbodyQ.innerHTML=ser.map(s=>'<tr><td>'+mLbl(s.key)+'</td><td>'+s.total+'</td><td class="g">'+s.good+'</td><td class="'+(s.bad?'r':'g')+'">'+s.bad+'</td><td class="'+(s.p>=OBJ_DQ?'g':'r')+'">'+r1(s.p)+'%</td></tr>').join('');}
-function render(){renderCards();if(state.tab==='mes')renderMes();else if(state.tab==='dia')renderDia();else if(state.tab==='sem')renderSem();else renderCalidad();}
+function renderOnTime(){const scope=R.filter(full),o=onTime(scope),ok=o.p!=null&&o.p>=85,col=o.p==null?C.obj:(ok?C.good:C.bad);
+ kOT.textContent=o.p==null?'–':r1(o.p)+'%';kOTOk.textContent=o.ok;kOTBad.textContent=o.bad;kOTNoWin.textContent=o.sin;
+ cOT.style.setProperty('--accent',col);bOT.style.background=col;bOT.style.width=Math.min(100,o.p||0)+'%';
+ bOTOk.style.background=C.good;bOTOk.style.width=Math.min(100,o.ev?100*o.ok/o.ev:0)+'%';
+ bOTBad.style.background=o.bad?C.bad:C.good;bOTBad.style.width=Math.min(100,o.ev?100*o.bad/o.ev:0)+'%';
+ bOTNoWin.style.background=o.sin?C.amber:C.good;bOTNoWin.style.width=Math.min(100,o.total?100*o.sin/o.total:0)+'%';
+ gOT.className='badge '+(ok?'ok':'no');gOT.textContent=o.p==null?'SIN DATOS':(ok?'OK':'REVISAR');
+ const ser=onTimeByMonth(R.filter(base)),lab=ser.map(s=>mLbl(s.key));
+ barGen('chOT',lab,ser.map(s=>s.p),v=>v==null?'–':r1(v)+'%',v=>v==null?C.obj:(v>=85?C.good:C.bad),85,true);
+ tbodyOT.innerHTML=ser.map(s=>'<tr><td>'+mLbl(s.key)+'</td><td>'+s.ev+'</td><td class="g">'+s.ok+'</td><td class="'+(s.bad?'r':'g')+'">'+s.bad+'</td><td class="'+(s.sin?'r':'g')+'">'+s.sin+'</td><td class="'+(s.p>=85?'g':'r')+'">'+(s.p==null?'–':r1(s.p)+'%')+'</td></tr>').join('');}
+function render(){renderCards();if(state.tab==='mes')renderMes();else if(state.tab==='dia')renderDia();else if(state.tab==='sem')renderSem();else if(state.tab==='calidad')renderCalidad();else renderOnTime();}
 ['fSuc','fMes','fCho'].forEach(id=>document.getElementById(id).addEventListener('change',e=>{state[{fSuc:'suc',fMes:'mes',fCho:'cho'}[id]]=e.target.value;render()}));
 reset.addEventListener('click',()=>{state.suc=state.mes=state.cho='__all';fSuc.value=fMes.value=fCho.value='__all';render()});
-function switchTab(t){state.tab=t;tabMes.classList.toggle('active',t==='mes');tabDia.classList.toggle('active',t==='dia');tabSem.classList.toggle('active',t==='sem');tabCalidad.classList.toggle('active',t==='calidad');
- document.getElementById('viewMes').style.display=t==='mes'?'':'none';document.getElementById('viewDia').style.display=t==='dia'?'':'none';document.getElementById('viewSem').style.display=t==='sem'?'':'none';document.getElementById('viewCalidad').style.display=t==='calidad'?'':'none';
+function switchTab(t){state.tab=t;tabMes.classList.toggle('active',t==='mes');tabDia.classList.toggle('active',t==='dia');tabSem.classList.toggle('active',t==='sem');tabCalidad.classList.toggle('active',t==='calidad');tabOnTime.classList.toggle('active',t==='ontime');
+ document.getElementById('viewMes').style.display=t==='mes'?'':'none';document.getElementById('viewDia').style.display=t==='dia'?'':'none';document.getElementById('viewSem').style.display=t==='sem'?'':'none';document.getElementById('viewCalidad').style.display=t==='calidad'?'':'none';document.getElementById('viewOnTime').style.display=t==='ontime'?'':'none';
  if(t==='sem'&&!state.sem&&WEEKS.length)state.sem=WEEKS[WEEKS.length-1];render()}
-tabMes.addEventListener('click',()=>switchTab('mes'));tabDia.addEventListener('click',()=>switchTab('dia'));tabSem.addEventListener('click',()=>switchTab('sem'));tabCalidad.addEventListener('click',()=>switchTab('calidad'));
+tabMes.addEventListener('click',()=>switchTab('mes'));tabDia.addEventListener('click',()=>switchTab('dia'));tabSem.addEventListener('click',()=>switchTab('sem'));tabCalidad.addEventListener('click',()=>switchTab('calidad'));tabOnTime.addEventListener('click',()=>switchTab('ontime'));
 render();
 const chartScript=document.createElement('script');
 chartScript.src='https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js';
