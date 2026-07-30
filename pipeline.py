@@ -115,6 +115,14 @@ def _en_ventana(ts, ventanas):
     return False
 
 
+def _fmt_minuto(m):
+    return f"{int(m) // 60:02d}:{int(m) % 60:02d}"
+
+
+def _fmt_ventanas(ventanas):
+    return " / ".join(f"{_fmt_minuto(v['ini'])}-{_fmt_minuto(v['fin'])}" for v in ventanas)
+
+
 def procesar_clientes(clientes_file):
     c = pd.read_csv(clientes_file, sep=";", dtype=str, encoding="cp1252")
     out = {}
@@ -201,16 +209,32 @@ def _mapa_ontime(csv_files):
     stats = {}
     for rid, grp in visitas.groupby("Route ID"):
         total = ontime = fuera = sin_ventana = 0
+        fuera_clientes = []
+        clientes_con_ventana = {}
+        clientes_sin_ventana = {}
         for _, v in grp.iterrows():
             cliente = clientes.get(v["cliente"])
             if not cliente:
                 continue
             total += 1
-            ok = _en_ventana(v["paso"], cliente.get("ventanas", []))
+            nombre = cliente.get("nombre") or cliente.get("razon_social") or str(v.get("Customer Name", ""))
+            ventanas = cliente.get("ventanas", [])
+            cliente_ref = {"cliente": v["cliente"], "nombre": nombre}
+            if ventanas:
+                clientes_con_ventana[v["cliente"]] = cliente_ref
+            else:
+                clientes_sin_ventana[v["cliente"]] = cliente_ref
+            ok = _en_ventana(v["paso"], ventanas)
             if ok is True:
                 ontime += 1
             elif ok is False:
                 fuera += 1
+                fuera_clientes.append({
+                    "cliente": v["cliente"],
+                    "nombre": nombre,
+                    "visita": v["paso"].strftime("%H:%M") if pd.notna(v["paso"]) else "",
+                    "ventana": _fmt_ventanas(ventanas),
+                })
             else:
                 sin_ventana += 1
         if total:
@@ -221,6 +245,9 @@ def _mapa_ontime(csv_files):
                 "pdv_fuera_ontime": int(fuera),
                 "pdv_sin_ventana": int(sin_ventana),
                 "ontime_pct": round(100 * ontime / evaluables, 1) if evaluables else None,
+                "clientes_fuera_ontime": fuera_clientes[:50],
+                "clientes_con_ventana": list(clientes_con_ventana.values()),
+                "clientes_sin_ventana": list(clientes_sin_ventana.values()),
             }
     return stats
 
