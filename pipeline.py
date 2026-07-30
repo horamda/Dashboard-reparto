@@ -8,6 +8,10 @@ determinístico por ID, así una ruta ya cargada nunca cambia de valor al actual
 """
 
 import os, json, hashlib, re
+from datetime import date
+from urllib.error import HTTPError
+from urllib.parse import urlencode
+from urllib.request import Request, urlopen
 import numpy as np
 import pandas as pd
 
@@ -21,8 +25,18 @@ OBJ = {"tml": 30, "ti": 30, "ruta": 7, "ruta_max": 8, "alerta_h": 12, "adh": 85,
 
 AQUI = os.path.dirname(os.path.abspath(__file__))
 PLANTILLA = os.path.join(AQUI, "plantilla_dashboard.html")
+RECHAZOS_API_URL = os.environ.get(
+    "RECHAZOS_API_URL",
+    "https://web-production-f968ec.up.railway.app/api/picos/rechazos-dolores/diario",
+)
+RECHAZOS_SUCURSAL = os.environ.get("RECHAZOS_SUCURSAL", "Dolores")
+RECHAZOS_SUCURSAL_ID = os.environ.get("RECHAZOS_SUCURSAL_ID", "2")
 
 storage.init()
+
+
+def _today():
+    return date.today().strftime("%Y-%m-%d")
 
 
 def rng_de_ruta(rid):
@@ -77,6 +91,81 @@ def _norm_customer_id_foxtrot(v):
     if len(s) > 8 and s.isdigit():
         return str(int(s[-8:]))
     return s
+
+
+def _json_items(payload):
+    if isinstance(payload, list):
+        return payload
+    if isinstance(payload, dict):
+        for key in ("data", "items", "resultados", "results", "rows", "rechazos"):
+            if isinstance(payload.get(key), list):
+                return payload[key]
+        if any(k in payload for k in ("fecha", "dia", "cantidad", "rechazos", "total")):
+            return [payload]
+    return []
+
+
+def _pick_value(row, names, default=None):
+    if not isinstance(row, dict):
+        return default
+    lower = {str(k).lower(): v for k, v in row.items()}
+    for name in names:
+        if name in row:
+            return row[name]
+        v = lower.get(name.lower())
+        if v is not None:
+            return v
+    return default
+
+
+def _to_int(v):
+    if v is None or v == "":
+        return 0
+    try:
+        return int(float(str(v).replace(",", ".")))
+    except Exception:
+        return 0
+
+
+def _norm_rechazo(row):
+    fecha = str(_pick_value(row, ("fecha", "dia", "date", "Fecha", "Día"), "") or "")[:10]
+    cantidad = _to_int(_pick_value(row, ("rechazos", "cantidad", "total", "count", "valor"), 0))
+    motivo = str(_pick_value(row, ("motivo", "causa", "tipo", "descripcion", "descripción"), "") or "")
+    suc = str(_pick_value(row, ("sucursal", "Sucursal"), RECHAZOS_SUCURSAL) or RECHAZOS_SUCURSAL)
+    sid = str(_pick_value(row, ("sucursal_id", "sucursalId", "id_sucursal"), RECHAZOS_SUCURSAL_ID) or RECHAZOS_SUCURSAL_ID)
+    if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", fecha):
+        return None
+    return {"fecha": fecha, "sucursal": suc, "sucursal_id": sid, "rechazos": cantidad, "motivo": motivo}
+
+
+def importar_rechazos(desde=None, hasta=None):
+    desde = desde or "2026-01-01"
+    hasta = hasta or _today()
+    url = RECHAZOS_API_URL + "?" + urlencode({"desde": desde, "hasta": hasta})
+    req = Request(url, headers={"Accept": "application/json"})
+    try:
+        with urlopen(req, timeout=30) as res:
+            ctype = res.headers.get("Content-Type", "")
+            raw = res.read().decode("utf-8")
+    except HTTPError as e:
+        raise ValueError(f"El endpoint respondió HTTP {e.code}. URL: {url}") from e
+    if "json" not in ctype.lower():
+        raise ValueError(f"El endpoint no devolvió JSON. Content-Type: {ctype or 'sin Content-Type'}")
+    payload = json.loads(raw)
+    recs = {}
+    for row in _json_items(payload):
+        rec = _norm_rechazo(row)
+        if not rec:
+            continue
+        key = rec["fecha"]
+        if key not in recs:
+            recs[key] = rec
+        else:
+            recs[key]["rechazos"] += rec["rechazos"]
+            if rec["motivo"] and not recs[key].get("motivo"):
+                recs[key]["motivo"] = rec["motivo"]
+    guardados = storage.upsert_rechazos(recs)
+    return {"desde": desde, "hasta": hasta, "url": url, "recibidos": len(recs), "guardados": guardados}
 
 
 def _time_to_min(h, m="0"):
@@ -303,7 +392,9 @@ def procesar_export(xls_file, xls_name="", csv_files=None):
 
 def _data_desde_base(base):
     rutas = sorted(base.values(), key=lambda r: (r["fecha"], r["suc"], r["chofer"]))
+    rechazos = sorted(storage.load_rechazos().values(), key=lambda r: r["fecha"])
     return {"rutas": rutas,
+            "rechazos": rechazos,
             "choferes": sorted({r["chofer"] for r in rutas}),
             "sucursales": sorted({r["suc"] for r in rutas}),
             "meses": sorted({r["mes"] for r in rutas}),
@@ -316,11 +407,12 @@ def actualizar(xls_file, xls_name, csv_files=None, reset=False):
         storage.reset()
     previas = len(storage.load_all())
     nuevos = procesar_export(xls_file, xls_name, csv_files)
-    agregadas = storage.add_new(nuevos)
+    actualiza_existentes = bool(csv_files)
+    agregadas = storage.upsert_all(nuevos) if actualiza_existentes else storage.add_new(nuevos)
     base = storage.load_all()
     us = [r for r in base.values() if r.get("usable")]
     tml = [r["tml"] for r in us]; ti = [r["ti"] for r in us]
-    return {"previas": previas, "agregadas": agregadas, "total": len(base),
+    return {"previas": previas, "agregadas": agregadas, "actualiza_existentes": actualiza_existentes, "procesadas": len(nuevos), "total": len(base),
             "validas": len(us), "sin_cierre": len(base) - len(us),
             "tml_prom": round(float(np.mean(tml)), 1) if tml else None,
             "tml_cumpl": round(100 * float(np.mean([v <= 30 for v in tml]))) if tml else None,

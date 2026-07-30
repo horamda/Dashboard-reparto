@@ -68,6 +68,12 @@ if BACKEND == "postgres":
                     rec JSONB NOT NULL
                 );
             """)
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS rechazos_dashboard (
+                    fecha TEXT PRIMARY KEY,
+                    rec JSONB NOT NULL
+                );
+            """)
 
     def load_all():
         with _conn() as cn, cn.cursor() as cur:
@@ -85,6 +91,22 @@ if BACKEND == "postgres":
                 cur,
                 "INSERT INTO rutas_dashboard (rid, rec) VALUES %s "
                 "ON CONFLICT (rid) DO NOTHING;",
+                rows,
+            )
+            after = _count(cur)
+        return after - before
+
+    def upsert_all(recs):
+        """Inserta rutas nuevas y actualiza las existentes. Devuelve cuántas nuevas se agregaron."""
+        if not recs:
+            return 0
+        rows = [(rid, _extras.Json(rec)) for rid, rec in recs.items()]
+        with _conn() as cn, cn.cursor() as cur:
+            before = _count(cur)
+            _extras.execute_values(
+                cur,
+                "INSERT INTO rutas_dashboard (rid, rec) VALUES %s "
+                "ON CONFLICT (rid) DO UPDATE SET rec = EXCLUDED.rec;",
                 rows,
             )
             after = _count(cur)
@@ -115,6 +137,24 @@ if BACKEND == "postgres":
                 )
         return len(recs)
 
+    def load_rechazos():
+        with _conn() as cn, cn.cursor() as cur:
+            cur.execute("SELECT fecha, rec FROM rechazos_dashboard;")
+            return {fecha: rec for fecha, rec in cur.fetchall()}
+
+    def upsert_rechazos(recs):
+        if not recs:
+            return 0
+        rows = [(fecha, _extras.Json(rec)) for fecha, rec in recs.items()]
+        with _conn() as cn, cn.cursor() as cur:
+            _extras.execute_values(
+                cur,
+                "INSERT INTO rechazos_dashboard (fecha, rec) VALUES %s "
+                "ON CONFLICT (fecha) DO UPDATE SET rec = EXCLUDED.rec;",
+                rows,
+            )
+        return len(recs)
+
 
 # ========================= JSON =========================
 else:
@@ -143,6 +183,16 @@ else:
         _dump(base)
         return added
 
+    def upsert_all(recs):
+        base = load_all()
+        added = 0
+        for rid, rec in recs.items():
+            if rid not in base:
+                added += 1
+            base[rid] = rec
+        _dump(base)
+        return added
+
     def reset():
         if os.path.exists(JSON_PATH):
             os.remove(JSON_PATH)
@@ -158,4 +208,21 @@ else:
     def replace_clientes(recs):
         os.makedirs(DATA_DIR, exist_ok=True)
         json.dump({"clientes": recs}, open(CLIENTES_JSON_PATH, "w", encoding="utf-8"), ensure_ascii=False)
+        return len(recs)
+
+    def load_rechazos():
+        path = os.path.join(DATA_DIR, "rechazos_dashboard.json")
+        if os.path.exists(path):
+            try:
+                return json.load(open(path, encoding="utf-8"))["rechazos"]
+            except Exception:
+                return {}
+        return {}
+
+    def upsert_rechazos(recs):
+        path = os.path.join(DATA_DIR, "rechazos_dashboard.json")
+        base = load_rechazos()
+        base.update(recs)
+        os.makedirs(DATA_DIR, exist_ok=True)
+        json.dump({"rechazos": base}, open(path, "w", encoding="utf-8"), ensure_ascii=False)
         return len(recs)

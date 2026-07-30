@@ -16,6 +16,7 @@ clave para subir datos.
 
 import os
 import secrets
+from datetime import date
 from flask import Flask, request, redirect, url_for, Response, session
 import pipeline
 
@@ -42,6 +43,7 @@ ADMIN_HTML = """<!doctype html><html lang=es><head><meta charset=utf-8>
 h1{{font-size:20px;margin:0 0 4px}}p{{color:#657085;font-size:13.5px;margin:0 0 18px}}
 label{{display:block;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.4px;color:#657085;margin:16px 0 6px}}
 input[type=file],input[type=password]{{width:100%;padding:9px 10px;border:1px solid #DCE2EA;border-radius:8px;font-size:14px;background:#fff}}
+input[type=date]{{width:100%;padding:9px 10px;border:1px solid #DCE2EA;border-radius:8px;font-size:14px;background:#fff}}
 .btn{{margin-top:22px;width:100%;background:#15233B;color:#fff;border:0;border-radius:9px;padding:12px;font-size:15px;font-weight:600;cursor:pointer}}
 .msg{{background:#DCFCE7;border:1px solid #86EFAC;color:#166534;border-radius:9px;padding:10px 12px;font-size:13.5px;margin-bottom:16px}}
 .err{{background:#FEE2E2;border:1px solid #FCA5A5;color:#991B1B}}
@@ -63,6 +65,16 @@ a{{color:#1E3A8A;font-size:13.5px}}</style></head>
   <button class=btn type=submit>Actualizar</button>
 </form>
 <p style="margin-top:18px"><a href="/dashboard">&larr; Volver al dashboard</a> · <a href="/logout">Cerrar sesiÃ³n</a></p>
+<hr style="border:0;border-top:1px solid #DCE2EA;margin:24px 0">
+<h1>Importar rechazos</h1>
+<p>Consume el endpoint JSON de rechazos diarios de Dolores y lo guarda en la base.</p>
+<form method=post action="/actualizar-rechazos">
+  <label>Desde</label>
+  <input type=date name=desde value="2026-01-01" required>
+  <label>Hasta</label>
+  <input type=date name=hasta value="{hasta_default}" required>
+  <button class=btn type=submit>Importar rechazos</button>
+</form>
 </div></body></html>"""
 
 LOGIN_HTML = """<!doctype html><html lang=es><head><meta charset=utf-8>
@@ -101,7 +113,7 @@ a{display:inline-block;margin-top:16px;background:#15233B;color:#fff;text-decora
 def _admin_page(msg="", err=False):
     token_field = ""
     m = f'<div class="msg{" err" if err else ""}">{msg}</div>' if msg else ""
-    return ADMIN_HTML.format(msg=m, token_field=token_field)
+    return ADMIN_HTML.format(msg=m, token_field=token_field, hasta_default=date.today().strftime("%Y-%m-%d"))
 
 
 def _login_page(msg="", err=False):
@@ -185,8 +197,25 @@ def actualizar():
     msg = (f"Listo. Rutas nuevas agregadas: {st['agregadas']} · total en base: {st['total']} "
            f"({st['validas']} válidas, {st['sin_cierre']} sin cierre). "
            f"TML {st['tml_prom']} min ({st['tml_cumpl']}% cumple) · TI {st['ti_prom']} min ({st['ti_cumpl']}% cumple).")
+    if st.get("actualiza_existentes"):
+        msg += f" On time recalculado para {st['procesadas']} rutas del export."
     if clientes_importados is not None:
         msg += f" Clientes importados: {clientes_importados}."
+    return Response(_admin_page(msg), mimetype="text/html")
+
+
+@app.route("/actualizar-rechazos", methods=["POST"])
+def actualizar_rechazos():
+    blocked = _require_login()
+    if blocked:
+        return blocked
+    desde = request.form.get("desde") or "2026-01-01"
+    hasta = request.form.get("hasta") or date.today().strftime("%Y-%m-%d")
+    try:
+        st = pipeline.importar_rechazos(desde, hasta)
+    except Exception as e:
+        return Response(_admin_page(f"Error importando rechazos: {e}", err=True), mimetype="text/html", status=400)
+    msg = f"Listo. Rechazos importados: {st['guardados']} días ({st['desde']} a {st['hasta']})."
     return Response(_admin_page(msg), mimetype="text/html")
 
 
@@ -194,6 +223,7 @@ def actualizar():
 def salud():
     base = pipeline.storage.load_all()
     clientes = pipeline.storage.load_clientes()
+    rechazos = pipeline.storage.load_rechazos()
     rutas = list(base.values())
     ontime_rutas = [r for r in rutas if "pdv_total" in r]
     clientes_foxtrot_con_ventana = {
@@ -219,6 +249,8 @@ def salud():
         "clientes_foxtrot_unicos": len(clientes_foxtrot_con_ventana | clientes_foxtrot_sin_ventana),
         "clientes_foxtrot_con_ventana": len(clientes_foxtrot_con_ventana),
         "clientes_foxtrot_sin_ventana": len(clientes_foxtrot_sin_ventana),
+        "rechazos_dias": len(rechazos),
+        "rechazos_total": sum(r.get("rechazos", 0) for r in rechazos.values()),
         "ontime_rutas": len(ontime_rutas),
         "ontime_pdv_total": sum(r.get("pdv_total", 0) for r in rutas),
         "ontime_pdv_evaluables": sum((r.get("pdv_ontime", 0) + r.get("pdv_fuera_ontime", 0)) for r in rutas),

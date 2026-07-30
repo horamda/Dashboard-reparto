@@ -69,7 +69,7 @@ tfoot td{font-weight:700;border-top:2px solid var(--line);border-bottom:none}
   <div class="fg"><label>Chofer</label><select id="fCho"></select></div>
   <button class="reset" id="reset">Limpiar filtros</button>
  </div>
- <div class="tabs"><button class="tab active" id="tabMes">Mensual</button><button class="tab" id="tabDia">Diario</button><button class="tab" id="tabSem">Semanal</button><button class="tab" id="tabCalidad">Calidad de datos</button><button class="tab" id="tabOnTime">On time</button></div>
+ <div class="tabs"><button class="tab active" id="tabMes">Mensual</button><button class="tab" id="tabDia">Diario</button><button class="tab" id="tabSem">Semanal</button><button class="tab" id="tabCalidad">Calidad de datos</button><button class="tab" id="tabOnTime">On time</button><button class="tab" id="tabRechazos">Rechazos</button></div>
  <div id="operationalSummary">
  <div class="sectlbl">Tiempos</div>
  <div class="cards c5">
@@ -192,9 +192,26 @@ tfoot td{font-weight:700;border-top:2px solid var(--line);border-bottom:none}
     <div class="tblscroll clientlist"><table><thead><tr><th>Cliente</th><th>Nombre</th><th>Pedidos sin ventana</th><th>Motivo</th></tr></thead><tbody id="tbodyOTClientesSin"></tbody></table></div></div>
   </div>
  </div>
+ <div id="viewRechazos" style="display:none">
+  <div class="hint">Rechazos diarios de Dolores. La tasa se calcula contra pedidos Foxtrot del mismo día cuando hay visitas cargadas.</div>
+  <div class="cards c4" style="margin-bottom:22px">
+   <div class="card" id="cRTotal"><div class="k">Rechazos totales</div><div class="v" id="kRTotal">–</div><div class="obj">período filtrado</div><div class="bar"><i id="bRTotal"></i></div></div>
+   <div class="card" id="cRProm"><div class="k">Promedio diario</div><div class="v" id="kRProm">–</div><div class="obj">rechazos por día con dato</div><div class="bar"><i id="bRProm"></i></div></div>
+   <div class="card" id="cRPeak"><div class="k">Día pico</div><div class="v" id="kRPeak">–</div><div class="obj" id="oRPeak">mayor cantidad diaria</div><div class="bar"><i id="bRPeak"></i></div></div>
+   <div class="card" id="cRTasa"><div class="k">Tasa de rechazo</div><div class="v" id="kRTasa">–</div><div class="obj">rechazos / pedidos Foxtrot</div><div class="bar"><i id="bRTasa"></i></div></div>
+  </div>
+  <div class="grid" style="grid-template-columns:2fr 1fr">
+   <div class="panel"><h2>Rechazos por día</h2><div class="note">Cantidad diaria de rechazos.</div><div class="chartbox" style="height:300px"><canvas id="chRechDia"></canvas></div></div>
+   <div class="panel"><h2>Rechazos por mes</h2><div class="note">Total mensual.</div><div class="chartbox" style="height:300px"><canvas id="chRechMes"></canvas></div></div>
+  </div>
+  <div class="grid" style="grid-template-columns:1fr">
+   <div class="panel"><h2>Día por día</h2><div class="note">Cruce con pedidos Foxtrot cuando el día está cargado.</div>
+    <div class="tblscroll clientlist"><table><thead><tr><th>Día</th><th>Pedidos Foxtrot</th><th>Rechazos</th><th>Tasa</th><th>Motivo</th></tr></thead><tbody id="tbodyRech"></tbody></table></div></div>
+  </div>
+ </div>
 </div>
 <script>
-const DATA=__DATA__;const R=DATA.rutas,MESES=DATA.meses,OBJ=DATA.obj;const OA=OBJ.adh,OD=OBJ.disp;
+const DATA=__DATA__;const R=DATA.rutas,RECH=DATA.rechazos||[],MESES=DATA.meses,OBJ=DATA.obj;const OA=OBJ.adh,OD=OBJ.disp;
 const C={good:'#16A34A',bad:'#DC2626',amber:'#D97706',obj:'#1E3A8A',sec:'#7C3AED',cli:'#0E7C6B'};
 const OBJ_DQ=85;
 const state={suc:'__all',mes:'__all',cho:'__all',tab:'mes',sem:null};
@@ -276,6 +293,15 @@ function otChart(id,items){if(!chartsReady())return;if(ch[id])ch[id].destroy();c
  ch[id]=new Chart(document.getElementById(id),{data:{labels:rows.map(s=>s.key),datasets:[{type:'bar',data:rows.map(s=>s.p),backgroundColor:rows.map(s=>s.p>=85?C.good:C.bad),borderRadius:4,maxBarThickness:22},{type:'line',data:rows.map(()=>85),borderColor:C.obj,borderWidth:2,borderDash:[6,4],pointRadius:0}]},
   options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:x=>x.datasetIndex===1?'Objetivo 85%':r1(x.parsed.x)+'% · '+rows[x.dataIndex].ev+' pedidos eval.'}}},
   scales:{x:{min:0,max:100,ticks:{callback:v=>v+'%',color:'#657085',font:{size:11}},grid:{color:'#eef1f5'}},y:{ticks:{color:'#26334d',font:{size:10}},grid:{display:false}}}}})}
+function pedidosPorDia(scope){const g={};scope.forEach(r=>{g[r.fecha]=(g[r.fecha]||0)+(r.pdv_total||0)});return g}
+function rechazosScope(){return RECH.filter(r=>(state.mes==='__all'||r.fecha.slice(0,7)===state.mes))}
+function rechazosMes(rows){const g={};rows.forEach(r=>{const k=r.fecha.slice(0,7);g[k]=(g[k]||0)+(r.rechazos||0)});return Object.keys(g).sort().map(k=>({key:k,n:g[k]}))}
+function renderRechazos(){const rows=rechazosScope(),ped=pedidosPorDia(R.filter(base)),total=rows.reduce((s,r)=>s+(r.rechazos||0),0),dias=rows.length,peak=rows.reduce((m,r)=>(r.rechazos||0)>(m.rechazos||0)?r:m,{}),pedTotal=rows.reduce((s,r)=>s+(ped[r.fecha]||0),0),tasa=pedTotal?total/pedTotal*100:null;
+ kRTotal.textContent=total;kRProm.textContent=dias?r1(total/dias):'–';kRPeak.textContent=peak.fecha?dLbl(peak.fecha):'–';oRPeak.textContent=peak.fecha?(peak.rechazos||0)+' rechazos':'mayor cantidad diaria';kRTasa.textContent=tasa==null?'–':r2(tasa)+'%';
+ [cRTotal,cRProm,cRPeak,cRTasa].forEach(c=>c.style.setProperty('--accent',C.amber));[bRTotal,bRProm,bRPeak,bRTasa].forEach(b=>{b.style.background=C.amber;b.style.width='100%'});
+ barGen('chRechDia',rows.map(r=>dLbl(r.fecha)),rows.map(r=>r.rechazos||0),v=>v,C.amber,null,false);
+ const mes=rechazosMes(rows);barGen('chRechMes',mes.map(r=>mLbl(r.key)),mes.map(r=>r.n),v=>v,C.amber,null,false);
+ tbodyRech.innerHTML=rows.length?rows.map(r=>{const p=ped[r.fecha]||0,t=p?(r.rechazos||0)/p*100:null;return '<tr><td>'+dLbl(r.fecha)+'</td><td>'+p+'</td><td class="'+((r.rechazos||0)?'r':'g')+'">'+(r.rechazos||0)+'</td><td>'+(t==null?'–':r2(t)+'%')+'</td><td>'+(r.motivo||'')+'</td></tr>'}).join(''):emptyRow(5,'No hay rechazos cargados para el filtro actual.');}
 function renderCards(){const cards=R.filter(scopeCards),us=cards.filter(r=>r.usable);
  const aTml=avg(us.map(r=>r.tml)),aTi=avg(us.map(r=>r.ti)),aHr=avg(us.map(r=>r.horas));
  kTml.textContent=r1(aTml);kTi.textContent=r1(aTi);kHr.textContent=r2(aHr);kN.textContent=us.length;
@@ -362,15 +388,17 @@ function renderOnTime(){const scope=R.filter(full),o=onTime(scope),ok=o.p!=null&
  otChart('chOTCho',byCho);otChart('chOTZona',byZona);
  tbodyOTCho.innerHTML=otRows(byCho);tbodyOTZona.innerHTML=otRows(byZona);
  const fueraRows=topClientesFuera(scope),sinRows=topClientesSinVentana(scope);
- tbodyOTClientes.innerHTML=fueraRows.length?fueraRows.map(c=>'<tr><td>'+c.cliente+'</td><td>'+c.nombre+'</td><td class="r">'+c.fuera+'</td><td>'+c.visita+'</td><td>'+c.ventana+'</td></tr>').join(''):emptyRow(5,'No hay clientes fuera de on time en el filtro actual.');
- tbodyOTClientesSin.innerHTML=sinRows.length?sinRows.map(c=>'<tr><td>'+c.cliente+'</td><td>'+c.nombre+'</td><td class="r">'+c.pedidos+'</td><td>'+c.motivo+'</td></tr>').join(''):emptyRow(4,'No hay clientes sin ventana horaria cargada en el filtro actual.');}
-function render(){renderCards();if(state.tab==='mes')renderMes();else if(state.tab==='dia')renderDia();else if(state.tab==='sem')renderSem();else if(state.tab==='calidad')renderCalidad();else renderOnTime();}
+ const msgFuera=o.bad?'Hay '+o.bad+' pedidos fuera de ventana, pero esta carga no tiene el detalle por cliente. Volvé a subir Route Analytics y visitas Foxtrot para recalcular On time.':'No hay clientes fuera de on time en el filtro actual.';
+ const msgSin=o.sin?'Hay '+o.sin+' pedidos sin ventana, pero esta carga no tiene el detalle por cliente. Volvé a subir Route Analytics, visitas Foxtrot y clientes para recalcular.':'No hay clientes sin ventana horaria cargada en el filtro actual.';
+ tbodyOTClientes.innerHTML=fueraRows.length?fueraRows.map(c=>'<tr><td>'+c.cliente+'</td><td>'+c.nombre+'</td><td class="r">'+c.fuera+'</td><td>'+c.visita+'</td><td>'+c.ventana+'</td></tr>').join(''):emptyRow(5,msgFuera);
+ tbodyOTClientesSin.innerHTML=sinRows.length?sinRows.map(c=>'<tr><td>'+c.cliente+'</td><td>'+c.nombre+'</td><td class="r">'+c.pedidos+'</td><td>'+c.motivo+'</td></tr>').join(''):emptyRow(4,msgSin);}
+function render(){renderCards();if(state.tab==='mes')renderMes();else if(state.tab==='dia')renderDia();else if(state.tab==='sem')renderSem();else if(state.tab==='calidad')renderCalidad();else if(state.tab==='rechazos')renderRechazos();else renderOnTime();}
 ['fSuc','fMes','fCho'].forEach(id=>document.getElementById(id).addEventListener('change',e=>{state[{fSuc:'suc',fMes:'mes',fCho:'cho'}[id]]=e.target.value;render()}));
 reset.addEventListener('click',()=>{state.suc=state.mes=state.cho='__all';fSuc.value=fMes.value=fCho.value='__all';render()});
-function switchTab(t){state.tab=t;tabMes.classList.toggle('active',t==='mes');tabDia.classList.toggle('active',t==='dia');tabSem.classList.toggle('active',t==='sem');tabCalidad.classList.toggle('active',t==='calidad');tabOnTime.classList.toggle('active',t==='ontime');
- document.getElementById('viewMes').style.display=t==='mes'?'':'none';document.getElementById('viewDia').style.display=t==='dia'?'':'none';document.getElementById('viewSem').style.display=t==='sem'?'':'none';document.getElementById('viewCalidad').style.display=t==='calidad'?'':'none';document.getElementById('viewOnTime').style.display=t==='ontime'?'':'none';
+function switchTab(t){state.tab=t;tabMes.classList.toggle('active',t==='mes');tabDia.classList.toggle('active',t==='dia');tabSem.classList.toggle('active',t==='sem');tabCalidad.classList.toggle('active',t==='calidad');tabOnTime.classList.toggle('active',t==='ontime');tabRechazos.classList.toggle('active',t==='rechazos');
+ document.getElementById('viewMes').style.display=t==='mes'?'':'none';document.getElementById('viewDia').style.display=t==='dia'?'':'none';document.getElementById('viewSem').style.display=t==='sem'?'':'none';document.getElementById('viewCalidad').style.display=t==='calidad'?'':'none';document.getElementById('viewOnTime').style.display=t==='ontime'?'':'none';document.getElementById('viewRechazos').style.display=t==='rechazos'?'':'none';
  if(t==='sem'&&!state.sem&&WEEKS.length)state.sem=WEEKS[WEEKS.length-1];render()}
-tabMes.addEventListener('click',()=>switchTab('mes'));tabDia.addEventListener('click',()=>switchTab('dia'));tabSem.addEventListener('click',()=>switchTab('sem'));tabCalidad.addEventListener('click',()=>switchTab('calidad'));tabOnTime.addEventListener('click',()=>switchTab('ontime'));
+tabMes.addEventListener('click',()=>switchTab('mes'));tabDia.addEventListener('click',()=>switchTab('dia'));tabSem.addEventListener('click',()=>switchTab('sem'));tabCalidad.addEventListener('click',()=>switchTab('calidad'));tabOnTime.addEventListener('click',()=>switchTab('ontime'));tabRechazos.addEventListener('click',()=>switchTab('rechazos'));
 render();
 const chartScript=document.createElement('script');
 chartScript.src='https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js';
