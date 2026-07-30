@@ -128,6 +128,15 @@ def _to_int(v):
         return 0
 
 
+def _to_float(v):
+    if v is None or v == "":
+        return 0.0
+    try:
+        return float(str(v).replace(".", "").replace(",", ".")) if "," in str(v) else float(v)
+    except Exception:
+        return 0.0
+
+
 def _norm_rechazo(row):
     fecha = str(_pick_value(row, ("fecha", "dia", "date", "Fecha", "Día"), "") or "")[:10]
     cantidad = _to_int(_pick_value(row, ("rechazo_pedidos", "rechazos", "cantidad", "total", "count", "valor"), 0))
@@ -143,7 +152,18 @@ def _norm_rechazo(row):
         "rechazos": cantidad,
         "motivo": motivo,
         "pedidos_pdv_atendidos": _to_int(_pick_value(row, ("pedidos_pdv_atendidos", "pedidos", "pdv_unicos"), 0)),
-        "pct_rechazo_pedidos": float(str(_pick_value(row, ("pct_rechazo_pedidos", "pct_rechazo", "porcentaje"), 0) or 0).replace(",", ".")),
+        "pdv_unicos": _to_int(_pick_value(row, ("pdv_unicos",), 0)),
+        "nds": _to_float(_pick_value(row, ("nds",), 0)),
+        "bultos": _to_float(_pick_value(row, ("bultos",), 0)),
+        "rechazo_bultos": _to_float(_pick_value(row, ("rechazo_bultos",), 0)),
+        "rechazo_bultos_total": _to_float(_pick_value(row, ("rechazo_bultos_total",), 0)),
+        "pct_rechazo_bultos": _to_float(_pick_value(row, ("pct_rechazo_bultos",), 0)),
+        "hl": _to_float(_pick_value(row, ("hl",), 0)),
+        "rechazo_hl": _to_float(_pick_value(row, ("rechazo_hl",), 0)),
+        "rechazo_hl_total": _to_float(_pick_value(row, ("rechazo_hl_total",), 0)),
+        "pct_rechazo_hl": _to_float(_pick_value(row, ("pct_rechazo_hl",), 0)),
+        "salidas": _to_int(_pick_value(row, ("salidas",), 0)),
+        "pct_rechazo_pedidos": _to_float(_pick_value(row, ("pct_rechazo_pedidos", "pct_rechazo", "porcentaje"), 0)),
         "pico": str(_pick_value(row, ("pico",), "")).lower() == "true",
         "feriado": str(_pick_value(row, ("feriado",), "") or ""),
         "evento": str(_pick_value(row, ("evento",), "") or ""),
