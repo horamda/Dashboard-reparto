@@ -9,6 +9,7 @@ determinístico por ID, así una ruta ya cargada nunca cambia de valor al actual
 
 import os, json, hashlib, re
 from datetime import date
+from io import StringIO
 from urllib.error import HTTPError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
@@ -129,29 +130,53 @@ def _to_int(v):
 
 def _norm_rechazo(row):
     fecha = str(_pick_value(row, ("fecha", "dia", "date", "Fecha", "Día"), "") or "")[:10]
-    cantidad = _to_int(_pick_value(row, ("rechazos", "cantidad", "total", "count", "valor"), 0))
-    motivo = str(_pick_value(row, ("motivo", "causa", "tipo", "descripcion", "descripción"), "") or "")
+    cantidad = _to_int(_pick_value(row, ("rechazo_pedidos", "rechazos", "cantidad", "total", "count", "valor"), 0))
+    motivo = str(_pick_value(row, ("motivo", "causa", "tipo", "descripcion", "descripción", "evento", "feriado"), "") or "")
     suc = str(_pick_value(row, ("sucursal", "Sucursal"), RECHAZOS_SUCURSAL) or RECHAZOS_SUCURSAL)
     sid = str(_pick_value(row, ("sucursal_id", "sucursalId", "id_sucursal"), RECHAZOS_SUCURSAL_ID) or RECHAZOS_SUCURSAL_ID)
     if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", fecha):
         return None
-    return {"fecha": fecha, "sucursal": suc, "sucursal_id": sid, "rechazos": cantidad, "motivo": motivo}
+    return {
+        "fecha": fecha,
+        "sucursal": suc,
+        "sucursal_id": sid,
+        "rechazos": cantidad,
+        "motivo": motivo,
+        "pedidos_pdv_atendidos": _to_int(_pick_value(row, ("pedidos_pdv_atendidos", "pedidos", "pdv_unicos"), 0)),
+        "pct_rechazo_pedidos": float(str(_pick_value(row, ("pct_rechazo_pedidos", "pct_rechazo", "porcentaje"), 0) or 0).replace(",", ".")),
+        "pico": str(_pick_value(row, ("pico",), "")).lower() == "true",
+        "feriado": str(_pick_value(row, ("feriado",), "") or ""),
+        "evento": str(_pick_value(row, ("evento",), "") or ""),
+    }
 
 
 def importar_rechazos(desde=None, hasta=None):
     desde = desde or "2026-01-01"
     hasta = hasta or _today()
-    url = RECHAZOS_API_URL + "?" + urlencode({"desde": desde, "hasta": hasta})
-    req = Request(url, headers={"Accept": "application/json"})
+    url = RECHAZOS_API_URL + "?" + urlencode({"desde": desde, "hasta": hasta, "formato": "csv"})
+    req = Request(url, headers={"Accept": "text/csv, application/json"})
     try:
         with urlopen(req, timeout=30) as res:
             ctype = res.headers.get("Content-Type", "")
             raw = res.read().decode("utf-8")
     except HTTPError as e:
-        raise ValueError(f"El endpoint respondió HTTP {e.code}. URL: {url}") from e
-    if "json" not in ctype.lower():
-        raise ValueError(f"El endpoint no devolvió JSON. Content-Type: {ctype or 'sin Content-Type'}")
-    payload = json.loads(raw)
+        body = e.read().decode("utf-8", errors="replace")[:500]
+        raise ValueError(f"El endpoint respondió HTTP {e.code}. URL: {url}. Respuesta: {body}") from e
+    if "csv" in ctype.lower() or url.endswith("formato=csv"):
+        return guardar_rechazos_csv(raw, desde, hasta, url)
+    if "json" in ctype.lower():
+        payload = json.loads(raw)
+        return guardar_rechazos_payload(payload, desde, hasta, url)
+    raise ValueError(f"El endpoint no devolvió CSV ni JSON. Content-Type: {ctype or 'sin Content-Type'}")
+
+
+def guardar_rechazos_csv(raw, desde="", hasta="", origen="archivo"):
+    df = pd.read_csv(StringIO(raw))
+    payload = df.fillna("").to_dict(orient="records")
+    return guardar_rechazos_payload(payload, desde, hasta, origen)
+
+
+def guardar_rechazos_payload(payload, desde="", hasta="", origen="archivo"):
     recs = {}
     for row in _json_items(payload):
         rec = _norm_rechazo(row)
@@ -165,7 +190,7 @@ def importar_rechazos(desde=None, hasta=None):
             if rec["motivo"] and not recs[key].get("motivo"):
                 recs[key]["motivo"] = rec["motivo"]
     guardados = storage.upsert_rechazos(recs)
-    return {"desde": desde, "hasta": hasta, "url": url, "recibidos": len(recs), "guardados": guardados}
+    return {"desde": desde, "hasta": hasta, "url": origen, "recibidos": len(recs), "guardados": guardados}
 
 
 def _time_to_min(h, m="0"):

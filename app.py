@@ -15,6 +15,7 @@ clave para subir datos.
 """
 
 import os
+import json
 import secrets
 from datetime import date
 from flask import Flask, request, redirect, url_for, Response, session
@@ -67,12 +68,14 @@ a{{color:#1E3A8A;font-size:13.5px}}</style></head>
 <p style="margin-top:18px"><a href="/dashboard">&larr; Volver al dashboard</a> · <a href="/logout">Cerrar sesiÃ³n</a></p>
 <hr style="border:0;border-top:1px solid #DCE2EA;margin:24px 0">
 <h1>Importar rechazos</h1>
-<p>Consume el endpoint JSON de rechazos diarios de Dolores y lo guarda en la base.</p>
-<form method=post action="/actualizar-rechazos">
+<p>Consume el endpoint CSV de rechazos diarios de Dolores y lo guarda en la base.</p>
+<form method=post action="/actualizar-rechazos" enctype="multipart/form-data">
   <label>Desde</label>
   <input type=date name=desde value="2026-01-01" required>
   <label>Hasta</label>
   <input type=date name=hasta value="{hasta_default}" required>
+  <label>Archivo de rechazos diarios (opcional .csv / .json)</label>
+  <input type=file name=rechazos_file accept=".csv,.json,text/csv,application/json">
   <button class=btn type=submit>Importar rechazos</button>
 </form>
 </div></body></html>"""
@@ -211,8 +214,17 @@ def actualizar_rechazos():
         return blocked
     desde = request.form.get("desde") or "2026-01-01"
     hasta = request.form.get("hasta") or date.today().strftime("%Y-%m-%d")
+    archivo = request.files.get("rechazos_file")
     try:
-        st = pipeline.importar_rechazos(desde, hasta)
+        if archivo and archivo.filename:
+            if archivo.filename.lower().endswith(".csv"):
+                raw = archivo.stream.read().decode("utf-8-sig")
+                st = pipeline.guardar_rechazos_csv(raw, desde, hasta, archivo.filename)
+            else:
+                payload = json.load(archivo.stream)
+                st = pipeline.guardar_rechazos_payload(payload, desde, hasta, archivo.filename)
+        else:
+            st = pipeline.importar_rechazos(desde, hasta)
     except Exception as e:
         return Response(_admin_page(f"Error importando rechazos: {e}", err=True), mimetype="text/html", status=400)
     msg = f"Listo. Rechazos importados: {st['guardados']} días ({st['desde']} a {st['hasta']})."
