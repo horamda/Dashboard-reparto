@@ -60,21 +60,21 @@ tfoot td{font-weight:700;border-top:2px solid var(--line);border-bottom:none}
 <div class="sub" id="periodo">del Palacio S.A.</div></div>
 <div class="hcount"><b id="hc">0</b>rutas analizadas</div></div></header>
 <div class="wrap">
- <div class="alert" id="alert"><span>&#9888;</span><span><b id="alertN">0</b> rutas superan las <b>12 hs totales</b> — casi siempre rutas que el chofer no cerró en Foxtrot. Revisar cierres.</span></div>
+ <div class="alert" id="alert"><span>&#9888;</span><span><b id="alertN">0</b> rutas con más de <b>12 hs totales</b>: se consideran <b>datos corruptos o no confiables</b> y quedan fuera de los indicadores operativos.</span></div>
  <div class="filters">
   <div class="fg"><label>Zona / Sucursal</label><select id="fSuc"></select></div>
   <div class="fg"><label>Mes</label><select id="fMes"></select></div>
   <div class="fg"><label>Chofer</label><select id="fCho"></select></div>
   <button class="reset" id="reset">Limpiar filtros</button>
  </div>
- <div class="tabs"><button class="tab active" id="tabMes">Mensual</button><button class="tab" id="tabDia">Diario</button><button class="tab" id="tabSem">Semanal</button></div>
+ <div class="tabs"><button class="tab active" id="tabMes">Mensual</button><button class="tab" id="tabDia">Diario</button><button class="tab" id="tabSem">Semanal</button><button class="tab" id="tabCalidad">Calidad de datos</button></div>
  <div class="sectlbl">Tiempos</div>
  <div class="cards c5">
   <div class="card" id="cTml"><div class="k">TML · minutos</div><div class="v" id="kTml">–</div><div class="obj">objetivo 30 min</div><div class="bar"><i id="bTml"></i></div></div>
   <div class="card" id="cTi"><div class="k">TI · minutos</div><div class="v" id="kTi">–</div><div class="obj">objetivo 30 min</div><div class="bar"><i id="bTi"></i></div></div>
   <div class="card" id="cHr"><div class="k">Horas en ruta</div><div class="v" id="kHr">–</div><div class="obj">objetivo 7 h · máx 8 h</div><div class="bar"><i id="bHr"></i></div></div>
   <div class="card" id="cN"><div class="k">Rutas</div><div class="v" id="kN">–</div><div class="obj">con cierre válido</div><div class="bar"><i style="width:100%;background:var(--ink2)"></i></div></div>
-  <div class="card" id="cW"><div class="k">Alerta +12 h</div><div class="v" id="kW">–</div><div class="obj">rutas fuera de rango</div><div class="bar"><i id="bW"></i></div></div>
+  <div class="card" id="cW"><div class="k">Datos no confiables</div><div class="v" id="kW">–</div><div class="obj">rutas con más de 12 h</div><div class="bar"><i id="bW"></i></div></div>
  </div>
  <div class="sectlbl">Calidad Foxtrot</div>
  <div class="cards c4" style="margin-bottom:22px">
@@ -141,6 +141,19 @@ tfoot td{font-weight:700;border-top:2px solid var(--line);border-bottom:none}
   </div>
   <div class="grid" style="grid-template-columns:1fr"><div class="panel"><h2>Semana (lun a sáb)</h2><div class="note">Adherencia verde si ≥85%, rojo si no.</div>
     <table id="tblS"><thead><tr><th>Día</th><th>Rutas</th><th>TML</th><th>TI</th><th>Horas</th><th>Adh.sec</th><th>Adh.click</th><th>Disp.km</th><th>Disp.hs</th></tr></thead><tbody id="tbodyS"></tbody></table></div></div>
+ </div>
+ <div id="viewCalidad" style="display:none">
+  <div class="hint">Las rutas con más de 12 horas se tratan como datos corruptos o no confiables. Calidad de datos = rutas confiables / rutas totales.</div>
+  <div class="cards c4" style="margin-bottom:22px">
+   <div class="card" id="cDQ"><div class="badge" id="gDQ"></div><div class="k">Calidad de datos</div><div class="v" id="kDQ">–</div><div class="obj">datos confiables sobre el total</div><div class="bar"><i id="bDQ"></i></div></div>
+   <div class="card" id="cDQBad"><div class="k">Datos corruptos</div><div class="v" id="kDQBad">–</div><div class="obj">rutas con más de 12 h</div><div class="bar"><i id="bDQBad"></i></div></div>
+   <div class="card" id="cDQTotal"><div class="k">Rutas totales</div><div class="v" id="kDQTotal">–</div><div class="obj">base filtrada actual</div><div class="bar"><i style="width:100%;background:var(--ink2)"></i></div></div>
+  </div>
+  <div class="grid">
+   <div class="panel"><h2>Calidad de datos por mes</h2><div class="note">% de rutas confiables · rojo si hay datos corruptos relevantes</div><div class="chartbox"><canvas id="chDQ"></canvas></div></div>
+   <div class="panel" style="grid-column:span 2"><h2>Detalle mensual de calidad</h2><div class="note">Datos corruptos = rutas con más de 12 horas.</div>
+    <table><thead><tr><th>Mes</th><th>Total</th><th>Confiables</th><th>Corruptos / no confiables</th><th>Calidad</th></tr></thead><tbody id="tbodyQ"></tbody></table></div>
+  </div>
  </div>
 </div>
 <script>
@@ -211,6 +224,8 @@ function dispChart(id,labels,kV,hV){if(!chartsReady())return;if(ch[id])ch[id].de
    scales:{y:{ticks:{callback:v=>v+'%',color:'#657085',font:{size:11}},grid:{color:'#eef1f5'}},x:{ticks:{color:'#657085',font:{size:10},maxRotation:60,minRotation:labels.length>12?45:0},grid:{display:false}}}}})}
 function rowsHtml(items,keyFmt,withDisp){return items.map(s=>{const cl=(v,o)=>v==null?'':(v<=o?'g':'r'),ca=v=>v==null?'':(v>=OA?'g':'r'),cd=v=>v==null?'':(Math.abs(v)<=OD?'g':'r');
   return '<tr><td>'+keyFmt(s.key)+'</td><td>'+s.n+'</td><td class="'+cl(s.tml,OBJ.tml)+'">'+r1(s.tml)+'</td><td class="'+cl(s.ti,OBJ.ti)+'">'+r1(s.ti)+'</td><td class="'+cl(s.hr,OBJ.ruta)+'">'+r2(s.hr)+'</td><td class="'+ca(s.as)+'">'+(s.as==null?'–':r1(s.as)+'%')+'</td><td class="'+ca(s.ac)+'">'+(s.ac==null?'–':r1(s.ac)+'%')+'</td>'+(withDisp?('<td class="'+cd(s.dk)+'">'+sgn(s.dk)+'</td><td class="'+cd(s.dh)+'">'+sgn(s.dh)+'</td>'):'')+'</tr>'}).join('')}
+function quality(scope){const total=scope.length,bad=scope.filter(r=>r.alerta).length,good=total-bad,p=total?good/total*100:null;return{total,bad,good,p}}
+function qualityByMonth(scope){const g={};scope.forEach(r=>{(g[r.mes]=g[r.mes]||[]).push(r)});return Object.keys(g).sort().map(k=>{const q=quality(g[k]);return{key:k,total:q.total,bad:q.bad,good:q.good,p:q.p}})}
 function renderCards(){const cards=R.filter(scopeCards),us=cards.filter(r=>r.usable);
  const aTml=avg(us.map(r=>r.tml)),aTi=avg(us.map(r=>r.ti)),aHr=avg(us.map(r=>r.horas));
  kTml.textContent=r1(aTml);kTi.textContent=r1(aTi);kHr.textContent=r2(aHr);kN.textContent=us.length;
@@ -269,13 +284,21 @@ function renderSem(){if(!state.sem&&WEEKS.length)state.sem=WEEKS[WEEKS.length-1]
  adhChart('chAdhS',lab,dd.map(s=>s.as),dd.map(s=>s.ac));
  dispChart('chDispS',lab,dd.map(s=>s.dk),dd.map(s=>s.dh));
  tbodyS.innerHTML=rowsHtml(dd,wdLbl,true);}
-function render(){renderCards();if(state.tab==='mes')renderMes();else if(state.tab==='dia')renderDia();else renderSem();}
+function renderCalidad(){const scope=R.filter(full),q=quality(scope),ok=q.p!=null&&q.p>=95,col=q.p==null?C.obj:(ok?C.good:(q.p>=90?C.amber:C.bad));
+ kDQ.textContent=q.p==null?'–':r1(q.p)+'%';kDQBad.textContent=q.bad;kDQTotal.textContent=q.total;
+ cDQ.style.setProperty('--accent',col);bDQ.style.background=col;bDQ.style.width=Math.min(100,q.p||0)+'%';
+ bDQBad.style.background=q.bad?C.bad:C.good;bDQBad.style.width=Math.min(100,q.total?100*q.bad/q.total:0)+'%';
+ gDQ.className='badge '+(ok?'ok':'no');gDQ.textContent=q.p==null?'':(ok?'OK':'REVISAR');
+ const ser=qualityByMonth(R.filter(base)),lab=ser.map(s=>mLbl(s.key));
+ barGen('chDQ',lab,ser.map(s=>s.p),v=>r1(v)+'%',v=>v>=95?C.good:(v>=90?C.amber:C.bad),95,true);
+ tbodyQ.innerHTML=ser.map(s=>'<tr><td>'+mLbl(s.key)+'</td><td>'+s.total+'</td><td class="g">'+s.good+'</td><td class="'+(s.bad?'r':'g')+'">'+s.bad+'</td><td class="'+(s.p>=95?'g':'r')+'">'+r1(s.p)+'%</td></tr>').join('');}
+function render(){renderCards();if(state.tab==='mes')renderMes();else if(state.tab==='dia')renderDia();else if(state.tab==='sem')renderSem();else renderCalidad();}
 ['fSuc','fMes','fCho'].forEach(id=>document.getElementById(id).addEventListener('change',e=>{state[{fSuc:'suc',fMes:'mes',fCho:'cho'}[id]]=e.target.value;render()}));
 reset.addEventListener('click',()=>{state.suc=state.mes=state.cho='__all';fSuc.value=fMes.value=fCho.value='__all';render()});
-function switchTab(t){state.tab=t;tabMes.classList.toggle('active',t==='mes');tabDia.classList.toggle('active',t==='dia');tabSem.classList.toggle('active',t==='sem');
- document.getElementById('viewMes').style.display=t==='mes'?'':'none';document.getElementById('viewDia').style.display=t==='dia'?'':'none';document.getElementById('viewSem').style.display=t==='sem'?'':'none';
+function switchTab(t){state.tab=t;tabMes.classList.toggle('active',t==='mes');tabDia.classList.toggle('active',t==='dia');tabSem.classList.toggle('active',t==='sem');tabCalidad.classList.toggle('active',t==='calidad');
+ document.getElementById('viewMes').style.display=t==='mes'?'':'none';document.getElementById('viewDia').style.display=t==='dia'?'':'none';document.getElementById('viewSem').style.display=t==='sem'?'':'none';document.getElementById('viewCalidad').style.display=t==='calidad'?'':'none';
  if(t==='sem'&&!state.sem&&WEEKS.length)state.sem=WEEKS[WEEKS.length-1];render()}
-tabMes.addEventListener('click',()=>switchTab('mes'));tabDia.addEventListener('click',()=>switchTab('dia'));tabSem.addEventListener('click',()=>switchTab('sem'));
+tabMes.addEventListener('click',()=>switchTab('mes'));tabDia.addEventListener('click',()=>switchTab('dia'));tabSem.addEventListener('click',()=>switchTab('sem'));tabCalidad.addEventListener('click',()=>switchTab('calidad'));
 render();
 const chartScript=document.createElement('script');
 chartScript.src='https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js';
