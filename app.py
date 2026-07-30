@@ -194,13 +194,22 @@ def actualizar():
 def salud():
     base = pipeline.storage.load_all()
     clientes = pipeline.storage.load_clientes()
+    rutas = list(base.values())
+    ontime_rutas = [r for r in rutas if "pdv_total" in r]
     return {
         "ok": True,
         "backend": pipeline.storage.backend_name(),
         "con_datos": len(base) > 0,
         "rutas": len(base),
-        "validas": len([r for r in base.values() if r.get("usable")]),
+        "validas": len([r for r in rutas if r.get("usable")]),
         "clientes": len(clientes),
+        "clientes_con_ventana": len([c for c in clientes.values() if c.get("ventanas")]),
+        "ontime_rutas": len(ontime_rutas),
+        "ontime_pdv_total": sum(r.get("pdv_total", 0) for r in rutas),
+        "ontime_pdv_evaluables": sum((r.get("pdv_ontime", 0) + r.get("pdv_fuera_ontime", 0)) for r in rutas),
+        "ontime_pdv_ok": sum(r.get("pdv_ontime", 0) for r in rutas),
+        "ontime_pdv_fuera": sum(r.get("pdv_fuera_ontime", 0) for r in rutas),
+        "ontime_pdv_sin_ventana": sum(r.get("pdv_sin_ventana", 0) for r in rutas),
     }
 
 

@@ -68,6 +68,7 @@ tfoot td{font-weight:700;border-top:2px solid var(--line);border-bottom:none}
   <button class="reset" id="reset">Limpiar filtros</button>
  </div>
  <div class="tabs"><button class="tab active" id="tabMes">Mensual</button><button class="tab" id="tabDia">Diario</button><button class="tab" id="tabSem">Semanal</button><button class="tab" id="tabCalidad">Calidad de datos</button><button class="tab" id="tabOnTime">On time</button></div>
+ <div id="operationalSummary">
  <div class="sectlbl">Tiempos</div>
  <div class="cards c5">
   <div class="card" id="cTml"><div class="k">TML · minutos</div><div class="v" id="kTml">–</div><div class="obj">objetivo 30 min</div><div class="bar"><i id="bTml"></i></div></div>
@@ -89,6 +90,7 @@ tfoot td{font-weight:700;border-top:2px solid var(--line);border-bottom:none}
   <div class="gcard"><div class="gt">TML · minutos</div><div id="ggTml"></div><div class="gsub">objetivo 30</div></div>
   <div class="gcard"><div class="gt">Tiempo en ruta</div><div id="ggHr"></div><div class="gsub">objetivo 7 h</div></div>
   <div class="gcard"><div class="gt">TI · minutos</div><div id="ggTi"></div><div class="gsub">objetivo 30</div></div>
+ </div>
  </div>
  <div id="viewMes">
   <div class="sectlbl">Cumplimiento de objetivos</div>
@@ -324,6 +326,7 @@ function render(){renderCards();if(state.tab==='mes')renderMes();else if(state.t
 reset.addEventListener('click',()=>{state.suc=state.mes=state.cho='__all';fSuc.value=fMes.value=fCho.value='__all';render()});
 function switchTab(t){state.tab=t;tabMes.classList.toggle('active',t==='mes');tabDia.classList.toggle('active',t==='dia');tabSem.classList.toggle('active',t==='sem');tabCalidad.classList.toggle('active',t==='calidad');tabOnTime.classList.toggle('active',t==='ontime');
  document.getElementById('viewMes').style.display=t==='mes'?'':'none';document.getElementById('viewDia').style.display=t==='dia'?'':'none';document.getElementById('viewSem').style.display=t==='sem'?'':'none';document.getElementById('viewCalidad').style.display=t==='calidad'?'':'none';document.getElementById('viewOnTime').style.display=t==='ontime'?'':'none';
+ document.getElementById('operationalSummary').style.display=t==='ontime'?'none':'';
  if(t==='sem'&&!state.sem&&WEEKS.length)state.sem=WEEKS[WEEKS.length-1];render()}
 tabMes.addEventListener('click',()=>switchTab('mes'));tabDia.addEventListener('click',()=>switchTab('dia'));tabSem.addEventListener('click',()=>switchTab('sem'));tabCalidad.addEventListener('click',()=>switchTab('calidad'));tabOnTime.addEventListener('click',()=>switchTab('ontime'));
 render();

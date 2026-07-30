@@ -52,6 +52,16 @@ def _norm_id(v):
     s = str(v).strip()
     if re.fullmatch(r"\d+\.0", s):
         s = s[:-2]
+    m = re.fullmatch(r"0*(\d+)", s)
+    if m:
+        return m.group(1)
+    return s
+
+
+def _norm_customer_id_foxtrot(v):
+    s = _norm_id(v)
+    if len(s) > 8 and s.isdigit():
+        return str(int(s[-8:]))
     return s
 
 
@@ -169,7 +179,7 @@ def _mapa_ontime(csv_files):
     if cli_col is None:
         return {}
     ts = visitas["click"].fillna(visitas["vs"])
-    visitas = visitas.assign(cliente=visitas[cli_col].map(_norm_id), paso=ts)
+    visitas = visitas.assign(cliente=visitas[cli_col].map(_norm_customer_id_foxtrot), paso=ts)
     stats = {}
     for rid, grp in visitas.groupby("Route ID"):
         total = ontime = fuera = sin_ventana = 0
