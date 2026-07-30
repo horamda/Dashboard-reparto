@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+﻿# -*- coding: utf-8 -*-
 """
 App Flask del dashboard de Tiempos de reparto - Foxtrot (Del Palacio S.A.).
 
@@ -39,16 +39,17 @@ def no_cache(response):
 ADMIN_HTML = """<!doctype html><html lang=es><head><meta charset=utf-8>
 <meta name=viewport content="width=device-width,initial-scale=1">
 <title>Actualizar dashboard</title>
-<style>body{{font-family:system-ui,Segoe UI,Arial,sans-serif;background:#EEF1F5;color:#15233B;margin:0}}
-.box{{max-width:560px;margin:6vh auto;background:#fff;border:1px solid #DCE2EA;border-radius:14px;padding:28px 30px}}
-h1{{font-size:20px;margin:0 0 4px}}p{{color:#657085;font-size:13.5px;margin:0 0 18px}}
+<style>*{{box-sizing:border-box}}body{{font-family:system-ui,Segoe UI,Arial,sans-serif;background:#EEF1F5;color:#15233B;margin:0;line-height:1.45;-webkit-font-smoothing:antialiased}}
+.box{{width:min(100% - 28px,620px);margin:6vh auto;background:#fff;border:1px solid #DCE2EA;border-radius:12px;padding:28px 30px;box-shadow:0 8px 22px rgba(21,35,59,.06)}}
+h1{{font-size:20px;line-height:1.2;margin:0 0 4px}}p{{color:#657085;font-size:13.5px;margin:0 0 18px}}
 label{{display:block;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.4px;color:#657085;margin:16px 0 6px}}
-input[type=file],input[type=password]{{width:100%;padding:9px 10px;border:1px solid #DCE2EA;border-radius:8px;font-size:14px;background:#fff}}
-input[type=date]{{width:100%;padding:9px 10px;border:1px solid #DCE2EA;border-radius:8px;font-size:14px;background:#fff}}
-.btn{{margin-top:22px;width:100%;background:#15233B;color:#fff;border:0;border-radius:9px;padding:12px;font-size:15px;font-weight:600;cursor:pointer}}
+input[type=file],input[type=password],input[type=date]{{width:100%;min-height:42px;padding:10px 11px;border:1px solid #DCE2EA;border-radius:8px;font-size:14px;background:#fff}}
+input:focus{{outline:2px solid #C77D1A;outline-offset:1px}}
+.btn{{margin-top:22px;width:100%;min-height:44px;background:#15233B;color:#fff;border:0;border-radius:9px;padding:12px;font-size:15px;font-weight:650;cursor:pointer}}
+.btn:hover{{background:#26334d}}
 .msg{{background:#DCFCE7;border:1px solid #86EFAC;color:#166534;border-radius:9px;padding:10px 12px;font-size:13.5px;margin-bottom:16px}}
 .err{{background:#FEE2E2;border:1px solid #FCA5A5;color:#991B1B}}
-a{{color:#1E3A8A;font-size:13.5px}}</style></head>
+a{{color:#1E3A8A;font-size:13.5px}}hr{{border:0;border-top:1px solid #DCE2EA;margin:24px 0}}@media(max-width:640px){{.box{{width:min(100% - 20px,620px);margin:18px auto;padding:22px 18px}}}}</style></head>
 <body><div class=box>
 <h1>Actualizar dashboard</h1>
 <p>Subí el export nuevo de Route Analytics. Se agregan solo los días que falten; lo ya cargado no cambia.</p>
@@ -65,8 +66,8 @@ a{{color:#1E3A8A;font-size:13.5px}}</style></head>
     <input type=checkbox name=reset value=1 style="width:auto;margin-right:6px">Rehacer la base de cero (borra lo guardado)</label>
   <button class=btn type=submit>Actualizar</button>
 </form>
-<p style="margin-top:18px"><a href="/dashboard">&larr; Volver al dashboard</a> · <a href="/logout">Cerrar sesiÃ³n</a></p>
-<hr style="border:0;border-top:1px solid #DCE2EA;margin:24px 0">
+<p style="margin-top:18px"><a href="/dashboard">&larr; Volver al dashboard</a> · <a href="/logout">Cerrar sesión</a></p>
+<hr>
 <h1>Importar rechazos</h1>
 <p>Consume el endpoint CSV de rechazos diarios de Dolores y lo guarda en la base.</p>
 <form method=post action="/actualizar-rechazos" enctype="multipart/form-data">
@@ -83,13 +84,15 @@ a{{color:#1E3A8A;font-size:13.5px}}</style></head>
 LOGIN_HTML = """<!doctype html><html lang=es><head><meta charset=utf-8>
 <meta name=viewport content="width=device-width,initial-scale=1">
 <title>Ingresar</title>
-<style>body{{font-family:system-ui,Segoe UI,Arial,sans-serif;background:#EEF1F5;color:#15233B;margin:0}}
-.box{{max-width:420px;margin:12vh auto;background:#fff;border:1px solid #DCE2EA;border-radius:14px;padding:28px 30px}}
-h1{{font-size:20px;margin:0 0 4px}}p{{color:#657085;font-size:13.5px;margin:0 0 18px}}
+<style>*{{box-sizing:border-box}}body{{font-family:system-ui,Segoe UI,Arial,sans-serif;background:#EEF1F5;color:#15233B;margin:0;line-height:1.45;-webkit-font-smoothing:antialiased}}
+.box{{width:min(100% - 28px,420px);margin:12vh auto;background:#fff;border:1px solid #DCE2EA;border-radius:12px;padding:28px 30px;box-shadow:0 8px 22px rgba(21,35,59,.06)}}
+h1{{font-size:20px;line-height:1.2;margin:0 0 4px}}p{{color:#657085;font-size:13.5px;margin:0 0 18px}}
 label{{display:block;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.4px;color:#657085;margin:16px 0 6px}}
-input{{width:100%;padding:10px;border:1px solid #DCE2EA;border-radius:8px;font-size:14px}}
-.btn{{margin-top:22px;width:100%;background:#15233B;color:#fff;border:0;border-radius:9px;padding:12px;font-size:15px;font-weight:600;cursor:pointer}}
-.err{{background:#FEE2E2;border:1px solid #FCA5A5;color:#991B1B;border-radius:9px;padding:10px 12px;font-size:13.5px;margin-bottom:16px}}</style></head>
+input{{width:100%;min-height:42px;padding:10px 11px;border:1px solid #DCE2EA;border-radius:8px;font-size:14px}}
+input:focus{{outline:2px solid #C77D1A;outline-offset:1px}}
+.btn{{margin-top:22px;width:100%;min-height:44px;background:#15233B;color:#fff;border:0;border-radius:9px;padding:12px;font-size:15px;font-weight:650;cursor:pointer}}
+.btn:hover{{background:#26334d}}
+.err{{background:#FEE2E2;border:1px solid #FCA5A5;color:#991B1B;border-radius:9px;padding:10px 12px;font-size:13.5px;margin-bottom:16px}}@media(max-width:640px){{.box{{width:min(100% - 20px,420px);margin:18px auto;padding:22px 18px}}}}</style></head>
 <body><div class=box>
 <h1>Ingresar</h1>
 <p>Acceso para actualizar datos del dashboard.</p>
@@ -106,11 +109,13 @@ input{{width:100%;padding:10px;border:1px solid #DCE2EA;border-radius:8px;font-s
 
 LANDING = """<!doctype html><html lang=es><head><meta charset=utf-8>
 <meta name=viewport content="width=device-width,initial-scale=1"><title>Dashboard de reparto</title>
-<style>body{font-family:system-ui,Segoe UI,Arial,sans-serif;background:#EEF1F5;color:#15233B;text-align:center;padding:12vh 20px}
-a{display:inline-block;margin-top:16px;background:#15233B;color:#fff;text-decoration:none;border-radius:9px;padding:12px 22px;font-weight:600}</style></head>
-<body><h1>Todavía no hay datos cargados</h1>
-<p style="color:#657085">Subí el primer export para generar el dashboard.</p>
-<a href="/admin">Cargar datos</a></body></html>"""
+<style>*{box-sizing:border-box}body{font-family:system-ui,Segoe UI,Arial,sans-serif;background:#EEF1F5;color:#15233B;margin:0;min-height:100vh;display:grid;place-items:center;padding:20px;line-height:1.45;-webkit-font-smoothing:antialiased}
+.box{width:min(100%,460px);background:#fff;border:1px solid #DCE2EA;border-radius:12px;padding:28px 30px;text-align:center;box-shadow:0 8px 22px rgba(21,35,59,.06)}
+h1{font-size:22px;line-height:1.2;margin:0 0 8px}p{color:#657085;font-size:14px;margin:0}
+a{display:inline-block;margin-top:18px;background:#15233B;color:#fff;text-decoration:none;border-radius:9px;padding:12px 22px;font-weight:650}</style></head>
+<body><div class=box><h1>Todavía no hay datos cargados</h1>
+<p>Subí el primer export para generar el dashboard.</p>
+<a href="/admin">Cargar datos</a></div></body></html>"""
 
 
 def _admin_page(msg="", err=False):
