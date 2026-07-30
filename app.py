@@ -100,7 +100,14 @@ def actualizar():
 
 @app.route("/salud")
 def salud():
-    return {"ok": True, "con_datos": pipeline.hay_datos()}
+    base = pipeline.storage.load_all()
+    return {
+        "ok": True,
+        "backend": pipeline.storage.backend_name(),
+        "con_datos": len(base) > 0,
+        "rutas": len(base),
+        "validas": len([r for r in base.values() if r.get("usable")]),
+    }
 
 
 if __name__ == "__main__":

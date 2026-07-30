@@ -12,13 +12,36 @@ no exista todavía; las ya cargadas nunca se modifican (semántica ON CONFLICT D
 
 import os
 import json
+from urllib.parse import quote
 
-DATABASE_URL = os.environ.get("DATABASE_URL")
+
+def _database_url_from_env():
+    url = os.environ.get("DATABASE_URL") or os.environ.get("POSTGRES_URL")
+    if url:
+        return url
+
+    required = ("PGHOST", "PGUSER", "PGPASSWORD", "PGDATABASE")
+    if all(os.environ.get(k) for k in required):
+        user = quote(os.environ["PGUSER"], safe="")
+        password = quote(os.environ["PGPASSWORD"], safe="")
+        host = os.environ["PGHOST"]
+        port = os.environ.get("PGPORT", "5432")
+        database = quote(os.environ["PGDATABASE"], safe="")
+        return f"postgresql://{user}:{password}@{host}:{port}/{database}"
+
+    return None
+
+
+DATABASE_URL = _database_url_from_env()
 AQUI = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.environ.get("DATA_DIR", os.path.join(AQUI, "data"))
 JSON_PATH = os.path.join(DATA_DIR, "datos_dashboard.json")
 
 BACKEND = "postgres" if DATABASE_URL else "json"
+
+
+def backend_name():
+    return BACKEND
 
 
 # ======================= POSTGRES =======================
