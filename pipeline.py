@@ -46,6 +46,20 @@ def _leer_excel(f, filename=""):
     return pd.read_excel(f, engine=eng)
 
 
+def _leer_excel_visitas(f, filename=""):
+    name = (filename or getattr(f, "name", "") or str(f)).lower()
+    eng = "xlrd" if name.endswith(".xls") else None
+    sheets = pd.read_excel(f, sheet_name=None, engine=eng)
+    required = {"Route ID", "Customer ID", "Visit Start Timestamp"}
+    for df in sheets.values():
+        if required.issubset(set(df.columns)):
+            return df
+    for sheet_name, df in sheets.items():
+        if "visita" in str(sheet_name).lower() or "visit" in str(sheet_name).lower():
+            return df
+    return next(iter(sheets.values()))
+
+
 def _norm_id(v):
     if pd.isna(v):
         return ""
@@ -145,7 +159,11 @@ def _leer_csv_visitas(csv_files):
         try:
             if hasattr(f, "seek"):
                 f.seek(0)
-            c = pd.read_csv(f)
+            n = (name or getattr(f, "name", "") or "").lower()
+            if n.endswith((".xls", ".xlsx")):
+                c = _leer_excel_visitas(f, n)
+            else:
+                c = pd.read_csv(f)
         except Exception:
             continue
         if "Route ID" not in c.columns:

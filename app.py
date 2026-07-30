@@ -53,8 +53,8 @@ a{{color:#1E3A8A;font-size:13.5px}}</style></head>
 <form method=post action="/actualizar" enctype="multipart/form-data">
   <label>Export Route Analytics (.xls / .xlsx) *</label>
   <input type=file name=xls accept=".xls,.xlsx" required>
-  <label>CSV de visitas (opcional, para recuperar rutas sin cierre)</label>
-  <input type=file name=csv accept=".csv" multiple>
+  <label>Archivo de visitas Foxtrot (opcional, para recuperar rutas sin cierre y calcular on time)</label>
+  <input type=file name=csv accept=".csv,.xls,.xlsx" multiple>
   <label>CSV de clientes (opcional, actualiza ventanas horarias)</label>
   <input type=file name=clientes accept=".csv">
   {token_field}
