@@ -7,7 +7,7 @@
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--ink);font-size:14px;line-height:1.45;font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased}
 .wrap{max-width:1240px;margin:0 auto;padding:0 20px 56px}
-header{background:var(--ink);color:#fff;padding:22px 0 20px;margin-bottom:20px;border-bottom:3px solid #C77D1A}
+header{background:var(--ink);color:#fff;padding:22px 0 20px;margin-bottom:20px;border-bottom:3px solid #C77D1A;position:sticky;top:0;z-index:20}
 header .wrap{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap}
 h1{font-size:21px;font-weight:700;letter-spacing:-.2px}.sub{color:#aab6cc;font-size:13px;margin-top:3px}
 .hcount{text-align:right;color:#cdd7e6;font-size:12px}.hcount b{display:block;font-size:26px;color:#fff;font-weight:700;line-height:1.1}
@@ -49,7 +49,7 @@ select:focus{outline:2px solid #C77D1A;outline-offset:1px}
 table{width:100%;border-collapse:collapse;font-size:12.5px}
 th,td{padding:8px 8px;text-align:right;border-bottom:1px solid var(--line)}
 th:first-child,td:first-child{text-align:left}
-thead th{font-size:10.5px;text-transform:uppercase;letter-spacing:.3px;color:var(--muted);font-weight:600;border-bottom:2px solid var(--line)}
+thead th{font-size:10.5px;text-transform:uppercase;letter-spacing:.3px;color:var(--muted);font-weight:600;border-bottom:2px solid var(--line);position:sticky;top:0;z-index:2;background:var(--card)}
 tbody tr:hover{background:#f6f8fb}
 td.g{color:var(--good);font-weight:600}td.r{color:var(--bad);font-weight:600}
 tfoot td{font-weight:700;border-top:2px solid var(--line);border-bottom:none}
