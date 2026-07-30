@@ -199,7 +199,7 @@ def _mapa_correccion(csv_files):
 def _mapa_ontime(csv_files):
     visitas = _leer_csv_visitas(csv_files)
     clientes = storage.load_clientes()
-    if visitas.empty or not clientes:
+    if visitas.empty:
         return {}
     cli_col = _pick_col(visitas, ["Customer ID", "Customer Id", "Customer", "Client ID", "Cliente"])
     if cli_col is None:
@@ -213,24 +213,26 @@ def _mapa_ontime(csv_files):
         clientes_con_ventana = {}
         clientes_sin_ventana = {}
         for _, v in grp.iterrows():
-            cliente = clientes.get(v["cliente"])
-            if not cliente:
+            cid = v["cliente"]
+            if not cid:
                 continue
             total += 1
+            cliente = clientes.get(cid) or {}
             nombre = cliente.get("nombre") or cliente.get("razon_social") or str(v.get("Customer Name", ""))
             ventanas = cliente.get("ventanas", [])
-            cliente_ref = {"cliente": v["cliente"], "nombre": nombre}
+            cliente_ref = {"cliente": cid, "nombre": nombre}
             if ventanas:
-                clientes_con_ventana[v["cliente"]] = cliente_ref
+                clientes_con_ventana[cid] = cliente_ref
             else:
-                clientes_sin_ventana[v["cliente"]] = cliente_ref
+                cliente_ref["motivo"] = "sin ventana cargada" if cliente else "no encontrado en base de clientes"
+                clientes_sin_ventana[cid] = cliente_ref
             ok = _en_ventana(v["paso"], ventanas)
             if ok is True:
                 ontime += 1
             elif ok is False:
                 fuera += 1
                 fuera_clientes.append({
-                    "cliente": v["cliente"],
+                    "cliente": cid,
                     "nombre": nombre,
                     "visita": v["paso"].strftime("%H:%M") if pd.notna(v["paso"]) else "",
                     "ventana": _fmt_ventanas(ventanas),
