@@ -68,7 +68,7 @@ tfoot td{font-weight:700;border-top:2px solid var(--line);border-bottom:none}
   <div class="fg"><label>Chofer</label><select id="fCho"></select></div>
   <button class="reset" id="reset">Limpiar filtros</button>
  </div>
- <div class="tabs"><button class="tab active" id="tabMes">Mensual</button><button class="tab" id="tabDia">Diario</button></div>
+ <div class="tabs"><button class="tab active" id="tabMes">Mensual</button><button class="tab" id="tabDia">Diario</button><button class="tab" id="tabSem">Semanal</button></div>
  <div class="sectlbl">Tiempos</div>
  <div class="cards c5">
   <div class="card" id="cTml"><div class="k">TML · minutos</div><div class="v" id="kTml">–</div><div class="obj">objetivo 30 min</div><div class="bar"><i id="bTml"></i></div></div>
@@ -128,11 +128,25 @@ tfoot td{font-weight:700;border-top:2px solid var(--line);border-bottom:none}
   <div class="grid" style="grid-template-columns:1fr"><div class="panel"><h2>Día por día</h2><div class="note">Adherencia verde si ≥85%, rojo si no.</div>
     <div class="tblscroll"><table id="tblD"><thead><tr><th>Día</th><th>Rutas</th><th>TML</th><th>TI</th><th>Horas</th><th>Adh.sec</th><th>Adh.click</th><th>Disp.km</th><th>Disp.hs</th></tr></thead><tbody id="tbodyD"></tbody></table></div></div></div>
  </div>
+ <div id="viewSem" style="display:none">
+  <div class="filters" style="margin-bottom:16px"><div class="fg"><label>Semana (lunes a sábado)</label><select id="fSem"></select></div></div>
+  <div class="grid">
+   <div class="panel"><h2>TML por día</h2><div class="note">Minutos · objetivo 30</div><div class="chartbox"><canvas id="chTmlS"></canvas></div></div>
+   <div class="panel"><h2>Tiempo en ruta por día</h2><div class="note">Horas · objetivo 7</div><div class="chartbox"><canvas id="chHrS"></canvas></div></div>
+   <div class="panel"><h2>TI por día</h2><div class="note">Minutos · objetivo 30</div><div class="chartbox"><canvas id="chTiS"></canvas></div></div>
+  </div>
+  <div class="grid" style="grid-template-columns:1fr 1fr">
+   <div class="panel"><h2>Adherencia por día</h2><div class="note">Secuencia y click · objetivo 85%</div><div class="chartbox" style="height:280px"><canvas id="chAdhS"></canvas></div></div>
+   <div class="panel"><h2>Dispersión por día</h2><div class="note">Rango ±10% · verde dentro, rojo fuera</div><div class="chartbox" style="height:280px"><canvas id="chDispS"></canvas></div></div>
+  </div>
+  <div class="grid" style="grid-template-columns:1fr"><div class="panel"><h2>Semana (lun a sáb)</h2><div class="note">Adherencia verde si ≥85%, rojo si no.</div>
+    <table id="tblS"><thead><tr><th>Día</th><th>Rutas</th><th>TML</th><th>TI</th><th>Horas</th><th>Adh.sec</th><th>Adh.click</th><th>Disp.km</th><th>Disp.hs</th></tr></thead><tbody id="tbodyS"></tbody></table></div></div>
+ </div>
 </div>
 <script>
 const DATA=__DATA__;const R=DATA.rutas,MESES=DATA.meses,OBJ=DATA.obj;const OA=OBJ.adh,OD=OBJ.disp;
 const C={good:'#16A34A',bad:'#DC2626',amber:'#D97706',obj:'#1E3A8A',sec:'#7C3AED',cli:'#0E7C6B'};
-const state={suc:'__all',mes:'__all',cho:'__all',tab:'mes'};
+const state={suc:'__all',mes:'__all',cho:'__all',tab:'mes',sem:null};
 const MM={'01':'Ene','02':'Feb','03':'Mar','04':'Abr','05':'May','06':'Jun','07':'Jul'};
 const mLbl=m=>MM[m.split('-')[1]]||m;const dLbl=f=>{const p=f.split('-');return p[2]+'/'+p[1]};
 const avg=a=>{a=a.filter(v=>v!=null);return a.length?a.reduce((s,v)=>s+v,0)/a.length:null};
@@ -144,8 +158,18 @@ const colAdh=v=>v==null?C.obj:(v>=OA?C.good:C.bad);
 const colDisp=v=>v==null?C.obj:(Math.abs(v)<=OD?C.good:C.bad);
 function opts(s,a,l){s.innerHTML='<option value="__all">'+l+'</option>'+a.map(v=>'<option value="'+v+'">'+(s.id==='fMes'?mLbl(v):v)+'</option>').join('')}
 opts(fSuc,DATA.sucursales,'Todas');opts(fMes,MESES,'Todos');opts(fCho,DATA.choferes,'Todos');
+const WEEKS=[...new Set(R.map(r=>weekKey(r.fecha)))].sort();
+fSem.innerHTML=WEEKS.map(w=>'<option value="'+w+'">'+weekLabel(w)+'</option>').join('');
+state.sem=WEEKS.length?WEEKS[WEEKS.length-1]:null;fSem.value=state.sem;
+fSem.addEventListener('change',e=>{state.sem=e.target.value;render()});
 const base=r=>(state.suc==='__all'||r.suc===state.suc)&&(state.cho==='__all'||r.chofer===state.cho);
 const full=r=>base(r)&&(state.mes==='__all'||r.mes===state.mes);
+function weekKey(f){const d=new Date(f+'T00:00:00Z');const g=d.getUTCDay();const diff=(g===0?6:g-1);d.setUTCDate(d.getUTCDate()-diff);return d.toISOString().slice(0,10)}
+function addDaysUTC(f,n){const d=new Date(f+'T00:00:00Z');d.setUTCDate(d.getUTCDate()+n);return d.toISOString().slice(0,10)}
+const weekLabel=m=>dLbl(m)+' al '+dLbl(addDaysUTC(m,5));
+const WD=['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'];
+const wdLbl=f=>{const d=new Date(f+'T00:00:00Z');const g=d.getUTCDay();return WD[(g===0?6:g-1)]+' '+dLbl(f)};
+const scopeCards=r=>state.tab==='sem'?(base(r)&&weekKey(r.fecha)===state.sem):full(r);
 function aggBy(field,scope){const g={};scope.forEach(r=>{(g[r[field]]=g[r[field]]||[]).push(r)});
  return Object.keys(g).sort().map(k=>{const u=g[k];return{key:k,n:u.length,tml:avg(u.map(r=>r.tml)),ti:avg(u.map(r=>r.ti)),hr:avg(u.map(r=>r.horas)),as:avg(u.map(r=>r.adhsec)),ac:avg(u.map(r=>r.adhcli)),dk:avg(u.map(r=>r.dispkm)),dh:avg(u.map(r=>r.disphs))}})}
 let ch={};
@@ -177,9 +201,9 @@ function dispChart(id,labels,kV,hV){if(ch[id])ch[id].destroy();
   options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:true,labels:{boxWidth:10,font:{size:10},filter:i=>['Km','Hs'].includes(i.text)}},
    tooltip:{callbacks:{label:x=>x.dataset.label+': '+sgn(x.parsed.y)+(['Km','Hs'].includes(x.dataset.label)?(Math.abs(x.parsed.y)<=OD?' (dentro)':' (fuera)'):'')}}},
    scales:{y:{ticks:{callback:v=>v+'%',color:'#657085',font:{size:11}},grid:{color:'#eef1f5'}},x:{ticks:{color:'#657085',font:{size:10},maxRotation:60,minRotation:labels.length>12?45:0},grid:{display:false}}}}})}
-function rowsHtml(items,keyFmt){return items.map(s=>{const cl=(v,o)=>v==null?'':(v<=o?'g':'r'),ca=v=>v==null?'':(v>=OA?'g':'r'),cd=v=>v==null?'':(Math.abs(v)<=OD?'g':'r');
-  return '<tr><td>'+keyFmt(s.key)+'</td><td>'+s.n+'</td><td class="'+cl(s.tml,OBJ.tml)+'">'+r1(s.tml)+'</td><td class="'+cl(s.ti,OBJ.ti)+'">'+r1(s.ti)+'</td><td class="'+cl(s.hr,OBJ.ruta)+'">'+r2(s.hr)+'</td><td class="'+ca(s.as)+'">'+(s.as==null?'–':r1(s.as)+'%')+'</td><td class="'+ca(s.ac)+'">'+(s.ac==null?'–':r1(s.ac)+'%')+'</td>'+(keyFmt===dLbl?('<td class="'+cd(s.dk)+'">'+sgn(s.dk)+'</td><td class="'+cd(s.dh)+'">'+sgn(s.dh)+'</td>'):'')+'</tr>'}).join('')}
-function renderCards(){const cards=R.filter(full),us=cards.filter(r=>r.usable);
+function rowsHtml(items,keyFmt,withDisp){return items.map(s=>{const cl=(v,o)=>v==null?'':(v<=o?'g':'r'),ca=v=>v==null?'':(v>=OA?'g':'r'),cd=v=>v==null?'':(Math.abs(v)<=OD?'g':'r');
+  return '<tr><td>'+keyFmt(s.key)+'</td><td>'+s.n+'</td><td class="'+cl(s.tml,OBJ.tml)+'">'+r1(s.tml)+'</td><td class="'+cl(s.ti,OBJ.ti)+'">'+r1(s.ti)+'</td><td class="'+cl(s.hr,OBJ.ruta)+'">'+r2(s.hr)+'</td><td class="'+ca(s.as)+'">'+(s.as==null?'–':r1(s.as)+'%')+'</td><td class="'+ca(s.ac)+'">'+(s.ac==null?'–':r1(s.ac)+'%')+'</td>'+(withDisp?('<td class="'+cd(s.dk)+'">'+sgn(s.dk)+'</td><td class="'+cd(s.dh)+'">'+sgn(s.dh)+'</td>'):'')+'</tr>'}).join('')}
+function renderCards(){const cards=R.filter(scopeCards),us=cards.filter(r=>r.usable);
  const aTml=avg(us.map(r=>r.tml)),aTi=avg(us.map(r=>r.ti)),aHr=avg(us.map(r=>r.horas));
  kTml.textContent=r1(aTml);kTi.textContent=r1(aTi);kHr.textContent=r2(aHr);kN.textContent=us.length;
  const set=(p,val,col,max)=>{document.getElementById('c'+p).style.setProperty('--accent',col);const b=document.getElementById('b'+p);b.style.background=col;b.style.width=Math.min(100,Math.abs(val/max)*100)+'%'};
@@ -197,7 +221,7 @@ function renderMes(){const usM=R.filter(r=>r.usable&&full(r));const OC=65;const 
  barGen('chTml',lab,ser.map(s=>s.tml),v=>r1(v)+'',v=>colLow(v,OBJ.tml),OBJ.tml,true);
  barGen('chHr',lab,ser.map(s=>s.hr),v=>r2(v),colRuta,OBJ.ruta,true);
  barGen('chTi',lab,ser.map(s=>s.ti),v=>r1(v)+'',v=>colLow(v,OBJ.ti),OBJ.ti,true);
- tbody.innerHTML=rowsHtml(ser,mLbl);
+ tbody.innerHTML=rowsHtml(ser,mLbl,false);
  const tot=R.filter(r=>r.usable&&base(r));
  tfoot.innerHTML='<tr><td>Total</td><td>'+tot.length+'</td><td>'+r1(avg(tot.map(r=>r.tml)))+'</td><td>'+r1(avg(tot.map(r=>r.ti)))+'</td><td>'+r2(avg(tot.map(r=>r.horas)))+'</td><td>'+r1(avg(tot.map(r=>r.adhsec)))+'%</td><td>'+r1(avg(tot.map(r=>r.adhcli)))+'%</td></tr>';
  adhChart('chAdh',lab,ser.map(s=>s.as),ser.map(s=>s.ac));
@@ -227,12 +251,21 @@ function renderDia(){
  barGen('chTiD',lab,dd.map(s=>s.ti),v=>r1(v)+'',v=>colLow(v,OBJ.ti),OBJ.ti,few);
  adhChart('chAdhD',lab,dd.map(s=>s.as),dd.map(s=>s.ac));
  dispChart('chDispD',lab,dd.map(s=>s.dk),dd.map(s=>s.dh));
- tbodyD.innerHTML=rowsHtml(dd,dLbl);}
-function render(){renderCards();if(state.tab==='mes')renderMes();else renderDia();}
+ tbodyD.innerHTML=rowsHtml(dd,dLbl,true);}
+function renderSem(){if(!state.sem&&WEEKS.length)state.sem=WEEKS[WEEKS.length-1];
+ const dd=aggBy('fecha',R.filter(r=>r.usable&&base(r)&&weekKey(r.fecha)===state.sem));const lab=dd.map(s=>wdLbl(s.key));
+ barGen('chTmlS',lab,dd.map(s=>s.tml),v=>r1(v)+'',v=>colLow(v,OBJ.tml),OBJ.tml,true);
+ barGen('chHrS',lab,dd.map(s=>s.hr),v=>r2(v),colRuta,OBJ.ruta,true);
+ barGen('chTiS',lab,dd.map(s=>s.ti),v=>r1(v)+'',v=>colLow(v,OBJ.ti),OBJ.ti,true);
+ adhChart('chAdhS',lab,dd.map(s=>s.as),dd.map(s=>s.ac));
+ dispChart('chDispS',lab,dd.map(s=>s.dk),dd.map(s=>s.dh));
+ tbodyS.innerHTML=rowsHtml(dd,wdLbl,true);}
+function render(){renderCards();if(state.tab==='mes')renderMes();else if(state.tab==='dia')renderDia();else renderSem();}
 ['fSuc','fMes','fCho'].forEach(id=>document.getElementById(id).addEventListener('change',e=>{state[{fSuc:'suc',fMes:'mes',fCho:'cho'}[id]]=e.target.value;render()}));
 reset.addEventListener('click',()=>{state.suc=state.mes=state.cho='__all';fSuc.value=fMes.value=fCho.value='__all';render()});
-function switchTab(t){state.tab=t;tabMes.classList.toggle('active',t==='mes');tabDia.classList.toggle('active',t==='dia');
- document.getElementById('viewMes').style.display=t==='mes'?'':'none';document.getElementById('viewDia').style.display=t==='dia'?'':'none';render()}
-tabMes.addEventListener('click',()=>switchTab('mes'));tabDia.addEventListener('click',()=>switchTab('dia'));
+function switchTab(t){state.tab=t;tabMes.classList.toggle('active',t==='mes');tabDia.classList.toggle('active',t==='dia');tabSem.classList.toggle('active',t==='sem');
+ document.getElementById('viewMes').style.display=t==='mes'?'':'none';document.getElementById('viewDia').style.display=t==='dia'?'':'none';document.getElementById('viewSem').style.display=t==='sem'?'':'none';
+ if(t==='sem'&&!state.sem&&WEEKS.length)state.sem=WEEKS[WEEKS.length-1];render()}
+tabMes.addEventListener('click',()=>switchTab('mes'));tabDia.addEventListener('click',()=>switchTab('dia'));tabSem.addEventListener('click',()=>switchTab('sem'));
 render();
 </script></body></html>

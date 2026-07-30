@@ -33,7 +33,7 @@ dashboard-reparto/
 ## Probar local
 ```
 pip install -r requirements.txt
-python app.py            # http://localhost:5000  (usa JSON en ./data)
+python app.py            # http://localhost:5050  (usa JSON en ./data)
 ```
 
 ## Subir a Railway (con Postgres)
