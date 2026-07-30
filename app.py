@@ -196,6 +196,18 @@ def salud():
     clientes = pipeline.storage.load_clientes()
     rutas = list(base.values())
     ontime_rutas = [r for r in rutas if "pdv_total" in r]
+    clientes_foxtrot_con_ventana = {
+        c.get("cliente")
+        for r in rutas
+        for c in r.get("clientes_con_ventana", [])
+        if c.get("cliente")
+    }
+    clientes_foxtrot_sin_ventana = {
+        c.get("cliente")
+        for r in rutas
+        for c in r.get("clientes_sin_ventana", [])
+        if c.get("cliente")
+    }
     return {
         "ok": True,
         "backend": pipeline.storage.backend_name(),
@@ -204,6 +216,9 @@ def salud():
         "validas": len([r for r in rutas if r.get("usable")]),
         "clientes": len(clientes),
         "clientes_con_ventana": len([c for c in clientes.values() if c.get("ventanas")]),
+        "clientes_foxtrot_unicos": len(clientes_foxtrot_con_ventana | clientes_foxtrot_sin_ventana),
+        "clientes_foxtrot_con_ventana": len(clientes_foxtrot_con_ventana),
+        "clientes_foxtrot_sin_ventana": len(clientes_foxtrot_sin_ventana),
         "ontime_rutas": len(ontime_rutas),
         "ontime_pdv_total": sum(r.get("pdv_total", 0) for r in rutas),
         "ontime_pdv_evaluables": sum((r.get("pdv_ontime", 0) + r.get("pdv_fuera_ontime", 0)) for r in rutas),
