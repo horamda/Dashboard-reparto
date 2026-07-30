@@ -437,7 +437,16 @@ def procesar_export(xls_file, xls_name="", csv_files=None):
 
 def _data_desde_base(base):
     rutas = sorted(base.values(), key=lambda r: (r["fecha"], r["suc"], r["chofer"]))
-    rechazos = sorted(storage.load_rechazos().values(), key=lambda r: r["fecha"])
+    rechazos_base = storage.load_rechazos()
+    if rutas and not rechazos_base:
+        try:
+            fechas = sorted(r["fecha"] for r in rutas if r.get("fecha"))
+            if fechas:
+                importar_rechazos(fechas[0], fechas[-1])
+                rechazos_base = storage.load_rechazos()
+        except Exception:
+            rechazos_base = {}
+    rechazos = sorted(rechazos_base.values(), key=lambda r: r["fecha"])
     return {"rutas": rutas,
             "rechazos": rechazos,
             "choferes": sorted({r["chofer"] for r in rutas}),

@@ -69,7 +69,7 @@ tfoot td{font-weight:700;border-top:2px solid var(--line);border-bottom:none}
   <div class="fg"><label>Chofer</label><select id="fCho"></select></div>
   <button class="reset" id="reset">Limpiar filtros</button>
  </div>
- <div class="tabs"><button class="tab active" id="tabMes">Mensual</button><button class="tab" id="tabDia">Diario</button><button class="tab" id="tabSem">Semanal</button><button class="tab" id="tabCalidad">Calidad de datos</button><button class="tab" id="tabOnTime">On time</button><button class="tab" id="tabRechazos">Rechazos</button></div>
+ <div class="tabs"><button class="tab active" id="tabMes">Mensual</button><button class="tab" id="tabDia">Diario</button><button class="tab" id="tabSem">Semanal</button><button class="tab" id="tabOnTime">On time</button><button class="tab" id="tabRechazos">Rechazos</button><button class="tab" id="tabCalidad">Calidad de los datos</button></div>
  <div id="operationalSummary">
  <div class="sectlbl">Tiempos</div>
  <div class="cards c5">
@@ -402,10 +402,11 @@ function renderOnTime(){const scope=R.filter(full),o=onTime(scope),ok=o.p!=null&
 function render(){renderCards();if(state.tab==='mes')renderMes();else if(state.tab==='dia')renderDia();else if(state.tab==='sem')renderSem();else if(state.tab==='calidad')renderCalidad();else if(state.tab==='rechazos')renderRechazos();else renderOnTime();}
 ['fSuc','fMes','fCho'].forEach(id=>document.getElementById(id).addEventListener('change',e=>{state[{fSuc:'suc',fMes:'mes',fCho:'cho'}[id]]=e.target.value;render()}));
 reset.addEventListener('click',()=>{state.suc=state.mes=state.cho='__all';fSuc.value=fMes.value=fCho.value='__all';render()});
-function switchTab(t){state.tab=t;tabMes.classList.toggle('active',t==='mes');tabDia.classList.toggle('active',t==='dia');tabSem.classList.toggle('active',t==='sem');tabCalidad.classList.toggle('active',t==='calidad');tabOnTime.classList.toggle('active',t==='ontime');tabRechazos.classList.toggle('active',t==='rechazos');
+function switchTab(t){state.tab=t;tabMes.classList.toggle('active',t==='mes');tabDia.classList.toggle('active',t==='dia');tabSem.classList.toggle('active',t==='sem');tabCalidad.classList.toggle('active',t==='calidad');tabRechazos.classList.toggle('active',t==='rechazos');
+ document.getElementById('operationalSummary').style.display=(t==='rechazos'||t==='ontime'||t==='calidad')?'none':'';
  document.getElementById('viewMes').style.display=t==='mes'?'':'none';document.getElementById('viewDia').style.display=t==='dia'?'':'none';document.getElementById('viewSem').style.display=t==='sem'?'':'none';document.getElementById('viewCalidad').style.display=t==='calidad'?'':'none';document.getElementById('viewOnTime').style.display=t==='ontime'?'':'none';document.getElementById('viewRechazos').style.display=t==='rechazos'?'':'none';
  if(t==='sem'&&!state.sem&&WEEKS.length)state.sem=WEEKS[WEEKS.length-1];render()}
-tabMes.addEventListener('click',()=>switchTab('mes'));tabDia.addEventListener('click',()=>switchTab('dia'));tabSem.addEventListener('click',()=>switchTab('sem'));tabCalidad.addEventListener('click',()=>switchTab('calidad'));tabOnTime.addEventListener('click',()=>switchTab('ontime'));tabRechazos.addEventListener('click',()=>switchTab('rechazos'));
+tabMes.addEventListener('click',()=>switchTab('mes'));tabDia.addEventListener('click',()=>switchTab('dia'));tabSem.addEventListener('click',()=>switchTab('sem'));tabCalidad.addEventListener('click',()=>switchTab('calidad'));tabRechazos.addEventListener('click',()=>switchTab('rechazos'));
 render();
 const chartScript=document.createElement('script');
 chartScript.src='https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js';
