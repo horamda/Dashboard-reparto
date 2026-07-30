@@ -15,12 +15,16 @@ clave para subir datos.
 """
 
 import os
-from flask import Flask, request, redirect, url_for, Response, abort
+import secrets
+from flask import Flask, request, redirect, url_for, Response, session
 import pipeline
 
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 50 * 1024 * 1024  # 50 MB
+app.secret_key = os.environ.get("SECRET_KEY", os.environ.get("ADMIN_TOKEN") or secrets.token_hex(32))
 ADMIN_TOKEN = os.environ.get("ADMIN_TOKEN", "")
+ADMIN_USER = os.environ.get("ADMIN_USER", "admin")
+ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", ADMIN_TOKEN)
 
 
 @app.after_request
@@ -58,7 +62,31 @@ a{{color:#1E3A8A;font-size:13.5px}}</style></head>
     <input type=checkbox name=reset value=1 style="width:auto;margin-right:6px">Rehacer la base de cero (borra lo guardado)</label>
   <button class=btn type=submit>Actualizar</button>
 </form>
-<p style="margin-top:18px"><a href="/dashboard">&larr; Volver al dashboard</a></p>
+<p style="margin-top:18px"><a href="/dashboard">&larr; Volver al dashboard</a> · <a href="/logout">Cerrar sesiÃ³n</a></p>
+</div></body></html>"""
+
+LOGIN_HTML = """<!doctype html><html lang=es><head><meta charset=utf-8>
+<meta name=viewport content="width=device-width,initial-scale=1">
+<title>Ingresar</title>
+<style>body{{font-family:system-ui,Segoe UI,Arial,sans-serif;background:#EEF1F5;color:#15233B;margin:0}}
+.box{{max-width:420px;margin:12vh auto;background:#fff;border:1px solid #DCE2EA;border-radius:14px;padding:28px 30px}}
+h1{{font-size:20px;margin:0 0 4px}}p{{color:#657085;font-size:13.5px;margin:0 0 18px}}
+label{{display:block;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.4px;color:#657085;margin:16px 0 6px}}
+input{{width:100%;padding:10px;border:1px solid #DCE2EA;border-radius:8px;font-size:14px}}
+.btn{{margin-top:22px;width:100%;background:#15233B;color:#fff;border:0;border-radius:9px;padding:12px;font-size:15px;font-weight:600;cursor:pointer}}
+.err{{background:#FEE2E2;border:1px solid #FCA5A5;color:#991B1B;border-radius:9px;padding:10px 12px;font-size:13.5px;margin-bottom:16px}}</style></head>
+<body><div class=box>
+<h1>Ingresar</h1>
+<p>Acceso para actualizar datos del dashboard.</p>
+{msg}
+<form method=post action="/login">
+  <input type=hidden name=next value="{next_url}">
+  <label>Usuario</label>
+  <input name=user autocomplete=username required autofocus>
+  <label>Clave</label>
+  <input type=password name=password autocomplete=current-password required>
+  <button class=btn type=submit>Ingresar</button>
+</form>
 </div></body></html>"""
 
 LANDING = """<!doctype html><html lang=es><head><meta charset=utf-8>
@@ -71,10 +99,25 @@ a{display:inline-block;margin-top:16px;background:#15233B;color:#fff;text-decora
 
 
 def _admin_page(msg="", err=False):
-    token_field = "" if not ADMIN_TOKEN else \
-        '<label>Clave de administrador *</label><input type=password name=token required>'
+    token_field = ""
     m = f'<div class="msg{" err" if err else ""}">{msg}</div>' if msg else ""
     return ADMIN_HTML.format(msg=m, token_field=token_field)
+
+
+def _login_page(msg="", err=False):
+    m = f'<div class="err">{msg}</div>' if msg else ""
+    next_url = request.args.get("next") or request.form.get("next") or url_for("admin")
+    return LOGIN_HTML.format(msg=m, next_url=next_url)
+
+
+def _is_logged_in():
+    return bool(session.get("admin_logged_in"))
+
+
+def _require_login():
+    if not _is_logged_in():
+        return redirect(url_for("login", next=request.path))
+    return None
 
 
 def _dashboard_response():
@@ -93,15 +136,39 @@ def dashboard():
     return _dashboard_response()
 
 
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    if request.method == "POST":
+        if not ADMIN_PASSWORD:
+            return Response(_login_page("Falta configurar ADMIN_PASSWORD en Railway.", err=True), mimetype="text/html", status=500)
+        user = request.form.get("user", "")
+        password = request.form.get("password", "")
+        if secrets.compare_digest(user, ADMIN_USER) and secrets.compare_digest(password, ADMIN_PASSWORD):
+            session["admin_logged_in"] = True
+            return redirect(request.form.get("next") or url_for("admin"))
+        return Response(_login_page("Usuario o clave incorrectos.", err=True), mimetype="text/html", status=403)
+    return Response(_login_page(), mimetype="text/html")
+
+
+@app.route("/logout")
+def logout():
+    session.clear()
+    return redirect(url_for("login"))
+
+
 @app.route("/admin")
 def admin():
+    blocked = _require_login()
+    if blocked:
+        return blocked
     return Response(_admin_page(), mimetype="text/html")
 
 
 @app.route("/actualizar", methods=["POST"])
 def actualizar():
-    if ADMIN_TOKEN and request.form.get("token", "") != ADMIN_TOKEN:
-        return Response(_admin_page("Clave incorrecta.", err=True), mimetype="text/html", status=403)
+    blocked = _require_login()
+    if blocked:
+        return blocked
     xls = request.files.get("xls")
     if not xls or xls.filename == "":
         return Response(_admin_page("Falta el archivo de export.", err=True), mimetype="text/html", status=400)
