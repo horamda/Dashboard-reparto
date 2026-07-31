@@ -33,13 +33,13 @@ select:focus{outline:2px solid #C77D1A;outline-offset:1px}
 .tipbox b{color:var(--ink);font-weight:800}.tipbox ul{margin:8px 0 0 16px}.tipbox li{margin:3px 0}
 .cards{display:grid;gap:14px;margin-bottom:16px}
 .c5{grid-template-columns:repeat(auto-fit,minmax(190px,1fr))}.c4{grid-template-columns:repeat(auto-fit,minmax(210px,1fr))}.c2{grid-template-columns:repeat(auto-fit,minmax(280px,1fr))}
-.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:15px 16px 14px;position:relative;overflow:hidden;min-height:116px;box-shadow:var(--shadow)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:15px 16px 14px;position:relative;overflow:hidden;min-height:116px;box-shadow:var(--shadow);text-align:center;display:flex;flex-direction:column;align-items:center;justify-content:center}
 .card::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--accent,var(--muted))}
 .card .k{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--muted)}
 .card .v{font-size:clamp(23px,3vw,28px);font-weight:750;margin-top:7px;letter-spacing:0;line-height:1}
 .card .obj{font-size:11.5px;color:var(--muted);font-weight:500;margin-top:4px}
 .card .bar{height:5px;border-radius:3px;background:#eef1f5;margin-top:9px;overflow:hidden}.card .bar i{display:block;height:100%;border-radius:3px}
-.card .badge{position:absolute;top:12px;right:12px;font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px}
+.card .badge{position:absolute;top:10px;right:10px;font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px}
 .badge.ok{background:#DCFCE7;color:#166534}.badge.no{background:#FEE2E2;color:#991B1B}
 .gauges{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;margin-bottom:22px}
 .gcard{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px 16px 8px;text-align:center;box-shadow:var(--shadow)}
@@ -72,6 +72,12 @@ tfoot td{font-weight:700;border-top:2px solid var(--line);border-bottom:none}
 .rech-table tbody tr:nth-child(even) td{background:#FCFDFF}
 .rech-table tbody tr:hover td{background:#F6F8FB}
 .rech-table .event{text-align:left;min-width:130px}
+.team-table{min-width:1180px;font-size:12px}
+.team-table th,.team-table td{text-align:center;padding:10px 9px;white-space:nowrap}
+.team-table th{background:#15233B!important;color:#fff!important}
+.team-table th:first-child,.team-table td:first-child{text-align:left;position:sticky;left:0;background:#fff;z-index:2;box-shadow:1px 0 0 var(--line);font-weight:750}
+.team-table thead th:first-child{background:#15233B!important;z-index:4}
+.team-table td:nth-child(2),.team-table td:nth-child(3){color:var(--muted);font-weight:650}
 .pill{display:inline-flex;align-items:center;justify-content:center;min-width:52px;padding:3px 7px;border-radius:999px;font-weight:800;font-size:11.5px}
 .pill.good{background:#DCFCE7;color:#166534}.pill.bad{background:#FEE2E2;color:#991B1B}.pill.neutral{background:#EEF2F7;color:var(--ink2)}
 @media(max-width:1100px){.filters{grid-template-columns:repeat(2,minmax(170px,1fr))}.reset{width:100%}.grid{grid-template-columns:1fr!important}}
@@ -88,7 +94,7 @@ tfoot td{font-weight:700;border-top:2px solid var(--line);border-bottom:none}
   <div class="fg"><label>Chofer</label><select id="fCho"></select></div>
   <button class="reset" id="reset">Limpiar filtros</button>
  </div>
- <div class="tabs"><button class="tab active" id="tabMes">Mensual</button><button class="tab" id="tabSem">Semanal</button><button class="tab" id="tabDia">Diario</button><button class="tab" id="tabOnTime">On time</button><button class="tab" id="tabRechazos">Rechazos</button><button class="tab" id="tabOtif">OTIF</button><button class="tab" id="tabCalidad">Data Quality</button></div>
+ <div class="tabs"><button class="tab active" id="tabMes">Mensual</button><button class="tab" id="tabSem">Semanal</button><button class="tab" id="tabDia">Diario</button><button class="tab" id="tabOnTime">On time</button><button class="tab" id="tabRechazos">Rechazos</button><button class="tab" id="tabOtif">OTIF</button><button class="tab" id="tabCalidad">Data Quality</button><button class="tab" id="tabTeamRoom">Team Room</button><button class="tab" id="tabSatisfaccion">Satisfaccion del cliente</button></div>
  <div id="operationalSummary">
  <div class="sectlbl">Tiempos</div>
  <div class="cards c5">
@@ -178,6 +184,38 @@ tfoot td{font-weight:700;border-top:2px solid var(--line);border-bottom:none}
     <table><thead><tr><th>Mes</th><th>Total</th><th>Confiables</th><th>Corruptos / no confiables</th><th>Calidad</th></tr></thead><tbody id="tbodyQ"></tbody></table></div>
   </div>
  </div>
+ <div id="viewSatisfaccion" style="display:none">
+  <div class="hint" id="hintSat">Datos tomados del Google Sheet publicado de satisfaccion del cliente.</div>
+  <div class="cards c4" style="margin-bottom:22px">
+   <div class="card" id="cSatScore"><div class="badge" id="gSatScore"></div><div class="k">Ultimo dato RMD</div><div class="v" id="kSatScore">-</div><div class="obj" id="oSatScore">objetivo &gt;= 4,75</div><div class="bar"><i id="bSatScore"></i></div></div>
+   <div class="card" id="cSatResp"><div class="badge" id="gSatResp"></div><div class="k">Ultimo dato % respuesta</div><div class="v" id="kSatResp">-</div><div class="obj" id="oSatResp">objetivo &gt;= 50%</div><div class="bar"><i id="bSatResp"></i></div></div>
+   <div class="card" id="cSatNps"><div class="badge" id="gSatNps"></div><div class="k">Ultimo NPS general</div><div class="v" id="kSatNps">-</div><div class="obj" id="oSatNps">objetivo &gt;= 70</div><div class="bar"><i id="bSatNps"></i></div></div>
+   <div class="card" id="cSatNpsDel"><div class="badge" id="gSatNpsDel"></div><div class="k">Ultimo NPS delivery</div><div class="v" id="kSatNpsDel">-</div><div class="obj" id="oSatNpsDel">objetivo &gt;= 70</div><div class="bar"><i id="bSatNpsDel"></i></div></div>
+   <div class="card" id="cSatMeses"><div class="k">Meses con datos</div><div class="v" id="kSatMeses">-</div><div class="obj">periodo disponible</div><div class="bar"><i id="bSatMeses"></i></div></div>
+   <div class="card" id="cSatDias"><div class="k">Dias medidos</div><div class="v" id="kSatDias">-</div><div class="obj">fechas con al menos una metrica</div><div class="bar"><i id="bSatDias"></i></div></div>
+  </div>
+  <div class="grid" style="grid-template-columns:1fr 1fr">
+   <div class="panel"><h2>RMD Puntaje por mes</h2><div class="note">Enero a diciembre · una linea por año.</div><div class="chartbox" style="height:300px"><canvas id="chSatScore"></canvas></div></div>
+   <div class="panel"><h2>% de respuestas por mes</h2><div class="note">Enero a diciembre · una linea por año.</div><div class="chartbox" style="height:300px"><canvas id="chSatResp"></canvas></div></div>
+   <div class="panel"><h2>NPS general por mes</h2><div class="note">Enero a diciembre · una linea por año.</div><div class="chartbox" style="height:300px"><canvas id="chSatNps"></canvas></div></div>
+   <div class="panel"><h2>NPS delivery por mes</h2><div class="note">Enero a diciembre · una linea por año.</div><div class="chartbox" style="height:300px"><canvas id="chSatNpsDel"></canvas></div></div>
+  </div>
+  <div class="grid" style="grid-template-columns:1fr">
+   <div class="panel"><h2>Informe por mes</h2><div class="note">Promedios calculados desde los datos publicados en Google Sheets.</div>
+    <table><thead><tr><th>Mes</th><th>Dias medidos</th><th>RMD Puntaje</th><th>% respuestas</th><th>NPS gral</th><th>NPS delivery</th><th>% detractores</th></tr></thead><tbody id="tbodySat"></tbody></table></div>
+  </div>
+ </div>
+ <div id="viewTeamRoom" style="display:none">
+  <div class="hint" id="hintTeam">Elegí un mes arriba. Los días muestran la semana en curso del mes seleccionado; S1-S4 y Mes muestran acumulados.</div>
+  <div class="grid" style="grid-template-columns:1fr">
+   <div class="panel"><h2>Resultados diarios - Team Room Distribucion</h2><div class="note">Valores diarios de lunes a sábado y acumulados semanales del mes.</div>
+    <div class="tblscroll" style="max-height:620px"><table class="team-table">
+     <thead><tr><th>Indicador</th><th>UM</th><th>Objetivo</th><th>Lun</th><th>Mar</th><th>Mier</th><th>Jue</th><th>Vie</th><th>Sab</th><th>S1</th><th>S2</th><th>S3</th><th>S4</th><th>Mes</th></tr></thead>
+     <tbody id="tbodyTeam"></tbody>
+    </table></div>
+   </div>
+  </div>
+ </div>
  <div id="viewOnTime" style="display:none">
   <div class="hint">On time compara el horario real de visita Foxtrot contra la ventana horaria del cliente. Los clientes se cuentan solo si aparecen en las visitas Foxtrot.</div>
   <div class="cards c4" style="margin-bottom:22px">
@@ -217,21 +255,21 @@ tfoot td{font-weight:700;border-top:2px solid var(--line);border-bottom:none}
    <div class="card" id="cRTotal"><div class="k">Rechazos totales</div><div class="v" id="kRTotal">–</div><div class="obj">período filtrado</div><div class="bar"><i id="bRTotal"></i></div></div>
    <div class="card" id="cRProm"><div class="k">Promedio diario</div><div class="v" id="kRProm">–</div><div class="obj">rechazos por día con actividad</div><div class="bar"><i id="bRProm"></i></div></div>
    <div class="card" id="cRPeak"><div class="k">Día pico</div><div class="v" id="kRPeak">–</div><div class="obj" id="oRPeak">mayor cantidad diaria</div><div class="bar"><i id="bRPeak"></i></div></div>
-   <div class="card" id="cRTasa"><div class="k">% rechazo PDV</div><div class="v" id="kRTasa">–</div><div class="obj">rechazos / pedidos atendidos</div><div class="bar"><i id="bRTasa"></i></div></div>
+   <div class="card" id="cRTasa"><div class="k">% rechazo PDV</div><div class="v" id="kRTasa">–</div><div class="obj">objetivo ≤ 4%</div><div class="bar"><i id="bRTasa"></i></div></div>
    <div class="card" id="cRPed"><div class="k">Pedidos PDV atendidos</div><div class="v" id="kRPed">–</div><div class="obj">pedidos atendidos del endpoint</div><div class="bar"><i id="bRPed"></i></div></div>
    <div class="card" id="cRPdv"><div class="k">PDV únicos</div><div class="v" id="kRPdv">–</div><div class="obj">puntos de venta únicos</div><div class="bar"><i id="bRPdv"></i></div></div>
    <div class="card" id="cRNds"><div class="k">NDS</div><div class="v" id="kRNds">–</div><div class="obj">promedio ponderado por pedidos</div><div class="bar"><i id="bRNds"></i></div></div>
-   <div class="card" id="cRBl"><div class="k">% rechazo bultos</div><div class="v" id="kRBl">–</div><div class="obj">rechazo sobre bultos</div><div class="bar"><i id="bRBl"></i></div></div>
-   <div class="card" id="cRHl"><div class="k">% rechazo HL</div><div class="v" id="kRHl">–</div><div class="obj">rechazo sobre hectolitros</div><div class="bar"><i id="bRHl"></i></div></div>
+   <div class="card" id="cRBl"><div class="k">% rechazo bultos</div><div class="v" id="kRBl">–</div><div class="obj">objetivo ≤ 3%</div><div class="bar"><i id="bRBl"></i></div></div>
+   <div class="card" id="cRHl"><div class="k">% rechazo HL</div><div class="v" id="kRHl">–</div><div class="obj">objetivo ≤ 2%</div><div class="bar"><i id="bRHl"></i></div></div>
   </div>
   <div class="grid" style="grid-template-columns:2fr 1fr">
    <div class="panel"><h2>Rechazos por día</h2><div class="note">Cantidad diaria de rechazos.</div><div class="chartbox" style="height:300px"><canvas id="chRechDia"></canvas></div></div>
    <div class="panel"><h2>Rechazos por mes</h2><div class="note">Total mensual.</div><div class="chartbox" style="height:300px"><canvas id="chRechMes"></canvas></div></div>
   </div>
   <div class="grid" style="grid-template-columns:1fr">
-   <div class="panel"><h2>% rechazo PDV por mes</h2><div class="note">Rechazos sobre pedidos atendidos.</div><div class="chartbox" style="height:280px"><canvas id="chRechPctPdvMes"></canvas></div></div>
-   <div class="panel"><h2>% rechazo bultos por mes</h2><div class="note">Rechazo ponderado sobre bultos.</div><div class="chartbox" style="height:280px"><canvas id="chRechPctBultosMes"></canvas></div></div>
-   <div class="panel"><h2>% rechazo HL por mes</h2><div class="note">Rechazo ponderado sobre hectolitros.</div><div class="chartbox" style="height:280px"><canvas id="chRechPctHlMes"></canvas></div></div>
+   <div class="panel"><h2>% rechazo PDV por mes</h2><div class="note">Objetivo ≤ 4% sobre pedidos atendidos.</div><div class="chartbox" style="height:280px"><canvas id="chRechPctPdvMes"></canvas></div></div>
+   <div class="panel"><h2>% rechazo bultos por mes</h2><div class="note">Objetivo ≤ 3% ponderado sobre bultos.</div><div class="chartbox" style="height:280px"><canvas id="chRechPctBultosMes"></canvas></div></div>
+   <div class="panel"><h2>% rechazo HL por mes</h2><div class="note">Objetivo ≤ 2% ponderado sobre hectolitros.</div><div class="chartbox" style="height:280px"><canvas id="chRechPctHlMes"></canvas></div></div>
   </div>
   <div class="grid" style="grid-template-columns:1fr">
    <div class="panel"><h2>Día por día</h2><div class="note">Datos diarios importados desde el endpoint.</div>
@@ -262,11 +300,13 @@ tfoot td{font-weight:700;border-top:2px solid var(--line);border-bottom:none}
  </div>
 </div>
 <script>
-const DATA=__DATA__;const R=DATA.rutas,RECH=DATA.rechazos||[],MESES=DATA.meses,OBJ=DATA.obj;const OA=OBJ.adh,OD=OBJ.disp;
+const DATA=__DATA__;const R=DATA.rutas,RECH=DATA.rechazos||[],SAT=(DATA.satisfaccion&&DATA.satisfaccion.rows)||[],MESES=DATA.meses,OBJ=DATA.obj;const OA=OBJ.adh,OD=OBJ.disp;
 const C={good:'#16A34A',bad:'#DC2626',amber:'#D97706',obj:'#1E3A8A',sec:'#7C3AED',cli:'#0E7C6B'};
 const OBJ_DQ=85;
+const OBJ_RECH={pdv:4,bultos:3,hl:2};
+const OBJ_SAT={score:4.75,resp:50,nps:70};
 const state={suc:'__all',mes:'__all',cho:'__all',tab:'mes',sem:null};
-const MM={'01':'Ene','02':'Feb','03':'Mar','04':'Abr','05':'May','06':'Jun','07':'Jul'};
+const MM={'01':'Ene','02':'Feb','03':'Mar','04':'Abr','05':'May','06':'Jun','07':'Jul','08':'Ago','09':'Sep','10':'Oct','11':'Nov','12':'Dic'};
 const mLbl=m=>MM[m.split('-')[1]]||m;const dLbl=f=>{const p=f.split('-');return p[2]+'/'+p[1]};
 const periodoLbl=()=>{if(!R.length)return'del Palacio S.A. · sin datos cargados';const fs=R.map(r=>r.fecha).sort(),a=fs[0],b=fs[fs.length-1],fmt=f=>{const p=f.split('-');return p[2]+'/'+p[1]+'/'+p[0].slice(2)};return'del Palacio S.A. · '+fmt(a)+' al '+fmt(b)};
 periodo.textContent=periodoLbl();
@@ -348,9 +388,9 @@ function hLabels(di,fmt){return {id:'hl'+di,afterDatasetsDraw(c){const{ctx}=c,m=
 function rechazosScope(){return RECH.filter(r=>(state.mes==='__all'||r.fecha.slice(0,7)===state.mes))}
 function rechazosMes(rows){const g={};rows.forEach(r=>{const k=r.fecha.slice(0,7);g[k]=(g[k]||0)+(r.rechazos||0)});return Object.keys(g).sort().map(k=>({key:k,n:g[k]}))}
 function rechazosPctMes(rows){const g={};rows.forEach(r=>{const k=r.fecha.slice(0,7);(g[k]=g[k]||[]).push(r)});return Object.keys(g).sort().map(k=>{const u=g[k],ped=u.reduce((s,r)=>s+(r.pedidos_pdv_atendidos||0),0),rech=u.reduce((s,r)=>s+(r.rechazos||0),0);return{key:k,pdv:ped?rech/ped*100:null,bultos:wavg(u,'pct_rechazo_bultos','bultos'),hl:wavg(u,'pct_rechazo_hl','hl')}})}
-function rechazosPctChart(id,items,field,label,color){if(!chartsReady())return;if(ch[id])ch[id].destroy();const labels=items.map(r=>mLbl(r.key)),vals=items.map(r=>r[field]);
- ch[id]=new Chart(document.getElementById(id),{type:'line',data:{labels,datasets:[{label,data:vals,borderColor:color,backgroundColor:color,borderWidth:2.5,tension:.25,pointRadius:4,fill:false,_fmt:fmtPct}]},
-  options:{responsive:true,maintainAspectRatio:false,layout:{padding:{top:16,right:28}},plugins:{legend:{display:false},tooltip:{callbacks:{label:x=>label+': '+fmtPct(x.parsed.y)}}},
+function rechazosPctChart(id,items,field,label,color,obj){if(!chartsReady())return;if(ch[id])ch[id].destroy();const labels=items.map(r=>mLbl(r.key)),vals=items.map(r=>r[field]);
+ ch[id]=new Chart(document.getElementById(id),{type:'line',data:{labels,datasets:[{label,data:vals,borderColor:color,backgroundColor:color,borderWidth:2.5,tension:.25,pointRadius:4,fill:false,_fmt:fmtPct},{label:'Objetivo '+fmtPct(obj),data:vals.map(()=>obj),borderColor:C.obj,borderWidth:2,borderDash:[6,4],pointRadius:0,fill:false}]},
+  options:{responsive:true,maintainAspectRatio:false,layout:{padding:{top:16,right:28}},plugins:{legend:{display:false},tooltip:{callbacks:{label:x=>x.datasetIndex===1?'Objetivo '+fmtPct(obj):label+': '+fmtPct(x.parsed.y)}}},
   scales:{y:{beginAtZero:true,ticks:{callback:v=>v+'%',color:'#657085',font:{size:11}},grid:{color:'#eef1f5'}},x:{ticks:{color:'#657085',font:{size:10}},grid:{display:false}}}},plugins:[dLabels([0])]})}
 function rechazoPedidos(rows){return rows.reduce((s,r)=>s+(r.rechazos||0),0)}
 function otifCalc(routeScope,rechScope){const ot=onTime(routeScope),rech=rechazoPedidos(rechScope),total=Math.max(ot.ev||0,rechScope.reduce((s,r)=>s+(r.pedidos_pdv_atendidos||0),0));const ok=Math.max(0,(ot.ok||0)-rech),no=Math.max(0,total-ok);return{total,onTime:ot.ok||0,rech,ok,no,otif:total?ok/total*100:null,noOtif:total?no/total*100:null}}
@@ -360,14 +400,55 @@ function fmt0(v){return Math.round(v||0).toLocaleString('es-AR')}
 function fmt1(v){return (v==null||isNaN(v))?'–':Number(v).toLocaleString('es-AR',{minimumFractionDigits:1,maximumFractionDigits:1})}
 function fmtPct(v){return (v==null||isNaN(v))?'–':Number(v).toLocaleString('es-AR',{minimumFractionDigits:1,maximumFractionDigits:1})+'%'}
 function pctPill(v,ok){return '<span class="pill '+(v==null||isNaN(v)?'neutral':(ok?'good':'bad'))+'">'+fmtPct(v)+'</span>'}
+function monthRows(){const m=state.mes==='__all'?(MESES[MESES.length-1]||''):state.mes;return R.filter(r=>r.usable&&base(r)&&r.mes===m)}
+function monthRechRows(m){return RECH.filter(r=>r.fecha.slice(0,7)===m)}
+function monthSatRows(m){return SAT.filter(r=>r.mes===m)}
+function monthWeekStarts(m){const out=[],d=new Date(m+'-01T00:00:00Z');while(d.getUTCDay()!==1)d.setUTCDate(d.getUTCDate()+1);while(d.toISOString().slice(0,7)===m&&out.length<4){out.push(d.toISOString().slice(0,10));d.setUTCDate(d.getUTCDate()+7)}return out}
+function activeWeekStart(m,rows){const today=new Date().toISOString().slice(0,10),starts=monthWeekStarts(m);if(today.slice(0,7)===m){const w=weekKey(today);if(starts.includes(w))return w}const ds=[...new Set(rows.map(r=>r.fecha))].sort();return ds.length?weekKey(ds[ds.length-1]):(starts[0]||m+'-01')}
+function inDay(scope,f){return scope.filter(r=>r.fecha===f)}
+function inWeek(scope,w){return scope.filter(r=>weekKey(r.fecha)===w)}
+function rechInDay(rows,f){return rows.filter(r=>r.fecha===f)}
+function rechInWeek(rows,w){return rows.filter(r=>weekKey(r.fecha)===w)}
+function satMetric(rows,tipo){const vals=rows.filter(r=>r.tipo===tipo).map(r=>r.resultado).filter(v=>v!=null);return avg(vals)}
+function teamMetrics(routeRows,rechRows,satRows){const total=routeRows.length,bad=routeRows.filter(r=>r.alerta).length;
+ return{rech:wavg(rechRows,'pct_rechazo_hl','hl'),dk:avg(routeRows.map(r=>r.dispkm)),dh:avg(routeRows.map(r=>r.disphs)),click:avg(routeRows.map(r=>r.adhcli)),dqi:total?(total-bad)/total*100:null,tml:avg(routeRows.map(r=>r.tml)),ti:avg(routeRows.map(r=>r.ti)),rmd:satMetric(satRows,'RMD Puntaje'),resp:satMetric(satRows,'Rate My Delivery % de respuestas'),nps:satMetric(satRows,'NPS GRAL'),npsDel:satMetric(satRows,'NPS DELIVERY (ENTREGA)')}}
+function teamValueClass(key,v){if(v==null||isNaN(v))return'';if(key==='rech')return v<=OBJ_RECH.hl?'g':'r';if(key==='dk'||key==='dh')return Math.abs(v)<=OBJ.disp?'g':'r';if(key==='click')return v>=OBJ.adh?'g':'r';if(key==='dqi')return v>=OBJ_DQ?'g':'r';if(key==='tml'||key==='ti')return v<=OBJ.tml?'g':'r';if(key==='rmd')return v>=OBJ_SAT.score?'g':'r';if(key==='resp')return v>=OBJ_SAT.resp?'g':'r';if(key==='nps'||key==='npsDel')return v>=OBJ_SAT.nps?'g':'r';return''}
+function teamFmt(key,v){if(v==null||isNaN(v))return'-';if(['rech','dk','dh','click','dqi','resp'].includes(key))return fmtPct(v);if(['tml','ti','nps','npsDel'].includes(key))return r1(v);if(key==='rmd')return fmt1(v);return v}
+function renderTeamRoom(){const m=state.mes==='__all'?(MESES[MESES.length-1]||''):state.mes,routeRows=monthRows(),rechRows=monthRechRows(m),satRows=monthSatRows(m),starts=monthWeekStarts(m),aw=activeWeekStart(m,routeRows),days=[0,1,2,3,4,5].map(i=>addDaysUTC(aw,i));
+ hintTeam.innerHTML='<b>'+mLbl(m)+' '+m.slice(0,4)+'</b> · semana diaria '+weekLabel(aw)+' · acumulados S1-S4 por semanas lunes a sábado.';
+ const cfg=[['rech','Rechazos HL','%','<= 2%'],['dk','Disp. KM','%','+/- 10%'],['dh','Disp. Tiempo','%','+/- 10%'],['click','Adh. Click','%','>= 85%'],['dqi','DQI','%','>= 85%'],['tml','TML','min','< 30 min'],['ti','TI','min','< 30 min'],['rmd','RMD','pts','>= 4,75'],['resp','% Respuesta','%','>= 50%'],['nps','NPS gral','pts','>= 70'],['npsDel','NPS delivery','pts','>= 70']];
+ const cells=(key)=>{const dvals=days.map(d=>teamMetrics(inDay(routeRows,d),rechInDay(rechRows,d),satRows.filter(r=>r.fecha===d))[key]);const wvals=starts.map(w=>teamMetrics(inWeek(routeRows,w),rechInWeek(rechRows,w),satRows.filter(r=>weekKey(r.fecha)===w))[key]);const mv=teamMetrics(routeRows,rechRows,satRows)[key];return[...dvals,...wvals,mv].map(v=>'<td class="'+teamValueClass(key,v)+'">'+teamFmt(key,v)+'</td>').join('')};
+ tbodyTeam.innerHTML=cfg.map(r=>'<tr><td>'+r[1]+'</td><td>'+r[2]+'</td><td>'+r[3]+'</td>'+cells(r[0])+'</tr>').join('');}
+function satScope(){return SAT.filter(r=>state.mes==='__all'||r.mes===state.mes)}
+function satLatest(rows,tipo){return rows.filter(r=>r.tipo===tipo&&r.resultado!=null).sort((a,b)=>a.fecha.localeCompare(b.fecha)).pop()}
+function satByMonth(rows){const g={};rows.forEach(r=>{(g[r.mes]=g[r.mes]||[]).push(r)});return Object.keys(g).sort().map(k=>{const u=g[k],score=u.filter(r=>r.tipo==='RMD Puntaje'),resp=u.filter(r=>r.tipo==='Rate My Delivery % de respuestas'),nps=u.filter(r=>r.tipo==='NPS GRAL'),npsDel=u.filter(r=>r.tipo==='NPS DELIVERY (ENTREGA)'),det=u.filter(r=>r.tipo==='% DE DETRACTORES'),dias=new Set(u.map(r=>r.fecha));return{key:k,dias:dias.size,score:avg(score.map(r=>r.resultado)),resp:avg(resp.map(r=>r.resultado)),nps:avg(nps.map(r=>r.resultado)),npsDel:avg(npsDel.map(r=>r.resultado)),det:avg(det.map(r=>r.resultado))}})}
+function satYearSeries(items,field){const years=[...new Set(items.map(r=>r.key.slice(0,4)))].sort(),out={};years.forEach(y=>out[y]=Array(12).fill(null));items.forEach(r=>{const y=r.key.slice(0,4),m=Number(r.key.slice(5,7))-1;if(out[y])out[y][m]=r[field]});return years.map(y=>({year:y,data:out[y]}))}
+function satPointLabels(field){return {id:'satLabels'+field,afterDatasetsDraw(c){const{ctx}=c;ctx.save();ctx.font='650 10px system-ui';ctx.textAlign='center';ctx.textBaseline='bottom';c.data.datasets.forEach((ds,di)=>{const meta=c.getDatasetMeta(di);ctx.fillStyle=ds.borderColor;meta.data.forEach((p,i)=>{const v=ds.data[i];if(v!=null){const off=7+(di%4)*10;ctx.fillText(field==='resp'||field==='det'?fmtPct(v):fmt1(v),p.x,p.y-off)}})});ctx.restore()}}}
+function lineSat(id,items,field,label,min,max){if(!chartsReady())return;if(ch[id])ch[id].destroy();const labels=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'],palette=['#0E7C6B','#7C3AED','#D97706','#1E3A8A','#DC2626','#16A34A','#0891B2','#BE123C','#4D7C0F','#9333EA'],series=satYearSeries(items,field);
+ ch[id]=new Chart(document.getElementById(id),{type:'line',data:{labels,datasets:series.map((s,i)=>({label:s.year,data:s.data,borderColor:palette[i%palette.length],backgroundColor:palette[i%palette.length],borderWidth:2.5,tension:.25,pointRadius:3,spanGaps:false,fill:false}))},
+  options:{responsive:true,maintainAspectRatio:false,layout:{padding:{top:44,right:28}},plugins:{legend:{display:true,labels:{boxWidth:10,font:{size:10}}},tooltip:{callbacks:{label:x=>x.dataset.label+' · '+label+': '+(field==='resp'||field==='det'?fmtPct(x.parsed.y):fmt1(x.parsed.y))}}},
+  scales:{y:{min,max,ticks:{stepSize:field==='resp'||field==='det'?10:(field==='score'?.2:10),callback:v=>field==='resp'||field==='det'?v+'%':Number(v).toFixed(field==='score'?1:0),color:'#657085',font:{size:11}},grid:{color:'#eef1f5'}},x:{ticks:{color:'#657085',font:{size:10}},grid:{display:false}}}},plugins:[satPointLabels(field)]})}
+function renderSatisfaccion(){const rows=satScope(),months=satByMonth(rows),latestScore=satLatest(rows,'RMD Puntaje'),latestResp=satLatest(rows,'Rate My Delivery % de respuestas'),latestNps=satLatest(rows,'NPS GRAL'),latestNpsDel=satLatest(rows,'NPS DELIVERY (ENTREGA)'),dias=new Set(rows.map(r=>r.fecha));
+ hintSat.textContent=(DATA.satisfaccion&&DATA.satisfaccion.error)?DATA.satisfaccion.error:'Datos tomados del Google Sheet publicado de satisfaccion del cliente.';
+ kSatScore.textContent=latestScore?fmt1(latestScore.resultado):'-';kSatResp.textContent=latestResp?fmtPct(latestResp.resultado):'-';kSatNps.textContent=latestNps?fmt1(latestNps.resultado):'-';kSatNpsDel.textContent=latestNpsDel?fmt1(latestNpsDel.resultado):'-';kSatMeses.textContent=months.length;kSatDias.textContent=dias.size;
+ oSatScore.textContent=latestScore?('fecha '+dLbl(latestScore.fecha)+' · objetivo >= 4,75'):'objetivo >= 4,75';
+ oSatResp.textContent=latestResp?('fecha '+dLbl(latestResp.fecha)+' · objetivo >= 50%'):'objetivo >= 50%';
+ oSatNps.textContent=latestNps?('fecha '+dLbl(latestNps.fecha)+' · objetivo >= 70'):'objetivo >= 70';
+ oSatNpsDel.textContent=latestNpsDel?('fecha '+dLbl(latestNpsDel.fecha)+' · objetivo >= 70'):'objetivo >= 70';
+ const scoreOk=latestScore&&latestScore.resultado>=OBJ_SAT.score,respOk=latestResp&&latestResp.resultado>=OBJ_SAT.resp,npsOk=latestNps&&latestNps.resultado>=OBJ_SAT.nps,npsDelOk=latestNpsDel&&latestNpsDel.resultado>=OBJ_SAT.nps;
+ [[cSatScore,bSatScore,gSatScore,latestScore?latestScore.resultado:null,scoreOk,5],[cSatResp,bSatResp,gSatResp,latestResp?latestResp.resultado:null,respOk,100],[cSatNps,bSatNps,gSatNps,latestNps?latestNps.resultado:null,npsOk,100],[cSatNpsDel,bSatNpsDel,gSatNpsDel,latestNpsDel?latestNpsDel.resultado:null,npsDelOk,100]].forEach(([c,b,g,v,ok,max])=>{const col=v==null?C.obj:(ok?C.good:C.bad);c.style.setProperty('--accent',col);b.style.background=col;b.style.width=Math.min(100,(v||0)/max*100)+'%';g.className='badge '+(v==null?'':(ok?'ok':'no'));g.textContent=v==null?'SIN DATOS':(ok?'OK':'REVISAR')});
+ [[cSatMeses,bSatMeses,C.obj],[cSatDias,bSatDias,C.cli]].forEach(([c,b,col])=>{c.style.setProperty('--accent',col);b.style.background=col;b.style.width='100%'});
+ lineSat('chSatScore',months,'score','RMD Puntaje',3,5);lineSat('chSatResp',months,'resp','% respuestas',0,100);lineSat('chSatNps',months,'nps','NPS general',0,100);lineSat('chSatNpsDel',months,'npsDel','NPS delivery',0,100);
+ tbodySat.innerHTML=months.length?months.map(r=>'<tr><td>'+mLbl(r.key)+' '+r.key.slice(0,4)+'</td><td>'+r.dias+'</td><td class="'+(r.score>=OBJ_SAT.score?'g':'r')+'">'+fmt1(r.score)+'</td><td class="'+(r.resp>=OBJ_SAT.resp?'g':'r')+'">'+fmtPct(r.resp)+'</td><td class="'+(r.nps>=OBJ_SAT.nps?'g':'r')+'">'+fmt1(r.nps)+'</td><td class="'+(r.npsDel>=OBJ_SAT.nps?'g':'r')+'">'+fmt1(r.npsDel)+'</td><td>'+fmtPct(r.det)+'</td></tr>').join(''):emptyRow(7,'No hay datos de satisfaccion para el filtro actual.');}
 function renderRechazos(){const rows=rechazosScope(),total=rows.reduce((s,r)=>s+(r.rechazos||0),0),pedTotal=rows.reduce((s,r)=>s+(r.pedidos_pdv_atendidos||0),0),pdvTotal=rows.reduce((s,r)=>s+(r.pdv_unicos||0),0),dias=rows.filter(r=>(r.pedidos_pdv_atendidos||0)>0).length,peak=rows.reduce((m,r)=>(r.rechazos||0)>(m.rechazos||0)?r:m,{}),tasa=pedTotal?total/pedTotal*100:null,nds=wavg(rows,'nds','pedidos_pdv_atendidos'),pctB=wavg(rows,'pct_rechazo_bultos','bultos'),pctHl=wavg(rows,'pct_rechazo_hl','hl');
  kRTotal.textContent=fmt0(total);kRProm.textContent=dias?r1(total/dias):'–';kRPeak.textContent=peak.fecha?dLbl(peak.fecha):'–';oRPeak.textContent=peak.fecha?(peak.rechazos||0)+' rechazos':'mayor cantidad diaria';kRTasa.textContent=fmtPct(tasa);
  kRPed.textContent=fmt0(pedTotal);kRPdv.textContent=fmt0(pdvTotal);kRNds.textContent=fmtPct(nds);kRBl.textContent=fmtPct(pctB);kRHl.textContent=fmtPct(pctHl);
  [cRTotal,cRProm,cRPeak,cRTasa,cRPed,cRPdv,cRNds,cRBl,cRHl].forEach(c=>c.style.setProperty('--accent',C.amber));[bRTotal,bRProm,bRPeak,bRTasa,bRPed,bRPdv,bRNds,bRBl,bRHl].forEach(b=>{b.style.background=C.amber;b.style.width='100%'});
+ [[cRTasa,bRTasa,tasa,OBJ_RECH.pdv],[cRBl,bRBl,pctB,OBJ_RECH.bultos],[cRHl,bRHl,pctHl,OBJ_RECH.hl]].forEach(([c,b,v,o])=>{const col=v==null?C.obj:(v<=o?C.good:C.bad);c.style.setProperty('--accent',col);b.style.background=col;b.style.width=Math.min(100,((v||0)/Math.max(o,1))*100)+'%'});
  barGen('chRechDia',rows.map(r=>dLbl(r.fecha)),rows.map(r=>r.rechazos||0),v=>v,()=>C.amber,null,rows.length<=31);
  const mes=rechazosMes(rows);barGen('chRechMes',mes.map(r=>mLbl(r.key)),mes.map(r=>r.n),v=>v,()=>C.amber,null,true);
- const pctMes=rechazosPctMes(rows);rechazosPctChart('chRechPctPdvMes',pctMes,'pdv','% rechazo PDV',C.amber);rechazosPctChart('chRechPctBultosMes',pctMes,'bultos','% rechazo bultos',C.bad);rechazosPctChart('chRechPctHlMes',pctMes,'hl','% rechazo HL',C.sec);
- tbodyRech.innerHTML=rows.length?rows.map(r=>{const aus=100-(r.nds||0),ev=r.evento||r.feriado||'';return '<tr><td title="'+r.fecha+'">'+dLbl(r.fecha)+'</td><td>'+fmt1(r.bultos)+'</td><td class="'+((r.rechazo_bultos||0)?'r':'g')+'">'+fmt1(r.rechazo_bultos)+'</td><td class="'+((r.rechazo_bultos_total||0)?'r':'g')+'">'+fmt1(r.rechazo_bultos_total)+'</td><td>'+fmt1(r.hl)+'</td><td class="'+((r.rechazo_hl||0)?'r':'g')+'">'+fmt1(r.rechazo_hl)+'</td><td class="'+((r.rechazo_hl_total||0)?'r':'g')+'">'+fmt1(r.rechazo_hl_total)+'</td><td>'+fmt0(r.salidas)+'</td><td>'+fmt0(r.pedidos_pdv_atendidos)+'</td><td>'+fmt0(r.pdv_unicos)+'</td><td>'+pctPill(r.nds,(r.nds||0)>=95)+'</td><td>'+fmt1(aus)+'</td><td>'+pctPill(r.pct_rechazo_pedidos,(r.pct_rechazo_pedidos||0)<=5)+'</td><td>'+pctPill(r.pct_rechazo_bultos,(r.pct_rechazo_bultos||0)<=5)+'</td><td>'+pctPill(r.pct_rechazo_hl,(r.pct_rechazo_hl||0)<=5)+'</td><td class="event">'+ev+'</td></tr>'}).join(''):emptyRow(16,'No hay rechazos cargados para el filtro actual.');}
+ const pctMes=rechazosPctMes(rows);rechazosPctChart('chRechPctPdvMes',pctMes,'pdv','% rechazo PDV',C.amber,OBJ_RECH.pdv);rechazosPctChart('chRechPctBultosMes',pctMes,'bultos','% rechazo bultos',C.bad,OBJ_RECH.bultos);rechazosPctChart('chRechPctHlMes',pctMes,'hl','% rechazo HL',C.sec,OBJ_RECH.hl);
+ tbodyRech.innerHTML=rows.length?rows.map(r=>{const aus=100-(r.nds||0),ev=r.evento||r.feriado||'';return '<tr><td title="'+r.fecha+'">'+dLbl(r.fecha)+'</td><td>'+fmt1(r.bultos)+'</td><td class="'+((r.rechazo_bultos||0)?'r':'g')+'">'+fmt1(r.rechazo_bultos)+'</td><td class="'+((r.rechazo_bultos_total||0)?'r':'g')+'">'+fmt1(r.rechazo_bultos_total)+'</td><td>'+fmt1(r.hl)+'</td><td class="'+((r.rechazo_hl||0)?'r':'g')+'">'+fmt1(r.rechazo_hl)+'</td><td class="'+((r.rechazo_hl_total||0)?'r':'g')+'">'+fmt1(r.rechazo_hl_total)+'</td><td>'+fmt0(r.salidas)+'</td><td>'+fmt0(r.pedidos_pdv_atendidos)+'</td><td>'+fmt0(r.pdv_unicos)+'</td><td>'+pctPill(r.nds,(r.nds||0)>=95)+'</td><td>'+fmt1(aus)+'</td><td>'+pctPill(r.pct_rechazo_pedidos,(r.pct_rechazo_pedidos||0)<=OBJ_RECH.pdv)+'</td><td>'+pctPill(r.pct_rechazo_bultos,(r.pct_rechazo_bultos||0)<=OBJ_RECH.bultos)+'</td><td>'+pctPill(r.pct_rechazo_hl,(r.pct_rechazo_hl||0)<=OBJ_RECH.hl)+'</td><td class="event">'+ev+'</td></tr>'}).join(''):emptyRow(16,'No hay rechazos cargados para el filtro actual.');}
 function renderOtif(){const routeScope=R.filter(scopeCards),rows=rechazosScope(),o=otifCalc(routeScope,rows),ok=o.otif!=null&&o.otif>=95,col=o.otif==null?C.obj:(ok?C.good:C.bad),noOk=o.noOtif!=null&&o.noOtif<=5,noCol=o.noOtif==null?C.obj:(noOk?C.good:C.bad);
  kOTIFNoPct.textContent=fmtPct(o.noOtif);kOTIF.textContent=fmtPct(o.otif);kOTIFVol.textContent=fmt0(o.total);kOTIFEnt.textContent=fmt0(o.ok);kOTIFNo.textContent=fmt0(o.no);
  cOTIFNoPct.style.setProperty('--accent',noCol);bOTIFNoPct.style.background=noCol;bOTIFNoPct.style.width=Math.min(100,(o.noOtif||0)*20)+'%';gOTIFNoPct.className='badge '+(noOk?'ok':'no');gOTIFNoPct.textContent=o.noOtif==null?'SIN DATOS':(noOk?'OK':'ALTO');
@@ -466,14 +547,14 @@ function renderOnTime(){const scope=R.filter(full),o=onTime(scope),ok=o.p!=null&
  const msgSin=o.sin?'Hay '+o.sin+' pedidos sin ventana, pero esta carga no tiene el detalle por cliente. Volvé a subir Route Analytics, visitas Foxtrot y clientes para recalcular.':'No hay clientes sin ventana horaria cargada en el filtro actual.';
  tbodyOTClientes.innerHTML=fueraRows.length?fueraRows.map(c=>'<tr><td>'+c.cliente+'</td><td>'+c.nombre+'</td><td class="r">'+c.fuera+'</td><td>'+c.visita+'</td><td>'+c.ventana+'</td></tr>').join(''):emptyRow(5,msgFuera);
  tbodyOTClientesSin.innerHTML=sinRows.length?sinRows.map(c=>'<tr><td>'+c.cliente+'</td><td>'+c.nombre+'</td><td class="r">'+c.pedidos+'</td><td>'+c.motivo+'</td></tr>').join(''):emptyRow(4,msgSin);}
-function render(){renderCards();if(state.tab==='mes')renderMes();else if(state.tab==='dia')renderDia();else if(state.tab==='sem')renderSem();else if(state.tab==='calidad')renderCalidad();else if(state.tab==='rechazos')renderRechazos();else if(state.tab==='otif')renderOtif();else renderOnTime();}
+function render(){renderCards();if(state.tab==='mes')renderMes();else if(state.tab==='dia')renderDia();else if(state.tab==='sem')renderSem();else if(state.tab==='calidad')renderCalidad();else if(state.tab==='rechazos')renderRechazos();else if(state.tab==='otif')renderOtif();else if(state.tab==='satisfaccion')renderSatisfaccion();else if(state.tab==='teamroom')renderTeamRoom();else renderOnTime();}
 ['fSuc','fMes','fCho'].forEach(id=>document.getElementById(id).addEventListener('change',e=>{state[{fSuc:'suc',fMes:'mes',fCho:'cho'}[id]]=e.target.value;render()}));
 reset.addEventListener('click',()=>{state.suc=state.mes=state.cho='__all';fSuc.value=fMes.value=fCho.value='__all';render()});
-function switchTab(t){state.tab=t;tabMes.classList.toggle('active',t==='mes');tabDia.classList.toggle('active',t==='dia');tabSem.classList.toggle('active',t==='sem');tabOnTime.classList.toggle('active',t==='ontime');tabRechazos.classList.toggle('active',t==='rechazos');tabOtif.classList.toggle('active',t==='otif');tabCalidad.classList.toggle('active',t==='calidad');
- document.getElementById('operationalSummary').style.display=(t==='rechazos'||t==='ontime'||t==='otif'||t==='calidad')?'none':'';
- document.getElementById('viewMes').style.display=t==='mes'?'':'none';document.getElementById('viewDia').style.display=t==='dia'?'':'none';document.getElementById('viewSem').style.display=t==='sem'?'':'none';document.getElementById('viewCalidad').style.display=t==='calidad'?'':'none';document.getElementById('viewOnTime').style.display=t==='ontime'?'':'none';document.getElementById('viewOtif').style.display=t==='otif'?'':'none';document.getElementById('viewRechazos').style.display=t==='rechazos'?'':'none';
+function switchTab(t){state.tab=t;tabMes.classList.toggle('active',t==='mes');tabDia.classList.toggle('active',t==='dia');tabSem.classList.toggle('active',t==='sem');tabOnTime.classList.toggle('active',t==='ontime');tabSatisfaccion.classList.toggle('active',t==='satisfaccion');tabTeamRoom.classList.toggle('active',t==='teamroom');tabRechazos.classList.toggle('active',t==='rechazos');tabOtif.classList.toggle('active',t==='otif');tabCalidad.classList.toggle('active',t==='calidad');
+ document.getElementById('operationalSummary').style.display=(t==='rechazos'||t==='ontime'||t==='otif'||t==='calidad'||t==='satisfaccion'||t==='teamroom')?'none':'';
+ document.getElementById('viewMes').style.display=t==='mes'?'':'none';document.getElementById('viewDia').style.display=t==='dia'?'':'none';document.getElementById('viewSem').style.display=t==='sem'?'':'none';document.getElementById('viewCalidad').style.display=t==='calidad'?'':'none';document.getElementById('viewSatisfaccion').style.display=t==='satisfaccion'?'':'none';document.getElementById('viewTeamRoom').style.display=t==='teamroom'?'':'none';document.getElementById('viewOnTime').style.display=t==='ontime'?'':'none';document.getElementById('viewOtif').style.display=t==='otif'?'':'none';document.getElementById('viewRechazos').style.display=t==='rechazos'?'':'none';
  if(t==='sem'&&!state.sem&&WEEKS.length)state.sem=WEEKS[WEEKS.length-1];render()}
-tabMes.addEventListener('click',()=>switchTab('mes'));tabSem.addEventListener('click',()=>switchTab('sem'));tabDia.addEventListener('click',()=>switchTab('dia'));tabOnTime.addEventListener('click',()=>switchTab('ontime'));tabRechazos.addEventListener('click',()=>switchTab('rechazos'));tabOtif.addEventListener('click',()=>switchTab('otif'));tabCalidad.addEventListener('click',()=>switchTab('calidad'));
+tabMes.addEventListener('click',()=>switchTab('mes'));tabSem.addEventListener('click',()=>switchTab('sem'));tabDia.addEventListener('click',()=>switchTab('dia'));tabOnTime.addEventListener('click',()=>switchTab('ontime'));tabTeamRoom.addEventListener('click',()=>switchTab('teamroom'));tabSatisfaccion.addEventListener('click',()=>switchTab('satisfaccion'));tabRechazos.addEventListener('click',()=>switchTab('rechazos'));tabOtif.addEventListener('click',()=>switchTab('otif'));tabCalidad.addEventListener('click',()=>switchTab('calidad'));
 render();
 const chartScript=document.createElement('script');
 chartScript.src='https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js';

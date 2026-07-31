@@ -15,6 +15,29 @@ import json
 from urllib.parse import quote
 
 
+def _load_local_env():
+    """Carga variables desde .env local si existen y no estaban definidas."""
+    env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
+    if not os.path.exists(env_path):
+        return
+    try:
+        with open(env_path, encoding="utf-8") as fh:
+            for line in fh:
+                line = line.strip()
+                if not line or line.startswith("#") or "=" not in line:
+                    continue
+                key, value = line.split("=", 1)
+                key = key.strip()
+                value = value.strip().strip('"').strip("'")
+                if key and key not in os.environ:
+                    os.environ[key] = value
+    except Exception:
+        return
+
+
+_load_local_env()
+
+
 def _database_url_from_env():
     url = os.environ.get("DATABASE_URL") or os.environ.get("POSTGRES_URL")
     if url:

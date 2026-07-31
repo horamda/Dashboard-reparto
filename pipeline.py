@@ -32,6 +32,14 @@ RECHAZOS_API_URL = os.environ.get(
 )
 RECHAZOS_SUCURSAL = os.environ.get("RECHAZOS_SUCURSAL", "Dolores")
 RECHAZOS_SUCURSAL_ID = os.environ.get("RECHAZOS_SUCURSAL_ID", "2")
+SATISFACCION_CSV_URL = os.environ.get(
+    "SATISFACCION_CSV_URL",
+    "https://docs.google.com/spreadsheets/d/e/2PACX-1vQkEVyl9kmmMf5vsi--tz5mf39u80tJoFcBzWFFLWhHuXepY5dBEqmSzXLbD0AXapFPj9DLMBqii7TA/pub?gid=0&single=true&output=csv",
+)
+NPS_CSV_URL = os.environ.get(
+    "NPS_CSV_URL",
+    "https://docs.google.com/spreadsheets/d/e/2PACX-1vQkEVyl9kmmMf5vsi--tz5mf39u80tJoFcBzWFFLWhHuXepY5dBEqmSzXLbD0AXapFPj9DLMBqii7TA/pub?gid=1806046627&single=true&output=csv",
+)
 
 storage.init()
 
@@ -135,6 +143,61 @@ def _to_float(v):
         return float(str(v).replace(".", "").replace(",", ".")) if "," in str(v) else float(v)
     except Exception:
         return 0.0
+
+
+def _parse_fecha_ar(v):
+    dt = pd.to_datetime(v, dayfirst=True, errors="coerce")
+    if pd.isna(dt):
+        return ""
+    return dt.strftime("%Y-%m-%d")
+
+
+def cargar_satisfaccion():
+    rows, errors = [], []
+
+    def norm_tipo(v):
+        s = str(v or "").strip()
+        low = s.lower()
+        if low == "rate my delivery % de respuestas":
+            return "Rate My Delivery % de respuestas"
+        if low == "rmd puntaje":
+            return "RMD Puntaje"
+        if low == "nps gral":
+            return "NPS GRAL"
+        if low == "nps delivery (entrega)":
+            return "NPS DELIVERY (ENTREGA)"
+        if low == "% de detractores":
+            return "% DE DETRACTORES"
+        return s
+
+    def leer_csv(url, fecha_col, tipo_col, resultado_col):
+        req = Request(url, headers={"Accept": "text/csv"})
+        with urlopen(req, timeout=20) as res:
+            raw = res.read().decode("utf-8-sig", errors="replace")
+        df = pd.read_csv(StringIO(raw), dtype=str).fillna("")
+        out = []
+        for _, r in df.iterrows():
+            fecha = _parse_fecha_ar(r.get(fecha_col, ""))
+            if not fecha:
+                continue
+            out.append({
+                "anio": int(fecha[:4]),
+                "mes": fecha[:7],
+                "fecha": fecha,
+                "tipo": norm_tipo(r.get(tipo_col, "")),
+                "resultado": _to_float(str(r.get(resultado_col, "")).replace("%", "")),
+            })
+        return out
+
+    try:
+        rows.extend(leer_csv(SATISFACCION_CSV_URL, "Fecha", "Tipo", "Resultado"))
+    except Exception:
+        errors.append("No se pudo leer el CSV publicado de RMD.")
+    try:
+        rows.extend(leer_csv(NPS_CSV_URL, "FECHA", "TIPO", "RESULTADO"))
+    except Exception:
+        errors.append("No se pudo leer el CSV publicado de NPS.")
+    return {"rows": rows, "error": " ".join(errors)}
 
 
 def _norm_rechazo(row):
@@ -449,6 +512,7 @@ def _data_desde_base(base):
     rechazos = sorted(rechazos_base.values(), key=lambda r: r["fecha"])
     return {"rutas": rutas,
             "rechazos": rechazos,
+            "satisfaccion": cargar_satisfaccion(),
             "choferes": sorted({r["chofer"] for r in rutas}),
             "sucursales": sorted({r["suc"] for r in rutas}),
             "meses": sorted({r["mes"] for r in rutas}),
