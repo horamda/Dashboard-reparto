@@ -60,6 +60,7 @@ AQUI = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.environ.get("DATA_DIR", os.path.join(AQUI, "data"))
 JSON_PATH = os.path.join(DATA_DIR, "datos_dashboard.json")
 CLIENTES_JSON_PATH = os.path.join(DATA_DIR, "clientes_dashboard.json")
+ARTICULOS_JSON_PATH = os.path.join(DATA_DIR, "articulos_dashboard.json")
 
 BACKEND = "postgres" if DATABASE_URL else "json"
 
@@ -94,6 +95,18 @@ if BACKEND == "postgres":
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS rechazos_dashboard (
                     fecha TEXT PRIMARY KEY,
+                    rec JSONB NOT NULL
+                );
+            """)
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS articulos_dashboard (
+                    articulo TEXT PRIMARY KEY,
+                    rec JSONB NOT NULL
+                );
+            """)
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS settings_dashboard (
+                    key TEXT PRIMARY KEY,
                     rec JSONB NOT NULL
                 );
             """)
@@ -178,6 +191,37 @@ if BACKEND == "postgres":
             )
         return len(recs)
 
+    def load_articulos():
+        with _conn() as cn, cn.cursor() as cur:
+            cur.execute("SELECT articulo, rec FROM articulos_dashboard;")
+            return {articulo: rec for articulo, rec in cur.fetchall()}
+
+    def replace_articulos(recs):
+        with _conn() as cn, cn.cursor() as cur:
+            cur.execute("TRUNCATE articulos_dashboard;")
+            if recs:
+                rows = [(articulo, _extras.Json(rec)) for articulo, rec in recs.items()]
+                _extras.execute_values(
+                    cur,
+                    "INSERT INTO articulos_dashboard (articulo, rec) VALUES %s;",
+                    rows,
+                )
+        return len(recs)
+
+    def load_settings():
+        with _conn() as cn, cn.cursor() as cur:
+            cur.execute("SELECT key, rec FROM settings_dashboard;")
+            return {key: rec for key, rec in cur.fetchall()}
+
+    def save_setting(key, rec):
+        with _conn() as cn, cn.cursor() as cur:
+            cur.execute(
+                "INSERT INTO settings_dashboard (key, rec) VALUES (%s, %s) "
+                "ON CONFLICT (key) DO UPDATE SET rec = EXCLUDED.rec;",
+                (key, _extras.Json(rec)),
+            )
+        return rec
+
 
 # ========================= JSON =========================
 else:
@@ -249,3 +293,33 @@ else:
         os.makedirs(DATA_DIR, exist_ok=True)
         json.dump({"rechazos": base}, open(path, "w", encoding="utf-8"), ensure_ascii=False)
         return len(recs)
+
+    def load_articulos():
+        if os.path.exists(ARTICULOS_JSON_PATH):
+            try:
+                return json.load(open(ARTICULOS_JSON_PATH, encoding="utf-8"))["articulos"]
+            except Exception:
+                return {}
+        return {}
+
+    def replace_articulos(recs):
+        os.makedirs(DATA_DIR, exist_ok=True)
+        json.dump({"articulos": recs}, open(ARTICULOS_JSON_PATH, "w", encoding="utf-8"), ensure_ascii=False)
+        return len(recs)
+
+    def load_settings():
+        path = os.path.join(DATA_DIR, "settings_dashboard.json")
+        if os.path.exists(path):
+            try:
+                return json.load(open(path, encoding="utf-8"))["settings"]
+            except Exception:
+                return {}
+        return {}
+
+    def save_setting(key, rec):
+        path = os.path.join(DATA_DIR, "settings_dashboard.json")
+        base = load_settings()
+        base[key] = rec
+        os.makedirs(DATA_DIR, exist_ok=True)
+        json.dump({"settings": base}, open(path, "w", encoding="utf-8"), ensure_ascii=False)
+        return rec

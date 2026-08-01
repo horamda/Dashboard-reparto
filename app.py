@@ -79,6 +79,22 @@ a{{color:#1E3A8A;font-size:13.5px}}hr{{border:0;border-top:1px solid #DCE2EA;mar
   <input type=file name=rechazos_file accept=".csv,.json,text/csv,application/json">
   <button class=btn type=submit>Importar rechazos</button>
 </form>
+<hr>
+<h1>Importar artículos</h1>
+<p>Guarda el maestro de artículos para convertir unidades a bultos en DQI.</p>
+<form method=post action="/actualizar-articulos" enctype="multipart/form-data">
+  <label>Archivo de artículos (.csv)</label>
+  <input type=file name=articulos accept=".csv,text/csv" required>
+  <button class=btn type=submit>Importar artículos</button>
+</form>
+<hr>
+<h1>Configurar DQI</h1>
+<p>Define el objetivo mensual de roturas en bultos para DQI y Team Room.</p>
+<form method=post action="/configurar-dqi">
+  <label>Objetivo mensual DQI (bultos)</label>
+  <input name=dqi_objetivo value="{dqi_objetivo}" required>
+  <button class=btn type=submit>Guardar objetivo</button>
+</form>
 </div></body></html>"""
 
 LOGIN_HTML = """<!doctype html><html lang=es><head><meta charset=utf-8>
@@ -121,7 +137,12 @@ a{display:inline-block;margin-top:18px;background:#15233B;color:#fff;text-decora
 def _admin_page(msg="", err=False):
     token_field = ""
     m = f'<div class="msg{" err" if err else ""}">{msg}</div>' if msg else ""
-    return ADMIN_HTML.format(msg=m, token_field=token_field, hasta_default=date.today().strftime("%Y-%m-%d"))
+    return ADMIN_HTML.format(
+        msg=m,
+        token_field=token_field,
+        hasta_default=date.today().strftime("%Y-%m-%d"),
+        dqi_objetivo=pipeline.dqi_objetivo_bultos_mes(),
+    )
 
 
 def _login_page(msg="", err=False):
@@ -236,11 +257,39 @@ def actualizar_rechazos():
     return Response(_admin_page(msg), mimetype="text/html")
 
 
+@app.route("/actualizar-articulos", methods=["POST"])
+def actualizar_articulos():
+    blocked = _require_login()
+    if blocked:
+        return blocked
+    archivo = request.files.get("articulos")
+    if not archivo or not archivo.filename:
+        return Response(_admin_page("Falta el archivo de artículos.", err=True), mimetype="text/html", status=400)
+    try:
+        total = pipeline.actualizar_articulos(archivo.stream)
+    except Exception as e:
+        return Response(_admin_page(f"Error importando artículos: {e}", err=True), mimetype="text/html", status=400)
+    return Response(_admin_page(f"Listo. Artículos importados: {total}."), mimetype="text/html")
+
+
+@app.route("/configurar-dqi", methods=["POST"])
+def configurar_dqi():
+    blocked = _require_login()
+    if blocked:
+        return blocked
+    try:
+        cfg = pipeline.guardar_dqi_objetivo(request.form.get("dqi_objetivo"))
+    except Exception as e:
+        return Response(_admin_page(f"Error guardando objetivo DQI: {e}", err=True), mimetype="text/html", status=400)
+    return Response(_admin_page(f"Listo. Objetivo mensual DQI: {cfg['valor']} bultos."), mimetype="text/html")
+
+
 @app.route("/salud")
 def salud():
     base = pipeline.storage.load_all()
     clientes = pipeline.storage.load_clientes()
     rechazos = pipeline.storage.load_rechazos()
+    articulos = pipeline.storage.load_articulos()
     rutas = list(base.values())
     ontime_rutas = [r for r in rutas if "pdv_total" in r]
     clientes_foxtrot_con_ventana = {
@@ -268,6 +317,7 @@ def salud():
         "clientes_foxtrot_sin_ventana": len(clientes_foxtrot_sin_ventana),
         "rechazos_dias": len(rechazos),
         "rechazos_total": sum(r.get("rechazos", 0) for r in rechazos.values()),
+        "articulos": len(articulos),
         "ontime_rutas": len(ontime_rutas),
         "ontime_pdv_total": sum(r.get("pdv_total", 0) for r in rutas),
         "ontime_pdv_evaluables": sum((r.get("pdv_ontime", 0) + r.get("pdv_fuera_ontime", 0)) for r in rutas),

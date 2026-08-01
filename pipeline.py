@@ -40,6 +40,10 @@ NPS_CSV_URL = os.environ.get(
     "NPS_CSV_URL",
     "https://docs.google.com/spreadsheets/d/e/2PACX-1vQkEVyl9kmmMf5vsi--tz5mf39u80tJoFcBzWFFLWhHuXepY5dBEqmSzXLbD0AXapFPj9DLMBqii7TA/pub?gid=1806046627&single=true&output=csv",
 )
+DQI_CSV_URL = os.environ.get(
+    "DQI_CSV_URL",
+    "https://docs.google.com/spreadsheets/d/e/2PACX-1vSC5R8XlW4kETbkIDmX95n_XEVJE4JMf-NNp7wYi6mE5OAfj-EENAC9jK0-IlkN1A/pub?gid=1861746295&single=true&output=csv",
+)
 
 storage.init()
 
@@ -200,6 +204,97 @@ def cargar_satisfaccion():
     return {"rows": rows, "error": " ".join(errors)}
 
 
+def cargar_dqi():
+    req = Request(DQI_CSV_URL, headers={"Accept": "text/csv"})
+    try:
+        with urlopen(req, timeout=30) as res:
+            raw = res.read().decode("utf-8-sig", errors="replace")
+        df = pd.read_csv(StringIO(raw), dtype=str).fillna("")
+    except Exception:
+        return {"rows": [], "error": "No se pudo leer el CSV publicado de DQI."}
+    fecha_col = _pick_col(df, ["Fecha Mvto", "Fecha Movimiento", "Fecha"])
+    unids_col = _pick_col(df, ["Unids", "Unidades"])
+    bultos_col = _pick_col(df, ["Bultos"])
+    deposito_col = _pick_col(df, ["Depósito", "Deposito"])
+    articulo_col = _pick_col(df, ["Artículo", "Articulo"])
+    transporte_cols = [
+        c for c in [
+            _pick_col(df, ["Transporte"]),
+            _pick_col(df, ["Descripción Transporte", "Descripcion Transporte"]),
+            _pick_col(df, ["Descripción Movimiento", "Descripcion Movimiento"]),
+        ] if c is not None
+    ]
+    if fecha_col is None or unids_col is None:
+        return {"rows": [], "error": "El CSV de DQI no trae Fecha Mvto y Unids."}
+    articulos = storage.load_articulos()
+
+    def es_entrega(row):
+        if not transporte_cols:
+            return True
+        txt = " ".join(str(row.get(c, "")) for c in transporte_cols).lower()
+        if "camion" in txt or "camión" in txt:
+            return True
+        if any(x in txt for x in ("roturas acarreo", "iveco", "entrega")):
+            return True
+        return False
+
+    def bultos_equivalentes(row):
+        bultos = _to_float(row.get(bultos_col)) if bultos_col is not None else 0.0
+        unids = _to_float(row.get(unids_col))
+        articulo = _norm_id(row.get(articulo_col)) if articulo_col is not None else ""
+        upb = (articulos.get(articulo) or {}).get("unidades_por_bulto")
+        extra = (unids / upb) if upb and upb > 0 else 0.0
+        return bultos + extra
+
+    daily = {}
+    detalles = []
+    for _, r in df.iterrows():
+        if deposito_col is not None and _norm_id(r.get(deposito_col)) != "7":
+            continue
+        if not es_entrega(r):
+            continue
+        fecha = _parse_fecha_ar(r.get(fecha_col, ""))
+        if not fecha:
+            continue
+        if fecha[:4] != "2026":
+            continue
+        bultos_eq = bultos_equivalentes(r)
+        if bultos_eq <= 0:
+            continue
+        articulo = _norm_id(r.get(articulo_col)) if articulo_col is not None else ""
+        art = articulos.get(articulo) or {}
+        camion = " ".join(str(r.get(c, "")).strip() for c in transporte_cols if str(r.get(c, "")).strip())
+        if not camion:
+            camion = "Sin camion"
+        daily[fecha] = daily.get(fecha, 0.0) + bultos_eq
+        detalles.append({
+            "fecha": fecha,
+            "mes": fecha[:7],
+            "camion": camion,
+            "articulo": articulo,
+            "descripcion": art.get("descripcion") or str(r.get(_pick_col(df, ["Descripción Artículo", "Descripcion Articulo"]) or "", "")).strip(),
+            "bultos": round(bultos_eq, 2),
+        })
+    rows = [
+        {"fecha": fecha, "mes": fecha[:7], "dqi": round(valor, 1)}
+        for fecha, valor in sorted(daily.items())
+    ]
+    return {"rows": rows, "detalles": detalles, "error": ""}
+
+
+def dqi_objetivo_bultos_mes():
+    cfg = storage.load_settings().get("dqi_objetivo_bultos_mes") or {}
+    val = _to_float(cfg.get("valor"))
+    return val if val > 0 else 1
+
+
+def guardar_dqi_objetivo(valor):
+    val = _to_float(valor)
+    if val <= 0:
+        raise ValueError("El objetivo mensual DQI debe ser mayor a cero.")
+    return storage.save_setting("dqi_objetivo_bultos_mes", {"valor": val})
+
+
 def _norm_rechazo(row):
     fecha = str(_pick_value(row, ("fecha", "dia", "date", "Fecha", "Día"), "") or "")[:10]
     cantidad = _to_int(_pick_value(row, ("rechazo_pedidos", "rechazos", "cantidad", "total", "count", "valor"), 0))
@@ -343,6 +438,40 @@ def procesar_clientes(clientes_file):
 def actualizar_clientes(clientes_file):
     clientes = procesar_clientes(clientes_file)
     return storage.replace_clientes(clientes)
+
+
+def procesar_articulos(articulos_file):
+    try:
+        df = pd.read_csv(articulos_file, dtype=str, sep=None, engine="python", encoding="utf-8-sig", encoding_errors="replace").fillna("")
+    except UnicodeDecodeError:
+        if hasattr(articulos_file, "seek"):
+            articulos_file.seek(0)
+        df = pd.read_csv(articulos_file, dtype=str, sep=None, engine="python", encoding="cp1252", encoding_errors="replace").fillna("")
+    art_col = _pick_col(df, ["Artículo", "Articulo", "Codigo", "Código", "SKU"])
+    desc_col = _pick_col(df, ["Descripción Artículo", "Descripcion Articulo", "Descripcion", "Descripción"])
+    upb_col = _pick_col(df, [
+        "Unidades por bulto", "Unidades x bulto", "Unid x bulto", "UxB",
+        "Unidades/Bulto", "Unidades por caja", "Factor", "Contenido",
+    ])
+    if art_col is None or upb_col is None:
+        raise ValueError("El archivo de articulos debe tener articulo y unidades por bulto.")
+    out = {}
+    for _, r in df.iterrows():
+        articulo = _norm_id(r.get(art_col))
+        upb = _to_float(r.get(upb_col))
+        if not articulo or upb <= 0:
+            continue
+        out[articulo] = {
+            "articulo": articulo,
+            "descripcion": str(r.get(desc_col, "")).strip() if desc_col is not None else "",
+            "unidades_por_bulto": upb,
+        }
+    return out
+
+
+def actualizar_articulos(articulos_file):
+    articulos = procesar_articulos(articulos_file)
+    return storage.replace_articulos(articulos)
 
 
 def _pick_col(df, candidates):
@@ -513,6 +642,8 @@ def _data_desde_base(base):
     return {"rutas": rutas,
             "rechazos": rechazos,
             "satisfaccion": cargar_satisfaccion(),
+            "dqi": cargar_dqi(),
+            "settings": {"dqi_objetivo_bultos_mes": dqi_objetivo_bultos_mes()},
             "choferes": sorted({r["chofer"] for r in rutas}),
             "sucursales": sorted({r["suc"] for r in rutas}),
             "meses": sorted({r["mes"] for r in rutas}),
