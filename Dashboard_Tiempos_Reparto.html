@@ -162,7 +162,8 @@ opts(fSuc,DATA.sucursales,'Todas');opts(fMes,MESES,'Todos');opts(fCho,DATA.chofe
 const semData=[...new Set(R.filter(r=>r.usable).map(r=>weekKey(r.fecha)))].sort();
 const anios=[...new Set(R.map(r=>+r.fecha.slice(0,4)))].sort();
 const y0=anios[0]||new Date().getUTCFullYear(),y1=anios[anios.length-1]||y0;
-let _w=weekKey(y0+'-01-01');const _last=weekKey(y1+'-12-31');const WEEKS=[];
+const firstMondayOfYear=y=>{let d=y+'-01-01';while(new Date(d+'T00:00:00Z').getUTCDay()!==1)d=addDaysUTC(d,1);return d};
+let _w=firstMondayOfYear(y0);const _last=weekKey(y1+'-12-31');const WEEKS=[];
 while(_w<=_last){WEEKS.push(_w);_w=addDaysUTC(_w,7);}
 const _conDatos=new Set(semData);
 fSem.innerHTML=WEEKS.map((w,i)=>'<option value="'+w+'">Sem '+(i+1)+' · '+weekLabel(w)+(_conDatos.has(w)?'':' — sin datos')+'</option>').join('');

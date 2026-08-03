@@ -227,7 +227,7 @@ tfoot td{font-weight:700;border-top:2px solid var(--line);border-bottom:none}
   </div>
  </div>
  <div id="viewTeamRoom" style="display:none">
-  <div class="hint" id="hintTeam">Elegí un mes arriba. Los días muestran la semana en curso del mes seleccionado; S1-S4 y Mes muestran acumulados.</div>
+  <div class="hint" id="hintTeam">Elegí una semana. Los días muestran la semana seleccionada; las columnas S acumulan las semanas del mes y Mes muestra el acumulado mensual.</div>
   <div class="filters" style="margin-bottom:16px"><div class="fg"><label>Semana Team Room 2026</label><select id="fTeamSem"></select></div></div>
   <div class="grid" style="grid-template-columns:1fr">
    <div class="panel"><h2>Resultados diarios - Team Room Distribucion - del Palacio S.A.</h2><div class="note">Valores diarios de lunes a sábado y acumulados semanales del mes.</div>
@@ -379,13 +379,14 @@ opts(fSuc,DATA.sucursales,'Todas');opts(fMes,MESES,'Todos');opts(fCho,DATA.chofe
 const semData=[...new Set(R.filter(r=>r.usable).map(r=>weekKey(r.fecha)))].sort();
 const anios=[...new Set(R.map(r=>+r.fecha.slice(0,4)))].sort();
 const y0=anios[0]||new Date().getUTCFullYear(),y1=anios[anios.length-1]||y0;
-let _w=weekKey(y0+'-01-01');const _last=weekKey(y1+'-12-31');const WEEKS=[];
+const firstMondayOfYear=y=>{let d=y+'-01-01';while(new Date(d+'T00:00:00Z').getUTCDay()!==1)d=addDaysUTC(d,1);return d};
+let _w=firstMondayOfYear(y0);const _last=weekKey(y1+'-12-31');const WEEKS=[];
 while(_w<=_last){WEEKS.push(_w);_w=addDaysUTC(_w,7);}
 const _conDatos=new Set(semData);
 fSem.innerHTML=WEEKS.map((w,i)=>'<option value="'+w+'">Sem '+(i+1)+' · '+weekLabel(w)+(_conDatos.has(w)?'':' — sin datos')+'</option>').join('');
 state.sem=semData.length?semData[semData.length-1]:WEEKS[WEEKS.length-1];fSem.value=state.sem;
 fSem.addEventListener('change',e=>{state.sem=e.target.value;render()});
-const TEAM_WEEKS=[];let _tw='2026-01-05';while(_tw<='2026-12-31'){TEAM_WEEKS.push(_tw);_tw=addDaysUTC(_tw,7);}
+const TEAM_WEEKS=WEEKS;
 fTeamSem.innerHTML=TEAM_WEEKS.map((w,i)=>'<option value="'+w+'">Sem '+(i+1)+' · '+weekLabel(w)+(_conDatos.has(w)?'':' — sin datos')+'</option>').join('');
 state.teamSem=semData.length?semData[semData.length-1]:(TEAM_WEEKS[TEAM_WEEKS.length-1]||null);
 fTeamSem.value=state.teamSem;
@@ -490,7 +491,7 @@ function monthRows(){const m=state.mes==='__all'?(MESES[MESES.length-1]||''):sta
 function monthRechRows(m){return RECH.filter(r=>r.fecha.slice(0,7)===m)}
 function monthSatRows(m){return SAT.filter(r=>r.mes===m)}
 function monthDqiRows(m){return DQI.filter(r=>r.mes===m)}
-function monthWeekStarts(m){const out=[],d=new Date(m+'-01T00:00:00Z');while(d.getUTCDay()!==1)d.setUTCDate(d.getUTCDate()+1);while(d.toISOString().slice(0,7)===m&&out.length<4){out.push(d.toISOString().slice(0,10));d.setUTCDate(d.getUTCDate()+7)}return out}
+function monthWeekStarts(m){const out=[],d=new Date(m+'-01T00:00:00Z');while(d.getUTCDay()!==1)d.setUTCDate(d.getUTCDate()+1);while(d.toISOString().slice(0,7)===m){out.push(d.toISOString().slice(0,10));d.setUTCDate(d.getUTCDate()+7)}return out}
 function activeWeekStart(m,rows){const today=new Date().toISOString().slice(0,10),starts=monthWeekStarts(m);if(today.slice(0,7)===m){const w=weekKey(today);if(starts.includes(w))return w}const ds=[...new Set(rows.map(r=>r.fecha))].sort();return ds.length?weekKey(ds[ds.length-1]):(starts[0]||m+'-01')}
 function inDay(scope,f){return scope.filter(r=>r.fecha===f)}
 function inWeek(scope,w){return scope.filter(r=>weekKey(r.fecha)===w)}
@@ -502,12 +503,13 @@ function teamMetrics(routeRows,rechRows,satRows,dqiRows){return{rech:wavg(rechRo
 function teamValueClass(key,v){if(v==null||isNaN(v))return'';if(key==='rech')return v<=OBJ_RECH.hl?'g':'r';if(key==='dk'||key==='dh')return Math.abs(v)<=OBJ.disp?'g':'r';if(key==='click')return v>=OBJ.adh?'g':'r';if(key==='dqi')return v<=OBJ_DQI?'g':'r';if(key==='tml'||key==='ti')return v<=OBJ.tml?'g':'r';if(key==='rmd')return v>=OBJ_SAT.score?'g':'r';if(key==='resp')return v>=OBJ_SAT.resp?'g':'r';if(key==='nps'||key==='npsDel')return v>=OBJ_SAT.nps?'g':'r';return''}
 function teamFmt(key,v){if(v==null||isNaN(v))return'-';if(['rech','dk','dh','click','resp'].includes(key))return fmtPct(v);if(['tml','ti','nps','npsDel','dqi'].includes(key))return r1(v);if(key==='rmd')return fmt1(v);return v}
 function teamDayHead(label,f){return label+'<br><span style="font-size:10px;font-weight:600;color:#cbd5e1">'+dLbl(f)+'</span>'}
-function renderTeamRoom(){const aw=state.teamSem||(TEAM_WEEKS[TEAM_WEEKS.length-1]||''),m=aw?aw.slice(0,7):(state.mes==='__all'?(MESES[MESES.length-1]||''):state.mes),routeRows=R.filter(r=>r.usable&&base(r)&&r.mes===m),rechRows=monthRechRows(m),satRows=monthSatRows(m),dqiRows=monthDqiRows(m),starts=monthWeekStarts(m),days=[0,1,2,3,4,5].map(i=>addDaysUTC(aw,i));
- hintTeam.innerHTML='<b>'+mLbl(m)+' '+m.slice(0,4)+'</b> · semana diaria '+weekLabel(aw)+' · acumulados S1-S4 por semanas lunes a sábado.';
- theadTeam.innerHTML='<tr><th class="meta-start" rowspan="2">Indicador<br>cascadeado</th><th class="meta-mid" rowspan="2">Indicador</th><th class="meta-mid" rowspan="2">UM</th><th class="meta-mid" rowspan="2">Objetivo</th><th class="meta-end" rowspan="2">Gatillo</th><th class="grp day-start day-end" colspan="6">Resultados diarios</th><th class="grp week-start week-end" colspan="5">Resultados semanales y mensual</th></tr>'+
-  '<tr><th class="day-start">'+teamDayHead('Lun',days[0])+'</th><th>'+teamDayHead('Mar',days[1])+'</th><th>'+teamDayHead('Mier',days[2])+'</th><th>'+teamDayHead('Jue',days[3])+'</th><th>'+teamDayHead('Vie',days[4])+'</th><th class="day-end">'+teamDayHead('Sab',days[5])+'</th><th class="week-start">S1</th><th>S2</th><th>S3</th><th>S4</th><th class="week-end">Mes</th></tr>';
+function renderTeamRoom(){const aw=state.teamSem||(TEAM_WEEKS[TEAM_WEEKS.length-1]||''),m=aw?aw.slice(0,7):(state.mes==='__all'?(MESES[MESES.length-1]||''):state.mes),routeRows=R.filter(r=>r.usable&&base(r)&&r.mes===m),routeRowsAll=R.filter(r=>r.usable&&base(r)),rechRows=monthRechRows(m),rechRowsAll=RECH,satRows=monthSatRows(m),satRowsAll=SAT,dqiRows=monthDqiRows(m),dqiRowsAll=DQI,starts=monthWeekStarts(m),days=[0,1,2,3,4,5].map(i=>addDaysUTC(aw,i));
+ const weekHeads=starts.map((_,i)=>'<th class="'+(i===0?'week-start ':'')+'">S'+(i+1)+'</th>').join('');
+ hintTeam.innerHTML='<b>'+mLbl(m)+' '+m.slice(0,4)+'</b> · semana diaria '+weekLabel(aw)+' · acumulados S1-S'+starts.length+' por semanas lunes a sábado.';
+ theadTeam.innerHTML='<tr><th class="meta-start" rowspan="2">Indicador<br>cascadeado</th><th class="meta-mid" rowspan="2">Indicador</th><th class="meta-mid" rowspan="2">UM</th><th class="meta-mid" rowspan="2">Objetivo</th><th class="meta-end" rowspan="2">Gatillo</th><th class="grp day-start day-end" colspan="6">Resultados diarios</th><th class="grp week-start week-end" colspan="'+(starts.length+1)+'">Resultados semanales y mensual</th></tr>'+
+  '<tr><th class="day-start">'+teamDayHead('Lun',days[0])+'</th><th>'+teamDayHead('Mar',days[1])+'</th><th>'+teamDayHead('Mier',days[2])+'</th><th>'+teamDayHead('Jue',days[3])+'</th><th>'+teamDayHead('Vie',days[4])+'</th><th class="day-end">'+teamDayHead('Sab',days[5])+'</th>'+weekHeads+'<th class="week-end">Mes</th></tr>';
  const cfg=[['','rech','Rechazos HL','%','<= 2%','alerta > 2%'],['','dk','Disp. KM','%','+/- 10%','alerta fuera +/-10%'],['','dh','Disp. Tiempo','%','+/- 10%','alerta fuera +/-10%'],['','click','Adh. Click','%','>= 85%','alerta < 85%'],['','dqi','DQI','bultos','<=12/año · <=1/mes','día <= '+fmt3(OBJ_DQI_DIA)],['','tml','TML','min','< 30 min','alerta > 30'],['','ti','TI','min','< 30 min','alerta > 30'],['','rmd','RMD','pts','>= 4,75','alerta < 4,75'],['','resp','% Respuestas RMD','%','>= 50%','alerta < 50%'],['','nps','NPS gral','pts','>= 70','alerta < 70'],['','npsDel','NPS delivery','pts','>= 70','alerta < 70']];
- const cells=(key)=>{const dvals=days.map(d=>teamMetrics(inDay(routeRows,d),rechInDay(rechRows,d),satRows.filter(r=>r.fecha===d),dqiRows.filter(r=>r.fecha===d))[key]);const wvals=starts.map(w=>teamMetrics(inWeek(routeRows,w),rechInWeek(rechRows,w),satRows.filter(r=>weekKey(r.fecha)===w),dqiRows.filter(r=>weekKey(r.fecha)===w))[key]);const mv=teamMetrics(routeRows,rechRows,satRows,dqiRows)[key];return[...dvals,...wvals,mv].map((v,i)=>{const edge=(i===0?' day-start':'')+(i===5?' day-end':'')+(i===6?' week-start':'')+(i===10?' week-end':'');return'<td class="'+teamValueClass(key,v)+edge+'">'+teamFmt(key,v)+'</td>'}).join('')};
+ const cells=(key)=>{const dvals=days.map(d=>teamMetrics(inDay(routeRowsAll,d),rechInDay(rechRowsAll,d),satRowsAll.filter(r=>r.fecha===d),dqiRowsAll.filter(r=>r.fecha===d))[key]);const wvals=starts.map(w=>teamMetrics(inWeek(routeRowsAll,w),rechInWeek(rechRowsAll,w),satRowsAll.filter(r=>weekKey(r.fecha)===w),dqiRowsAll.filter(r=>weekKey(r.fecha)===w))[key]);const mv=teamMetrics(routeRows,rechRows,satRows,dqiRows)[key],last=6+wvals.length;return[...dvals,...wvals,mv].map((v,i)=>{const edge=(i===0?' day-start':'')+(i===5?' day-end':'')+(i===6?' week-start':'')+(i===last?' week-end':'');return'<td class="'+teamValueClass(key,v)+edge+'">'+teamFmt(key,v)+'</td>'}).join('')};
  tbodyTeam.innerHTML=cfg.map(r=>'<tr><td class="meta-start">'+r[0]+'</td><td>'+r[2]+'</td><td>'+r[3]+'</td><td>'+r[4]+'</td><td class="meta-end">'+r[5]+'</td>'+cells(r[1])+'</tr>').join('');}
 function satScope(){return SAT.filter(r=>state.mes==='__all'||r.mes===state.mes)}
 function satLatest(rows,tipo){return rows.filter(r=>r.tipo===tipo&&r.resultado!=null).sort((a,b)=>a.fecha.localeCompare(b.fecha)).pop()}
