@@ -376,7 +376,7 @@ const colAdh=v=>v==null?C.obj:(v>=OA?C.good:C.bad);
 const colDisp=v=>v==null?C.obj:(Math.abs(v)<=OD?C.good:C.bad);
 function opts(s,a,l){s.innerHTML='<option value="__all">'+l+'</option>'+a.map(v=>'<option value="'+v+'">'+(s.id==='fMes'?mLbl(v):v)+'</option>').join('')}
 opts(fSuc,DATA.sucursales,'Todas');opts(fMes,MESES,'Todos');opts(fCho,DATA.choferes,'Todos');
-const semData=[...new Set(R.map(r=>weekKey(r.fecha)))].sort();
+const semData=[...new Set(R.filter(r=>r.usable).map(r=>weekKey(r.fecha)))].sort();
 const anios=[...new Set(R.map(r=>+r.fecha.slice(0,4)))].sort();
 const y0=anios[0]||new Date().getUTCFullYear(),y1=anios[anios.length-1]||y0;
 let _w=weekKey(y0+'-01-01');const _last=weekKey(y1+'-12-31');const WEEKS=[];
@@ -386,8 +386,8 @@ fSem.innerHTML=WEEKS.map((w,i)=>'<option value="'+w+'">Sem '+(i+1)+' · '+weekLa
 state.sem=semData.length?semData[semData.length-1]:WEEKS[WEEKS.length-1];fSem.value=state.sem;
 fSem.addEventListener('change',e=>{state.sem=e.target.value;render()});
 const TEAM_WEEKS=[];let _tw='2026-01-05';while(_tw<='2026-12-31'){TEAM_WEEKS.push(_tw);_tw=addDaysUTC(_tw,7);}
-fTeamSem.innerHTML=TEAM_WEEKS.map((w,i)=>'<option value="'+w+'">Sem '+(i+1)+' · '+weekLabel(w)+'</option>').join('');
-state.teamSem=TEAM_WEEKS.includes(weekKey(new Date().toISOString().slice(0,10)))?weekKey(new Date().toISOString().slice(0,10)):(TEAM_WEEKS[TEAM_WEEKS.length-1]||null);
+fTeamSem.innerHTML=TEAM_WEEKS.map((w,i)=>'<option value="'+w+'">Sem '+(i+1)+' · '+weekLabel(w)+(_conDatos.has(w)?'':' — sin datos')+'</option>').join('');
+state.teamSem=semData.length?semData[semData.length-1]:(TEAM_WEEKS[TEAM_WEEKS.length-1]||null);
 fTeamSem.value=state.teamSem;
 fTeamSem.addEventListener('change',e=>{state.teamSem=e.target.value;render()});
 const base=r=>(state.suc==='__all'||r.suc===state.suc)&&(state.cho==='__all'||r.chofer===state.cho);
