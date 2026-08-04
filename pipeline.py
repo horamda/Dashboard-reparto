@@ -22,7 +22,7 @@ import storage
 TI_CENTRO  = 35
 TML_CENTRO = 27.5
 TI_SD, TML_SD = 7, 6
-OBJ = {"tml": 30, "ti": 30, "ruta": 7, "ruta_max": 8, "alerta_h": 12, "adh": 85, "disp": 10}
+OBJ = {"tml": 30, "ti": 30, "ruta": 7, "ruta_max": 8, "alerta_h": 12, "adh": 85, "disp": 10, "disp_error": 80}
 
 AQUI = os.path.dirname(os.path.abspath(__file__))
 PLANTILLA = os.path.join(AQUI, "plantilla_dashboard.html")
@@ -65,6 +65,20 @@ def _dispersion(pl, real):
     if pd.notna(pl) and pd.notna(real) and pl > 0:
         return round((pl - real) / pl * 100, 1)
     return None
+
+
+def _descartar_dispersion_anomala(rec):
+    """Excluye dispersiones extremas causadas por una planificacion Foxtrot invalida."""
+    dk, dh = rec.get("dispkm"), rec.get("disphs")
+    vals = [v for v in (dk, dh) if v is not None]
+    if vals and any(abs(v) > OBJ["disp_error"] for v in vals):
+        rec["disp_descartada"] = True
+        rec["disp_motivo"] = "Error de planificacion Foxtrot"
+        rec["dispkm_original"] = dk
+        rec["disphs_original"] = dh
+        rec["dispkm"] = None
+        rec["disphs"] = None
+    return rec
 
 
 def _leer_excel(f, filename=""):
@@ -623,12 +637,13 @@ def procesar_export(xls_file, xls_name="", csv_files=None):
                         "adhcli": round(r["Driver Click Score"] * 100, 1) if pd.notna(r.get("Driver Click Score")) else None,
                         "dispkm": _dispersion(r.get("Planned Foxtrot Driving Meters"), r.get("Total Driven Meters")),
                         "disphs": _dispersion(r.get("Planned Foxtrot Driving Seconds"), r.get("Total Driven Seconds"))})
+            _descartar_dispersion_anomala(rec)
         out[rid] = rec
     return out
 
 
 def _data_desde_base(base):
-    rutas = sorted(base.values(), key=lambda r: (r["fecha"], r["suc"], r["chofer"]))
+    rutas = sorted((_descartar_dispersion_anomala(dict(r)) for r in base.values()), key=lambda r: (r["fecha"], r["suc"], r["chofer"]))
     rechazos_base = storage.load_rechazos()
     if rutas and not rechazos_base:
         try:
