@@ -28,6 +28,8 @@ def _load_local_env():
                     continue
                 key, value = line.split("=", 1)
                 key = key.strip()
+                if key.lower().startswith("$env:"):
+                    key = key[5:].strip()
                 value = value.strip().strip('"').strip("'")
                 if key and key not in os.environ:
                     os.environ[key] = value
@@ -95,6 +97,12 @@ if BACKEND == "postgres":
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS rechazos_dashboard (
                     fecha TEXT PRIMARY KEY,
+                    rec JSONB NOT NULL
+                );
+            """)
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS rechazos_detalle_dashboard (
+                    key TEXT PRIMARY KEY,
                     rec JSONB NOT NULL
                 );
             """)
@@ -178,6 +186,11 @@ if BACKEND == "postgres":
             cur.execute("SELECT fecha, rec FROM rechazos_dashboard;")
             return {fecha: rec for fecha, rec in cur.fetchall()}
 
+    def load_rechazos_detalle():
+        with _conn() as cn, cn.cursor() as cur:
+            cur.execute("SELECT key, rec FROM rechazos_detalle_dashboard;")
+            return {key: rec for key, rec in cur.fetchall()}
+
     def upsert_rechazos(recs):
         if not recs:
             return 0
@@ -187,6 +200,19 @@ if BACKEND == "postgres":
                 cur,
                 "INSERT INTO rechazos_dashboard (fecha, rec) VALUES %s "
                 "ON CONFLICT (fecha) DO UPDATE SET rec = EXCLUDED.rec;",
+                rows,
+            )
+        return len(recs)
+
+    def upsert_rechazos_detalle(recs):
+        if not recs:
+            return 0
+        rows = [(key, _extras.Json(rec)) for key, rec in recs.items()]
+        with _conn() as cn, cn.cursor() as cur:
+            _extras.execute_values(
+                cur,
+                "INSERT INTO rechazos_detalle_dashboard (key, rec) VALUES %s "
+                "ON CONFLICT (key) DO UPDATE SET rec = EXCLUDED.rec;",
                 rows,
             )
         return len(recs)
@@ -221,6 +247,42 @@ if BACKEND == "postgres":
                 (key, _extras.Json(rec)),
             )
         return rec
+
+    def save_record(table, key, rec):
+        specs = {
+            "rutas": ("rutas_dashboard", "rid"),
+            "clientes": ("clientes_dashboard", "cliente"),
+            "rechazos": ("rechazos_dashboard", "fecha"),
+            "rechazos_detalle": ("rechazos_detalle_dashboard", "key"),
+            "articulos": ("articulos_dashboard", "articulo"),
+            "settings": ("settings_dashboard", "key"),
+        }
+        if table not in specs:
+            raise ValueError("Tabla no permitida.")
+        table_name, key_col = specs[table]
+        with _conn() as cn, cn.cursor() as cur:
+            cur.execute(
+                f"INSERT INTO {table_name} ({key_col}, rec) VALUES (%s, %s) "
+                "ON CONFLICT ({}) DO UPDATE SET rec = EXCLUDED.rec;".format(key_col),
+                (key, _extras.Json(rec)),
+            )
+        return rec
+
+    def delete_record(table, key):
+        specs = {
+            "rutas": ("rutas_dashboard", "rid"),
+            "clientes": ("clientes_dashboard", "cliente"),
+            "rechazos": ("rechazos_dashboard", "fecha"),
+            "rechazos_detalle": ("rechazos_detalle_dashboard", "key"),
+            "articulos": ("articulos_dashboard", "articulo"),
+            "settings": ("settings_dashboard", "key"),
+        }
+        if table not in specs:
+            raise ValueError("Tabla no permitida.")
+        table_name, key_col = specs[table]
+        with _conn() as cn, cn.cursor() as cur:
+            cur.execute(f"DELETE FROM {table_name} WHERE {key_col} = %s;", (key,))
+        return True
 
 
 # ========================= JSON =========================
@@ -286,12 +348,29 @@ else:
                 return {}
         return {}
 
+    def load_rechazos_detalle():
+        path = os.path.join(DATA_DIR, "rechazos_detalle_dashboard.json")
+        if os.path.exists(path):
+            try:
+                return json.load(open(path, encoding="utf-8"))["rechazos_detalle"]
+            except Exception:
+                return {}
+        return {}
+
     def upsert_rechazos(recs):
         path = os.path.join(DATA_DIR, "rechazos_dashboard.json")
         base = load_rechazos()
         base.update(recs)
         os.makedirs(DATA_DIR, exist_ok=True)
         json.dump({"rechazos": base}, open(path, "w", encoding="utf-8"), ensure_ascii=False)
+        return len(recs)
+
+    def upsert_rechazos_detalle(recs):
+        path = os.path.join(DATA_DIR, "rechazos_detalle_dashboard.json")
+        base = load_rechazos_detalle()
+        base.update(recs)
+        os.makedirs(DATA_DIR, exist_ok=True)
+        json.dump({"rechazos_detalle": base}, open(path, "w", encoding="utf-8"), ensure_ascii=False)
         return len(recs)
 
     def load_articulos():
@@ -323,3 +402,52 @@ else:
         os.makedirs(DATA_DIR, exist_ok=True)
         json.dump({"settings": base}, open(path, "w", encoding="utf-8"), ensure_ascii=False)
         return rec
+
+    def save_record(table, key, rec):
+        loaders = {
+            "rutas": (load_all, _dump),
+            "clientes": (load_clientes, lambda base: replace_clientes(base)),
+            "rechazos": (load_rechazos, lambda base: upsert_rechazos(base)),
+            "rechazos_detalle": (load_rechazos_detalle, lambda base: upsert_rechazos_detalle(base)),
+            "articulos": (load_articulos, lambda base: replace_articulos(base)),
+            "settings": (load_settings, lambda base: _dump_settings(base)),
+        }
+        if table not in loaders:
+            raise ValueError("Tabla no permitida.")
+        load, dump = loaders[table]
+        base = load()
+        base[key] = rec
+        dump(base)
+        return rec
+
+    def delete_record(table, key):
+        loaders = {
+            "rutas": (load_all, _dump),
+            "clientes": (load_clientes, lambda base: replace_clientes(base)),
+            "rechazos": (load_rechazos, lambda base: _dump_rechazos(base)),
+            "rechazos_detalle": (load_rechazos_detalle, lambda base: _dump_rechazos_detalle(base)),
+            "articulos": (load_articulos, lambda base: replace_articulos(base)),
+            "settings": (load_settings, lambda base: _dump_settings(base)),
+        }
+        if table not in loaders:
+            raise ValueError("Tabla no permitida.")
+        load, dump = loaders[table]
+        base = load()
+        base.pop(key, None)
+        dump(base)
+        return True
+
+    def _dump_rechazos(base):
+        path = os.path.join(DATA_DIR, "rechazos_dashboard.json")
+        os.makedirs(DATA_DIR, exist_ok=True)
+        json.dump({"rechazos": base}, open(path, "w", encoding="utf-8"), ensure_ascii=False)
+
+    def _dump_rechazos_detalle(base):
+        path = os.path.join(DATA_DIR, "rechazos_detalle_dashboard.json")
+        os.makedirs(DATA_DIR, exist_ok=True)
+        json.dump({"rechazos_detalle": base}, open(path, "w", encoding="utf-8"), ensure_ascii=False)
+
+    def _dump_settings(base):
+        path = os.path.join(DATA_DIR, "settings_dashboard.json")
+        os.makedirs(DATA_DIR, exist_ok=True)
+        json.dump({"settings": base}, open(path, "w", encoding="utf-8"), ensure_ascii=False)

@@ -28,7 +28,7 @@ AQUI = os.path.dirname(os.path.abspath(__file__))
 PLANTILLA = os.path.join(AQUI, "plantilla_dashboard.html")
 RECHAZOS_API_URL = os.environ.get(
     "RECHAZOS_API_URL",
-    "https://web-production-f968ec.up.railway.app/api/picos/rechazos-dolores/diario",
+    "https://control-asistencia.up.railway.app/api/rechazos/diario/integracion",
 )
 RECHAZOS_SUCURSAL = os.environ.get("RECHAZOS_SUCURSAL", "Dolores")
 RECHAZOS_SUCURSAL_ID = os.environ.get("RECHAZOS_SUCURSAL_ID", "2")
@@ -64,6 +64,12 @@ def _clamp_normal(rng, center, sd, lo, hi):
 def _dispersion(pl, real):
     if pd.notna(pl) and pd.notna(real) and pl > 0:
         return round((pl - real) / pl * 100, 1)
+    return None
+
+
+def _num_or_none(v):
+    if pd.notna(v):
+        return float(v)
     return None
 
 
@@ -311,7 +317,7 @@ def guardar_dqi_objetivo(valor):
 
 def _norm_rechazo(row):
     fecha = str(_pick_value(row, ("fecha", "dia", "date", "Fecha", "Día"), "") or "")[:10]
-    cantidad = _to_int(_pick_value(row, ("rechazo_pedidos", "rechazos", "cantidad", "total", "count", "valor"), 0))
+    cantidad = _to_int(_pick_value(row, ("pedidos_rechazo", "rechazo_pedidos", "rechazos", "cantidad", "total", "count", "valor"), 0))
     motivo = str(_pick_value(row, ("motivo", "causa", "tipo", "descripcion", "descripción", "evento", "feriado"), "") or "")
     suc = str(_pick_value(row, ("sucursal", "Sucursal"), RECHAZOS_SUCURSAL) or RECHAZOS_SUCURSAL)
     sid = str(_pick_value(row, ("sucursal_id", "sucursalId", "id_sucursal"), RECHAZOS_SUCURSAL_ID) or RECHAZOS_SUCURSAL_ID)
@@ -327,13 +333,16 @@ def _norm_rechazo(row):
         "pdv_unicos": _to_int(_pick_value(row, ("pdv_unicos",), 0)),
         "nds": _to_float(_pick_value(row, ("nds",), 0)),
         "bultos": _to_float(_pick_value(row, ("bultos",), 0)),
-        "rechazo_bultos": _to_float(_pick_value(row, ("rechazo_bultos",), 0)),
-        "rechazo_bultos_total": _to_float(_pick_value(row, ("rechazo_bultos_total",), 0)),
+        "rechazo_bultos": _to_float(_pick_value(row, ("rechazo_bultos", "bultos_rechazo"), 0)),
+        "rechazo_bultos_total": _to_float(_pick_value(row, ("rechazo_bultos_total", "bultos_rechazo"), 0)),
         "pct_rechazo_bultos": _to_float(_pick_value(row, ("pct_rechazo_bultos",), 0)),
         "hl": _to_float(_pick_value(row, ("hl",), 0)),
-        "rechazo_hl": _to_float(_pick_value(row, ("rechazo_hl",), 0)),
-        "rechazo_hl_total": _to_float(_pick_value(row, ("rechazo_hl_total",), 0)),
+        "rechazo_hl": _to_float(_pick_value(row, ("rechazo_hl", "hl_rechazo"), 0)),
+        "rechazo_hl_total": _to_float(_pick_value(row, ("rechazo_hl_total", "hl_rechazo"), 0)),
         "pct_rechazo_hl": _to_float(_pick_value(row, ("pct_rechazo_hl",), 0)),
+        "pallets": _to_float(_pick_value(row, ("pallets",), 0)),
+        "rechazo_pallets": _to_float(_pick_value(row, ("rechazo_pallets", "pallets_rechazo"), 0)),
+        "pct_rechazo_pallets": _to_float(_pick_value(row, ("pct_rechazo_pallets",), 0)),
         "salidas": _to_int(_pick_value(row, ("salidas",), 0)),
         "pct_rechazo_pedidos": _to_float(_pick_value(row, ("pct_rechazo_pedidos", "pct_rechazo", "porcentaje"), 0)),
         "pico": str(_pick_value(row, ("pico",), "")).lower() == "true",
@@ -342,10 +351,39 @@ def _norm_rechazo(row):
     }
 
 
+def _norm_rechazo_detalle(row):
+    fecha = str(_pick_value(row, ("fecha", "dia", "date"), "") or "")[:10]
+    if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", fecha):
+        return None
+    chofer = str(_pick_value(row, ("chofer", "driver", "repartidor"), "Sin chofer") or "Sin chofer").strip() or "Sin chofer"
+    motivo = str(_pick_value(row, ("motivo", "causa"), "Sin motivo") or "Sin motivo").strip() or "Sin motivo"
+    sector = str(_pick_value(row, ("sector",), "Sin sector") or "Sin sector").strip() or "Sin sector"
+    suc = str(_pick_value(row, ("sucursal", "Sucursal"), RECHAZOS_SUCURSAL) or RECHAZOS_SUCURSAL)
+    rec = {
+        "fecha": fecha,
+        "mes": fecha[:7],
+        "sucursal": suc,
+        "chofer": chofer,
+        "chofer_codigo": str(_pick_value(row, ("chofer_codigo", "codigo_chofer"), "") or ""),
+        "sector": sector,
+        "motivo": motivo,
+        "pedidos_rechazo": _to_int(_pick_value(row, ("pedidos_rechazo", "rechazos"), 0)),
+        "ocurrencias": _to_int(_pick_value(row, ("ocurrencias", "cantidad", "total"), 0)),
+        "bultos_rechazo": _to_float(_pick_value(row, ("bultos_rechazo", "rechazo_bultos"), 0)),
+        "hl_rechazo": _to_float(_pick_value(row, ("hl_rechazo", "rechazo_hl"), 0)),
+        "pallets_rechazo": _to_float(_pick_value(row, ("pallets_rechazo", "rechazo_pallets"), 0)),
+    }
+    key_parts = [fecha, suc, rec["chofer_codigo"] or chofer, sector, motivo]
+    return "|".join(str(x).replace("|", "/") for x in key_parts), rec
+
+
 def importar_rechazos(desde=None, hasta=None):
     desde = desde or "2026-01-01"
     hasta = hasta or _today()
-    url = RECHAZOS_API_URL + "?" + urlencode({"desde": desde, "hasta": hasta, "formato": "csv"})
+    params = {"desde": desde, "hasta": hasta, "sucursal": os.environ.get("RECHAZOS_API_SUCURSAL", "TODAS")}
+    if not RECHAZOS_API_URL.endswith("/integracion"):
+        params["formato"] = "csv"
+    url = RECHAZOS_API_URL + "?" + urlencode(params)
     req = Request(url, headers={"Accept": "text/csv, application/json"})
     try:
         with urlopen(req, timeout=30) as res:
@@ -370,7 +408,9 @@ def guardar_rechazos_csv(raw, desde="", hasta="", origen="archivo"):
 
 def guardar_rechazos_payload(payload, desde="", hasta="", origen="archivo"):
     recs = {}
-    for row in _json_items(payload):
+    resumen = payload.get("resumen_diario") if isinstance(payload, dict) else None
+    detalle = payload.get("detalle_diario") if isinstance(payload, dict) else None
+    for row in (resumen if resumen is not None else _json_items(payload)):
         rec = _norm_rechazo(row)
         if not rec:
             continue
@@ -382,7 +422,15 @@ def guardar_rechazos_payload(payload, desde="", hasta="", origen="archivo"):
             if rec["motivo"] and not recs[key].get("motivo"):
                 recs[key]["motivo"] = rec["motivo"]
     guardados = storage.upsert_rechazos(recs)
-    return {"desde": desde, "hasta": hasta, "url": origen, "recibidos": len(recs), "guardados": guardados}
+    det_recs = {}
+    if detalle is not None:
+        for row in detalle:
+            item = _norm_rechazo_detalle(row)
+            if item:
+                key, rec = item
+                det_recs[key] = rec
+    detalle_guardados = storage.upsert_rechazos_detalle(det_recs) if det_recs else 0
+    return {"desde": desde, "hasta": hasta, "url": origen, "recibidos": len(recs), "guardados": guardados, "detalle_guardados": detalle_guardados}
 
 
 def _time_to_min(h, m="0"):
@@ -630,13 +678,21 @@ def procesar_export(xls_file, xls_name="", csv_files=None):
             rec.update(omap[rid])
         if usable:
             g = rng_de_ruta(rid)
+            km_plan = _num_or_none(r.get("Planned Foxtrot Driving Meters"))
+            km_real = _num_or_none(r.get("Total Driven Meters"))
+            hs_plan = _num_or_none(r.get("Planned Foxtrot Driving Seconds"))
+            hs_real = _num_or_none(r.get("Total Driven Seconds"))
             rec.update({"ti": _clamp_normal(g, TI_CENTRO, TI_SD, 25, 45),
                         "tml": _clamp_normal(g, TML_CENTRO, TML_SD, 20, 45),
                         "horas": round(r["dur_h"], 3),
                         "adhsec": round(r["Sequence Adherence"] * 100, 1) if pd.notna(r.get("Sequence Adherence")) else None,
                         "adhcli": round(r["Driver Click Score"] * 100, 1) if pd.notna(r.get("Driver Click Score")) else None,
-                        "dispkm": _dispersion(r.get("Planned Foxtrot Driving Meters"), r.get("Total Driven Meters")),
-                        "disphs": _dispersion(r.get("Planned Foxtrot Driving Seconds"), r.get("Total Driven Seconds"))})
+                        "disp_km_plan": km_plan,
+                        "disp_km_real": km_real,
+                        "disp_hs_plan": hs_plan,
+                        "disp_hs_real": hs_real,
+                        "dispkm": _dispersion(km_plan, km_real),
+                        "disphs": _dispersion(hs_plan, hs_real)})
             _descartar_dispersion_anomala(rec)
         out[rid] = rec
     return out
@@ -654,8 +710,10 @@ def _data_desde_base(base):
         except Exception:
             rechazos_base = {}
     rechazos = sorted(rechazos_base.values(), key=lambda r: r["fecha"])
+    rechazos_detalle = sorted(storage.load_rechazos_detalle().values(), key=lambda r: (r["fecha"], r.get("chofer", ""), r.get("motivo", "")))
     return {"rutas": rutas,
             "rechazos": rechazos,
+            "rechazos_detalle": rechazos_detalle,
             "satisfaccion": cargar_satisfaccion(),
             "dqi": cargar_dqi(),
             "settings": {"dqi_objetivo_bultos_mes": dqi_objetivo_bultos_mes()},

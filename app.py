@@ -18,6 +18,7 @@ import os
 import json
 import secrets
 from datetime import date
+from html import escape
 from flask import Flask, request, redirect, url_for, Response, session
 import pipeline
 
@@ -66,7 +67,7 @@ a{{color:#1E3A8A;font-size:13.5px}}hr{{border:0;border-top:1px solid #DCE2EA;mar
     <input type=checkbox name=reset value=1 style="width:auto;margin-right:6px">Rehacer la base de cero (borra lo guardado)</label>
   <button class=btn type=submit>Actualizar</button>
 </form>
-<p style="margin-top:18px"><a href="/dashboard">&larr; Volver al dashboard</a> · <a href="/logout">Cerrar sesión</a></p>
+<p style="margin-top:18px"><a href="/dashboard">&larr; Volver al dashboard</a> · <a href="/datos">Revisar datos cargados</a> · <a href="/logout">Cerrar sesión</a></p>
 <hr>
 <h1>Importar rechazos</h1>
 <p>Consume el endpoint CSV de rechazos diarios de Dolores y lo guarda en la base.</p>
@@ -133,6 +134,24 @@ a{display:inline-block;margin-top:18px;background:#15233B;color:#fff;text-decora
 <p>Subí el primer export para generar el dashboard.</p>
 <a href="/admin">Cargar datos</a></div></body></html>"""
 
+DATOS_CSS = """<style>*{box-sizing:border-box}body{font-family:system-ui,Segoe UI,Arial,sans-serif;background:#EEF1F5;color:#15233B;margin:0;line-height:1.45;-webkit-font-smoothing:antialiased}
+.wrap{width:min(100% - 28px,1280px);margin:24px auto 44px}.top{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;margin-bottom:18px}
+h1{font-size:24px;margin:0 0 4px}.muted{color:#657085;font-size:13.5px;margin:0}.nav{display:flex;gap:8px;flex-wrap:wrap}.nav a,.btn{background:#15233B;color:#fff;text-decoration:none;border:0;border-radius:8px;padding:10px 13px;font-size:13.5px;font-weight:650;cursor:pointer}
+.nav a.secondary,.btn.secondary{background:#fff;color:#15233B;border:1px solid #DCE2EA}.msg{background:#DCFCE7;border:1px solid #86EFAC;color:#166534;border-radius:9px;padding:10px 12px;font-size:13.5px;margin:12px 0}.err{background:#FEE2E2;border-color:#FCA5A5;color:#991B1B}
+.tabs{display:flex;gap:8px;flex-wrap:wrap;margin:18px 0}.tabs a{padding:9px 12px;border-radius:8px;border:1px solid #DCE2EA;background:#fff;color:#15233B;text-decoration:none;font-size:13.5px}.tabs a.on{background:#C77D1A;color:#fff;border-color:#C77D1A}
+.tools{display:flex;gap:10px;flex-wrap:wrap;margin:12px 0 16px}.tools input{min-height:40px;border:1px solid #DCE2EA;border-radius:8px;padding:9px 10px;font-size:14px;min-width:min(100%,320px)}
+.panel{background:#fff;border:1px solid #DCE2EA;border-radius:10px;overflow:hidden}.table-wrap{overflow:auto;max-height:62vh}table{border-collapse:collapse;width:100%;font-size:13px}th,td{border-bottom:1px solid #E7ECF2;padding:9px 10px;text-align:left;vertical-align:top;white-space:nowrap}th{position:sticky;top:0;background:#F8FAFC;z-index:1;font-size:12px;text-transform:uppercase;color:#657085;letter-spacing:.2px}td.trunc{max-width:260px;overflow:hidden;text-overflow:ellipsis}
+details{border-top:1px solid #E7ECF2;padding:12px 14px}summary{cursor:pointer;font-weight:700}.edit{display:grid;gap:10px;margin-top:10px}.edit-grid{display:grid;grid-template-columns:180px minmax(220px,1fr);border:1px solid #E7ECF2;border-radius:8px;overflow:hidden}.field-name{background:#F8FAFC;color:#657085;font-size:12px;font-weight:700;text-transform:uppercase}.field-name,.field-control{border-bottom:1px solid #E7ECF2;padding:9px 10px}.field-control input,.field-control textarea{width:100%;border:1px solid #DCE2EA;border-radius:7px;padding:8px 9px;font-size:13.5px}.field-control textarea{min-height:84px;font:12.5px ui-monospace,SFMono-Regular,Consolas,monospace}.actions{display:flex;gap:8px;flex-wrap:wrap}.danger{background:#991B1B}.empty{padding:22px;color:#657085}@media(max-width:760px){.top{display:block}.nav{margin-top:12px}th,td{padding:8px}.wrap{width:min(100% - 18px,1280px);margin-top:14px}.edit-grid{grid-template-columns:1fr}.field-name{border-bottom:0;padding-bottom:2px}.field-control{padding-top:2px}}</style>"""
+
+TABLES = {
+    "rutas": {"label": "Rutas Foxtrot", "key": "rid", "load": lambda: pipeline.storage.load_all(), "cols": ["rid", "fecha", "mes", "suc", "chofer", "usable", "tml", "ti", "horas"]},
+    "clientes": {"label": "Clientes", "key": "cliente", "load": lambda: pipeline.storage.load_clientes(), "cols": ["cliente", "sucursal", "razon_social", "nombre", "horario_entrega", "ventanas"]},
+    "rechazos": {"label": "Rechazos", "key": "fecha", "load": lambda: pipeline.storage.load_rechazos(), "cols": ["fecha", "rechazos", "rechazo_bultos", "pct_rechazo_bultos", "origen"]},
+    "rechazos_detalle": {"label": "Detalle rechazos", "key": "key", "load": lambda: pipeline.storage.load_rechazos_detalle(), "cols": ["fecha", "sucursal", "chofer", "sector", "motivo", "pedidos_rechazo", "bultos_rechazo", "hl_rechazo"]},
+    "articulos": {"label": "Artículos", "key": "articulo", "load": lambda: pipeline.storage.load_articulos(), "cols": ["articulo", "descripcion", "unidades_por_bulto"]},
+    "settings": {"label": "Configuración", "key": "key", "load": lambda: pipeline.storage.load_settings(), "cols": ["key", "valor"]},
+}
+
 
 def _admin_page(msg="", err=False):
     token_field = ""
@@ -165,6 +184,103 @@ def _dashboard_response():
     if not pipeline.hay_datos():
         return Response(LANDING, mimetype="text/html")
     return Response(pipeline.render_dashboard(), mimetype="text/html")
+
+
+def _short_value(value):
+    if isinstance(value, list):
+        return json.dumps(value, ensure_ascii=False)
+    if isinstance(value, dict):
+        return json.dumps(value, ensure_ascii=False)
+    if value is None:
+        return ""
+    return str(value)
+
+
+def _record_matches(rec, q):
+    if not q:
+        return True
+    return q.lower() in json.dumps(rec, ensure_ascii=False).lower()
+
+
+def _field_input(name, value):
+    raw = json.dumps(value, ensure_ascii=False) if isinstance(value, (dict, list)) else _short_value(value)
+    escaped = escape(raw)
+    if isinstance(value, bool):
+        checked = " checked" if value else ""
+        return f'<input type=hidden name="field__{escape(name)}" value="false"><input type=checkbox name="field__{escape(name)}" value="true"{checked}>'
+    if isinstance(value, (dict, list)):
+        return f'<textarea name="field__{escape(name)}">{escaped}</textarea>'
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        return f'<input name="field__{escape(name)}" value="{escaped}" inputmode="decimal">'
+    return f'<input name="field__{escape(name)}" value="{escaped}">'
+
+
+def _edit_fields(rec):
+    fields = "".join(
+        f'<div class=field-name>{escape(str(name))}</div><div class=field-control>{_field_input(str(name), value)}</div>'
+        for name, value in rec.items()
+    )
+    return f"<div class=edit-grid>{fields}</div>"
+
+
+def _coerce_field(value, previous):
+    if isinstance(previous, bool):
+        return value == "true"
+    if isinstance(previous, int) and not isinstance(previous, bool):
+        return int(value) if str(value).strip() != "" else None
+    if isinstance(previous, float):
+        return float(value) if str(value).strip() != "" else None
+    if isinstance(previous, (dict, list)):
+        return json.loads(value) if str(value).strip() else ([] if isinstance(previous, list) else {})
+    if previous is None:
+        text = str(value).strip()
+        if text == "":
+            return None
+        try:
+            return json.loads(text)
+        except Exception:
+            return value
+    return value
+
+
+def _datos_page(table="rutas", q="", msg="", err=False, edit_key=""):
+    if table not in TABLES:
+        table = "rutas"
+    spec = TABLES[table]
+    base = spec["load"]()
+    rows = sorted(base.items(), key=lambda item: str(item[0]))
+    if q:
+        rows = [(k, v) for k, v in rows if _record_matches(v, q)]
+    rows = rows[:500]
+    tabs = "".join(
+        f'<a class="{"on" if name == table else ""}" href="/datos?tabla={name}">{escape(cfg["label"])} ({len(cfg["load"]())})</a>'
+        for name, cfg in TABLES.items()
+    )
+    alert = f'<div class="msg{" err" if err else ""}">{escape(msg)}</div>' if msg else ""
+    header = "".join(f"<th>{escape(col)}</th>" for col in spec["cols"]) + "<th>Acciones</th>"
+    body = ""
+    for key, rec in rows:
+        cells = "".join(f'<td class="trunc">{escape(_short_value(rec.get(col)))}</td>' for col in spec["cols"])
+        opened = " open" if edit_key == str(key) else ""
+        editor = f"""<details{opened}><summary>Editar {escape(str(key))}</summary>
+<form class=edit method=post action="/datos/guardar">
+  <input type=hidden name=tabla value="{escape(table)}"><input type=hidden name=clave value="{escape(str(key))}">
+  {_edit_fields(rec)}
+  <div class=actions><button class=btn type=submit>Guardar</button></div>
+</form></details>"""
+        delete_form = f"""<form method=post action="/datos/borrar" onsubmit="return confirm('¿Borrar este registro?')">
+<input type=hidden name=tabla value="{escape(table)}"><input type=hidden name=clave value="{escape(str(key))}">
+<button class="btn danger" type=submit>Borrar</button></form>"""
+        body += f"<tr>{cells}<td><div class=actions><a class=\"btn secondary\" href=\"/datos?tabla={escape(table)}&editar={escape(str(key))}\">Editar</a>{delete_form}</div></td></tr><tr><td colspan=\"{len(spec['cols']) + 1}\">{editor}</td></tr>"
+    if not body:
+        body = f'<tr><td class=empty colspan="{len(spec["cols"]) + 1}">No hay registros para mostrar.</td></tr>'
+    return f"""<!doctype html><html lang=es><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><title>Datos cargados</title>{DATOS_CSS}</head>
+<body><div class=wrap><div class=top><div><h1>Datos cargados</h1><p class=muted>Revisión y edición directa de las tablas usadas por el dashboard.</p></div>
+<div class=nav><a class=secondary href="/dashboard">Dashboard</a><a class=secondary href="/admin">Admin</a><a href="/logout">Salir</a></div></div>{alert}
+<div class=tabs>{tabs}</div><form class=tools method=get action="/datos"><input type=hidden name=tabla value="{escape(table)}"><input name=q value="{escape(q)}" placeholder="Buscar en esta tabla"><button class=btn type=submit>Buscar</button><a class="btn secondary" href="/datos?tabla={escape(table)}">Limpiar</a></form>
+<div class=panel><div class=table-wrap><table><thead><tr>{header}</tr></thead><tbody>{body}</tbody></table></div></div>
+<p class=muted style="margin-top:12px">Se muestran hasta 500 registros por búsqueda. Editar JSON incorrecto puede afectar el dashboard.</p>
+</div></body></html>"""
 
 
 @app.route("/")
@@ -203,6 +319,63 @@ def admin():
     if blocked:
         return blocked
     return Response(_admin_page(), mimetype="text/html")
+
+
+@app.route("/datos")
+def datos():
+    blocked = _require_login()
+    if blocked:
+        return blocked
+    return Response(
+        _datos_page(
+            table=request.args.get("tabla", "rutas"),
+            q=request.args.get("q", ""),
+            msg=request.args.get("msg", ""),
+            err=request.args.get("err") == "1",
+            edit_key=request.args.get("editar", ""),
+        ),
+        mimetype="text/html",
+    )
+
+
+@app.route("/datos/guardar", methods=["POST"])
+def datos_guardar():
+    blocked = _require_login()
+    if blocked:
+        return blocked
+    table = request.form.get("tabla", "")
+    key = request.form.get("clave", "")
+    try:
+        if table not in TABLES:
+            raise ValueError("Tabla no permitida.")
+        base = TABLES[table]["load"]()
+        rec = dict(base.get(key) or {})
+        for name in rec.keys():
+            form_key = f"field__{name}"
+            if form_key in request.form:
+                rec[name] = _coerce_field(request.form.get(form_key), rec.get(name))
+        key_field = TABLES[table]["key"]
+        rec[key_field] = key
+        if table == "clientes":
+            rec["ventanas"] = pipeline.parse_horario_entrega(rec.get("horario_entrega", ""))
+        pipeline.storage.save_record(table, key, rec)
+    except Exception as e:
+        return redirect(url_for("datos", tabla=table or "rutas", editar=key, msg=f"Error guardando: {e}", err=1))
+    return redirect(url_for("datos", tabla=table, editar=key, msg="Registro guardado."))
+
+
+@app.route("/datos/borrar", methods=["POST"])
+def datos_borrar():
+    blocked = _require_login()
+    if blocked:
+        return blocked
+    table = request.form.get("tabla", "")
+    key = request.form.get("clave", "")
+    try:
+        pipeline.storage.delete_record(table, key)
+    except Exception as e:
+        return redirect(url_for("datos", tabla=table or "rutas", msg=f"Error borrando: {e}", err=1))
+    return redirect(url_for("datos", tabla=table, msg="Registro borrado."))
 
 
 @app.route("/actualizar", methods=["POST"])
@@ -254,6 +427,8 @@ def actualizar_rechazos():
     except Exception as e:
         return Response(_admin_page(f"Error importando rechazos: {e}", err=True), mimetype="text/html", status=400)
     msg = f"Listo. Rechazos importados: {st['guardados']} días ({st['desde']} a {st['hasta']})."
+    if st.get("detalle_guardados"):
+        msg += f" Detalle importado: {st['detalle_guardados']} filas."
     return Response(_admin_page(msg), mimetype="text/html")
 
 
@@ -289,6 +464,7 @@ def salud():
     base = pipeline.storage.load_all()
     clientes = pipeline.storage.load_clientes()
     rechazos = pipeline.storage.load_rechazos()
+    rechazos_detalle = pipeline.storage.load_rechazos_detalle()
     articulos = pipeline.storage.load_articulos()
     rutas = list(base.values())
     ontime_rutas = [r for r in rutas if "pdv_total" in r]
@@ -316,6 +492,7 @@ def salud():
         "clientes_foxtrot_con_ventana": len(clientes_foxtrot_con_ventana),
         "clientes_foxtrot_sin_ventana": len(clientes_foxtrot_sin_ventana),
         "rechazos_dias": len(rechazos),
+        "rechazos_detalle": len(rechazos_detalle),
         "rechazos_total": sum(r.get("rechazos", 0) for r in rechazos.values()),
         "articulos": len(articulos),
         "ontime_rutas": len(ontime_rutas),
