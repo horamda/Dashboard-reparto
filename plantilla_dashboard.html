@@ -14,7 +14,7 @@ h1{font-size:clamp(17px,2.4vw,22px);font-weight:750;letter-spacing:0;line-height
 .hcount{text-align:right;color:#cdd7e6;font-size:12px;min-width:118px}.hcount b{display:block;font-size:clamp(22px,4vw,28px);color:#fff;font-weight:750;line-height:1.05}
 .alert{display:none;align-items:center;gap:10px;background:#FEF2F2;border:1px solid #FCA5A5;border-left:4px solid var(--bad);color:#991B1B;border-radius:10px;padding:12px 16px;margin-bottom:18px;font-size:13.5px}
 .alert.show{display:flex}.alert b{font-weight:700}
-.filters{display:grid;grid-template-columns:repeat(3,minmax(170px,1fr)) auto;gap:14px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin-bottom:14px;box-shadow:var(--shadow)}
+.filters{display:grid;grid-template-columns:repeat(4,minmax(160px,1fr)) auto;gap:14px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin-bottom:14px;box-shadow:var(--shadow)}
 .fg{display:flex;flex-direction:column;gap:5px;min-width:0}
 .fg label{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--muted)}
 select{appearance:none;min-height:40px;background:#fff url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6'><path d='M0 0l5 6 5-6z' fill='%23657085'/></svg>") no-repeat right 12px center;border:1px solid var(--line);border-radius:8px;padding:9px 32px 9px 12px;font-size:14px;color:var(--ink);cursor:pointer;font-family:inherit;width:100%}
@@ -111,6 +111,7 @@ tfoot td{font-weight:700;border-top:2px solid var(--line);border-bottom:none}
 <div class="wrap">
  <div class="alert" id="alert"><span>&#9888;</span><span><b id="alertN">0</b> rutas no confiables : se consideran <b>datos corruptos o no confiables</b> y quedan fuera de los indicadores operativos.</span></div>
  <div class="filters">
+  <div class="fg"><label>Unidad</label><select id="fUnidad"></select></div>
   <div class="fg"><label>Zona / Sucursal</label><select id="fSuc"></select></div>
   <div class="fg"><label>Mes</label><select id="fMes"></select></div>
   <div class="fg"><label>Chofer</label><select id="fCho"></select></div>
@@ -395,7 +396,7 @@ const OBJ_DQI_ANUAL=12;
 const OBJ_DQI_DIAS_OPERATIVOS=293;
 const OBJ_DQI_DIA=OBJ_DQI_ANUAL/OBJ_DQI_DIAS_OPERATIVOS;
 const OBJ_NDS=95;
-const state={suc:'__all',mes:'__all',cho:'__all',tab:'mes',sem:null,teamSem:null};
+const state={unidad:'__all',suc:'__all',mes:'__all',cho:'__all',tab:'mes',sem:null,teamSem:null};
 const TODAY=new Date(Date.now()-new Date().getTimezoneOffset()*60000).toISOString().slice(0,10);
 const MM={'01':'Ene','02':'Feb','03':'Mar','04':'Abr','05':'May','06':'Jun','07':'Jul','08':'Ago','09':'Sep','10':'Oct','11':'Nov','12':'Dic'};
 const mLbl=m=>MM[m.split('-')[1]]||m;const dLbl=f=>{const p=f.split('-');return p[2]+'/'+p[1]};
@@ -409,7 +410,13 @@ const colRuta=v=>v==null?C.obj:(v<=OBJ.ruta?C.good:(v<=OBJ.ruta_max?C.amber:C.ba
 const colAdh=v=>v==null?C.obj:(v>=OA?C.good:C.bad);
 const colDisp=v=>v==null?C.obj:(Math.abs(v)<=OD?C.good:C.bad);
 function opts(s,a,l){s.innerHTML='<option value="__all">'+l+'</option>'+a.map(v=>'<option value="'+v+'">'+(s.id==='fMes'?mLbl(v):v)+'</option>').join('')}
-opts(fSuc,DATA.sucursales,'Todas');opts(fMes,MESES,'Todos');opts(fCho,DATA.choferes,'Todos');
+const UNIDADES={casa_central:{label:'Casa Central',sucs:['Mar de Ajo','Mar de Ajó']},sucursal_dolores:{label:'Sucursal Dolores',sucs:['Dolores','Chascomus','Chascomús']}};
+const sucNorm=s=>String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+function unidadOk(r){if(state.unidad==='__all')return true;const cfg=UNIDADES[state.unidad];return !cfg||cfg.sucs.map(sucNorm).includes(sucNorm(r.suc))}
+function sucursalesFiltradas(){return DATA.sucursales.filter(s=>state.unidad==='__all'||(UNIDADES[state.unidad]&&UNIDADES[state.unidad].sucs.map(sucNorm).includes(sucNorm(s))))}
+fUnidad.innerHTML='<option value="__all">Todas</option>'+Object.keys(UNIDADES).map(k=>'<option value="'+k+'">'+UNIDADES[k].label+'</option>').join('');
+function refreshSucOptions(){const prev=state.suc,items=sucursalesFiltradas();opts(fSuc,items,'Todas');if(prev!=='__all'&&items.includes(prev)){fSuc.value=prev}else{state.suc='__all';fSuc.value='__all'}}
+refreshSucOptions();opts(fMes,MESES,'Todos');opts(fCho,DATA.choferes,'Todos');
 const semData=[...new Set(R.filter(r=>r.usable).map(r=>weekKey(r.fecha)))].sort();
 const anios=[...new Set(R.map(r=>+r.fecha.slice(0,4)))].sort();
 const y0=anios[0]||new Date().getUTCFullYear(),y1=anios[anios.length-1]||y0;
@@ -425,7 +432,7 @@ fTeamSem.innerHTML=TEAM_WEEKS.map((w,i)=>'<option value="'+w+'">Sem '+(i+1)+' ·
 state.teamSem=semData.length?semData[semData.length-1]:(TEAM_WEEKS[TEAM_WEEKS.length-1]||null);
 fTeamSem.value=state.teamSem;
 fTeamSem.addEventListener('change',e=>{state.teamSem=e.target.value;render()});
-const base=r=>(state.suc==='__all'||r.suc===state.suc)&&(state.cho==='__all'||r.chofer===state.cho);
+const base=r=>unidadOk(r)&&(state.suc==='__all'||r.suc===state.suc)&&(state.cho==='__all'||r.chofer===state.cho);
 const full=r=>base(r)&&(state.mes==='__all'||r.mes===state.mes);
 function weekKey(f){const d=new Date(f+'T00:00:00Z');const g=d.getUTCDay();const diff=(g===0?6:g-1);d.setUTCDate(d.getUTCDate()-diff);return d.toISOString().slice(0,10)}
 function addDaysUTC(f,n){const d=new Date(f+'T00:00:00Z');d.setUTCDate(d.getUTCDate()+n);return d.toISOString().slice(0,10)}
@@ -704,8 +711,9 @@ function renderOnTime(){const scope=R.filter(full),o=onTime(scope),ok=o.p!=null&
  tbodyOTClientes.innerHTML=fueraRows.length?fueraRows.map(c=>'<tr><td>'+c.cliente+'</td><td>'+c.nombre+'</td><td class="r">'+c.fuera+'</td><td>'+c.visita+'</td><td>'+c.ventana+'</td></tr>').join(''):emptyRow(5,msgFuera);
  tbodyOTClientesSin.innerHTML=sinRows.length?sinRows.map(c=>'<tr><td>'+c.cliente+'</td><td>'+c.nombre+'</td><td class="r">'+c.pedidos+'</td><td>'+c.motivo+'</td></tr>').join(''):emptyRow(4,msgSin);}
 function render(){renderCards();if(state.tab==='mes')renderMes();else if(state.tab==='dia')renderDia();else if(state.tab==='sem')renderSem();else if(state.tab==='calidad')renderCalidad();else if(state.tab==='rechazos')renderRechazos();else if(state.tab==='otif')renderOtif();else if(state.tab==='dqi')renderDqi();else if(state.tab==='satisfaccion')renderSatisfaccion();else if(state.tab==='teamroom')renderTeamRoom();else if(state.tab==='horarios')renderHorarios();else renderOnTime();}
+fUnidad.addEventListener('change',e=>{state.unidad=e.target.value;refreshSucOptions();render()});
 ['fSuc','fMes','fCho'].forEach(id=>document.getElementById(id).addEventListener('change',e=>{state[{fSuc:'suc',fMes:'mes',fCho:'cho'}[id]]=e.target.value;render()}));
-reset.addEventListener('click',()=>{state.suc=state.mes=state.cho='__all';fSuc.value=fMes.value=fCho.value='__all';render()});
+reset.addEventListener('click',()=>{state.unidad=state.suc=state.mes=state.cho='__all';fUnidad.value=fSuc.value=fMes.value=fCho.value='__all';refreshSucOptions();render()});
 function switchTab(t){state.tab=t;tabMes.classList.toggle('active',t==='mes');tabDia.classList.toggle('active',t==='dia');tabSem.classList.toggle('active',t==='sem');tabHorarios.classList.toggle('active',t==='horarios');tabOnTime.classList.toggle('active',t==='ontime');tabSatisfaccion.classList.toggle('active',t==='satisfaccion');tabTeamRoom.classList.toggle('active',t==='teamroom');tabDqi.classList.toggle('active',t==='dqi');tabRechazos.classList.toggle('active',t==='rechazos');tabOtif.classList.toggle('active',t==='otif');tabCalidad.classList.toggle('active',t==='calidad');
  document.getElementById('operationalSummary').style.display=(t==='rechazos'||t==='ontime'||t==='otif'||t==='calidad'||t==='satisfaccion'||t==='teamroom'||t==='dqi'||t==='horarios')?'none':'';
  document.getElementById('viewMes').style.display=t==='mes'?'':'none';document.getElementById('viewDia').style.display=t==='dia'?'':'none';document.getElementById('viewSem').style.display=t==='sem'?'':'none';document.getElementById('viewHorarios').style.display=t==='horarios'?'':'none';document.getElementById('viewCalidad').style.display=t==='calidad'?'':'none';document.getElementById('viewDqi').style.display=t==='dqi'?'':'none';document.getElementById('viewSatisfaccion').style.display=t==='satisfaccion'?'':'none';document.getElementById('viewTeamRoom').style.display=t==='teamroom'?'':'none';document.getElementById('viewOnTime').style.display=t==='ontime'?'':'none';document.getElementById('viewOtif').style.display=t==='otif'?'':'none';document.getElementById('viewRechazos').style.display=t==='rechazos'?'':'none';
