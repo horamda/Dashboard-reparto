@@ -175,10 +175,25 @@ if BACKEND == "postgres":
             """)
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS rechazos_dashboard (
-                    fecha TEXT PRIMARY KEY,
+                    key TEXT PRIMARY KEY,
                     rec JSONB NOT NULL
                 );
             """)
+            cur.execute("ALTER TABLE rechazos_dashboard ADD COLUMN IF NOT EXISTS key TEXT;")
+            cur.execute("UPDATE rechazos_dashboard SET key = COALESCE(rec->>'key', (rec->>'fecha') || '|' || COALESCE(rec->>'sucursal', '')) WHERE key IS NULL;")
+            cur.execute("ALTER TABLE rechazos_dashboard DROP CONSTRAINT IF EXISTS rechazos_dashboard_pkey;")
+            cur.execute("""
+                DO $$
+                BEGIN
+                    IF EXISTS (
+                        SELECT 1 FROM information_schema.columns
+                        WHERE table_name='rechazos_dashboard' AND column_name='fecha'
+                    ) THEN
+                        ALTER TABLE rechazos_dashboard ALTER COLUMN fecha DROP NOT NULL;
+                    END IF;
+                END $$;
+            """)
+            cur.execute("ALTER TABLE rechazos_dashboard ADD PRIMARY KEY (key);")
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS rechazos_detalle_dashboard (
                     key TEXT PRIMARY KEY,
@@ -306,8 +321,8 @@ if BACKEND == "postgres":
 
     def load_rechazos():
         with _conn() as cn, cn.cursor() as cur:
-            cur.execute("SELECT fecha, rec FROM rechazos_dashboard;")
-            return {fecha: rec for fecha, rec in cur.fetchall()}
+            cur.execute("SELECT key, rec FROM rechazos_dashboard;")
+            return {key: rec for key, rec in cur.fetchall()}
 
     def load_rechazos_detalle():
         with _conn() as cn, cn.cursor() as cur:
@@ -317,12 +332,12 @@ if BACKEND == "postgres":
     def upsert_rechazos(recs):
         if not recs:
             return 0
-        rows = [(fecha, _extras.Json(rec)) for fecha, rec in recs.items()]
+        rows = [(key, _extras.Json(rec)) for key, rec in recs.items()]
         with _conn() as cn, cn.cursor() as cur:
             _extras.execute_values(
                 cur,
-                "INSERT INTO rechazos_dashboard (fecha, rec) VALUES %s "
-                "ON CONFLICT (fecha) DO UPDATE SET rec = EXCLUDED.rec;",
+                "INSERT INTO rechazos_dashboard (key, rec) VALUES %s "
+                "ON CONFLICT (key) DO UPDATE SET rec = EXCLUDED.rec;",
                 rows,
             )
         return len(recs)
@@ -376,7 +391,7 @@ if BACKEND == "postgres":
             "rutas": ("rutas_dashboard", "rid"),
             "attempts": ("attempts_dashboard", "attempt_key"),
             "clientes": ("clientes_dashboard", "cliente"),
-            "rechazos": ("rechazos_dashboard", "fecha"),
+            "rechazos": ("rechazos_dashboard", "key"),
             "rechazos_detalle": ("rechazos_detalle_dashboard", "key"),
             "articulos": ("articulos_dashboard", "articulo"),
             "settings": ("settings_dashboard", "key"),
@@ -397,7 +412,7 @@ if BACKEND == "postgres":
             "rutas": ("rutas_dashboard", "rid"),
             "attempts": ("attempts_dashboard", "attempt_key"),
             "clientes": ("clientes_dashboard", "cliente"),
-            "rechazos": ("rechazos_dashboard", "fecha"),
+            "rechazos": ("rechazos_dashboard", "key"),
             "rechazos_detalle": ("rechazos_detalle_dashboard", "key"),
             "articulos": ("articulos_dashboard", "articulo"),
             "settings": ("settings_dashboard", "key"),

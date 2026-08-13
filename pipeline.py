@@ -34,6 +34,7 @@ RECHAZOS_API_URL = os.environ.get(
 )
 RECHAZOS_SUCURSAL = os.environ.get("RECHAZOS_SUCURSAL", "Dolores")
 RECHAZOS_SUCURSAL_ID = os.environ.get("RECHAZOS_SUCURSAL_ID", "2")
+RECHAZOS_SUCURSALES_IMPORT = os.environ.get("RECHAZOS_API_SUCURSAL", "TODAS")
 SATISFACCION_CSV_URL = os.environ.get(
     "SATISFACCION_CSV_URL",
     "https://docs.google.com/spreadsheets/d/e/2PACX-1vQkEVyl9kmmMf5vsi--tz5mf39u80tJoFcBzWFFLWhHuXepY5dBEqmSzXLbD0AXapFPj9DLMBqii7TA/pub?gid=0&single=true&output=csv",
@@ -357,8 +358,11 @@ def _norm_rechazo(row):
     sid = str(_pick_value(row, ("sucursal_id", "sucursalId", "id_sucursal"), RECHAZOS_SUCURSAL_ID) or RECHAZOS_SUCURSAL_ID)
     if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", fecha):
         return None
+    key = f"{fecha}|{suc}"
     return {
+        "key": key,
         "fecha": fecha,
+        "mes": fecha[:7],
         "sucursal": suc,
         "sucursal_id": sid,
         "rechazos": cantidad,
@@ -414,7 +418,7 @@ def _norm_rechazo_detalle(row):
 def importar_rechazos(desde=None, hasta=None):
     desde = desde or "2026-01-01"
     hasta = hasta or _today()
-    params = {"desde": desde, "hasta": hasta, "sucursal": os.environ.get("RECHAZOS_API_SUCURSAL", "TODAS")}
+    params = {"desde": desde, "hasta": hasta, "sucursal": RECHAZOS_SUCURSALES_IMPORT}
     if not RECHAZOS_API_URL.endswith("/integracion"):
         params["formato"] = "csv"
     url = RECHAZOS_API_URL + "?" + urlencode(params)
@@ -481,8 +485,10 @@ def guardar_rechazos_excel(file_obj, desde="", hasta="", origen="archivo"):
         rechazo_flag = str(val(row, "RECHAZO", "")).strip().upper()
         es_rechazo = bultos_rech > 0 or hl_rech > 0 or rechazo_flag not in ("", "0", "NO")
 
-        rec = recs.setdefault(fecha, {
-            "fecha": fecha, "sucursal": RECHAZOS_SUCURSAL, "sucursal_id": RECHAZOS_SUCURSAL_ID,
+        suc = RECHAZOS_SUCURSAL
+        key_rec = f"{fecha}|{suc}"
+        rec = recs.setdefault(key_rec, {
+            "key": key_rec, "fecha": fecha, "mes": fecha[:7], "sucursal": suc, "sucursal_id": RECHAZOS_SUCURSAL_ID,
             "rechazos": 0, "motivo": "", "pedidos_pdv_atendidos": 0, "pdv_unicos": 0, "nds": 0,
             "bultos": 0.0, "rechazo_bultos": 0.0, "rechazo_bultos_total": 0.0, "pct_rechazo_bultos": 0.0,
             "hl": 0.0, "rechazo_hl": 0.0, "rechazo_hl_total": 0.0, "pct_rechazo_hl": 0.0,
@@ -498,11 +504,11 @@ def guardar_rechazos_excel(file_obj, desde="", hasta="", origen="archivo"):
         rec["pallets"] += pallets
         rec["rechazo_pallets"] += pallets_rech
         if es_rechazo:
-            docs_por_fecha.setdefault(fecha, set()).add(doc)
+            docs_por_fecha.setdefault(key_rec, set()).add(doc)
             chofer = str(val(row, "DESCRIPCION CHOFER", val(row, "DESCRIPCION DETALLDA CHOFER", "Sin chofer")) or "Sin chofer").strip()
             motivo = str(val(row, "MOTIVO DE RECHAZO", val(row, "DESCRIPCION DETALLADA MOTIVO", "Sin motivo")) or "Sin motivo").strip()
             sector = str(val(row, "DESCRIPCION RUTA", val(row, "RUTA", "Sin sector")) or "Sin sector").strip()
-            key = "|".join(x.replace("|", "/") for x in [fecha, RECHAZOS_SUCURSAL, chofer, sector, motivo])
+            key = "|".join(x.replace("|", "/") for x in [fecha, suc, chofer, sector, motivo])
             d = det.setdefault(key, {"fecha": fecha, "mes": fecha[:7], "sucursal": RECHAZOS_SUCURSAL, "chofer": chofer,
                                      "chofer_codigo": str(val(row, "CHOFER", "") or ""), "sector": sector, "motivo": motivo,
                                      "pedidos_rechazo": 0, "ocurrencias": 0, "bultos_rechazo": 0.0,
@@ -513,8 +519,8 @@ def guardar_rechazos_excel(file_obj, desde="", hasta="", origen="archivo"):
             d["hl_rechazo"] += hl_rech
             d["pallets_rechazo"] += pallets_rech
 
-    for fecha, rec in recs.items():
-        rec["rechazos"] = len(docs_por_fecha.get(fecha, set()))
+    for key_rec, rec in recs.items():
+        rec["rechazos"] = len(docs_por_fecha.get(key_rec, set()))
         rec["pct_rechazo_bultos"] = (rec["rechazo_bultos"] / rec["bultos"] * 100) if rec["bultos"] else 0.0
         rec["pct_rechazo_hl"] = (rec["rechazo_hl"] / rec["hl"] * 100) if rec["hl"] else 0.0
         rec["pct_rechazo_pallets"] = (rec["rechazo_pallets"] / rec["pallets"] * 100) if rec["pallets"] else 0.0
@@ -534,11 +540,21 @@ def guardar_rechazos_payload(payload, desde="", hasta="", origen="archivo"):
         rec = _norm_rechazo(row)
         if not rec:
             continue
-        key = rec["fecha"]
+        key = rec["key"]
         if key not in recs:
             recs[key] = rec
         else:
             recs[key]["rechazos"] += rec["rechazos"]
+            recs[key]["pedidos_pdv_atendidos"] += rec.get("pedidos_pdv_atendidos", 0)
+            recs[key]["pdv_unicos"] += rec.get("pdv_unicos", 0)
+            recs[key]["bultos"] += rec.get("bultos", 0)
+            recs[key]["rechazo_bultos"] += rec.get("rechazo_bultos", 0)
+            recs[key]["rechazo_bultos_total"] += rec.get("rechazo_bultos_total", 0)
+            recs[key]["hl"] += rec.get("hl", 0)
+            recs[key]["rechazo_hl"] += rec.get("rechazo_hl", 0)
+            recs[key]["rechazo_hl_total"] += rec.get("rechazo_hl_total", 0)
+            recs[key]["pallets"] += rec.get("pallets", 0)
+            recs[key]["rechazo_pallets"] += rec.get("rechazo_pallets", 0)
             if rec["motivo"] and not recs[key].get("motivo"):
                 recs[key]["motivo"] = rec["motivo"]
     guardados = storage.upsert_rechazos(recs)

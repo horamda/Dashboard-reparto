@@ -147,7 +147,7 @@ TABLES = {
     "rutas": {"label": "Rutas Foxtrot", "key": "rid", "load": lambda: pipeline.storage.load_all(), "cols": ["rid", "fecha", "mes", "suc", "chofer", "usable", "tml", "ti", "horas"]},
     "attempts": {"label": "Attempt Analytics", "key": "attempt_key", "load": lambda: pipeline.storage.load_attempts(), "cols": ["attempt_key", "Route ID", "Customer ID", "Customer Name", "Visit Start Timestamp", "Driver Click Timestamp", "Aggregate Visit Status"]},
     "clientes": {"label": "Clientes", "key": "cliente", "load": lambda: pipeline.storage.load_clientes(), "cols": ["cliente", "sucursal", "razon_social", "nombre", "horario_entrega", "ventanas"]},
-    "rechazos": {"label": "Rechazos", "key": "fecha", "load": lambda: pipeline.storage.load_rechazos(), "cols": ["fecha", "rechazos", "rechazo_bultos", "pct_rechazo_bultos", "origen"]},
+    "rechazos": {"label": "Rechazos", "key": "key", "load": lambda: pipeline.storage.load_rechazos(), "cols": ["key", "fecha", "sucursal", "rechazos", "rechazo_bultos", "pct_rechazo_bultos", "origen"]},
     "rechazos_detalle": {"label": "Detalle rechazos", "key": "key", "load": lambda: pipeline.storage.load_rechazos_detalle(), "cols": ["fecha", "sucursal", "chofer", "sector", "motivo", "pedidos_rechazo", "bultos_rechazo", "hl_rechazo"]},
     "articulos": {"label": "Artículos", "key": "articulo", "load": lambda: pipeline.storage.load_articulos(), "cols": ["articulo", "descripcion", "unidades_por_bulto"]},
     "settings": {"label": "Configuración", "key": "key", "load": lambda: pipeline.storage.load_settings(), "cols": ["key", "valor"]},
