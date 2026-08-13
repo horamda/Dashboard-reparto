@@ -30,7 +30,7 @@ AQUI = os.path.dirname(os.path.abspath(__file__))
 PLANTILLA = os.path.join(AQUI, "plantilla_dashboard.html")
 RECHAZOS_API_URL = os.environ.get(
     "RECHAZOS_API_URL",
-    "https://control-asistencia.up.railway.app/api/rechazos/diario/integracion",
+    "https://web-production-f968ec.up.railway.app/api/rechazos/diario/integracion",
 )
 RECHAZOS_SUCURSAL = os.environ.get("RECHAZOS_SUCURSAL", "Dolores")
 RECHAZOS_SUCURSAL_ID = os.environ.get("RECHAZOS_SUCURSAL_ID", "2")
