@@ -438,6 +438,53 @@ def importar_rechazos(desde=None, hasta=None):
     raise ValueError(f"El endpoint no devolvió CSV ni JSON. Content-Type: {ctype or 'sin Content-Type'}")
 
 
+def _fetch_rechazos(url):
+    req = Request(url, headers={"Accept": "text/csv, application/json"})
+    try:
+        with urlopen(req, timeout=30) as res:
+            return res.read().decode("utf-8"), res.headers.get("Content-Type", ""), url
+    except HTTPError as e:
+        body = e.read().decode("utf-8", errors="replace")[:500]
+        raise ValueError(f"El endpoint respondio HTTP {e.code}. URL: {url}. Respuesta: {body}") from e
+
+
+def importar_rechazos(desde=None, hasta=None):
+    desde = desde or "2026-01-01"
+    hasta = hasta or _today()
+    params = {"desde": desde, "hasta": hasta, "sucursal": RECHAZOS_SUCURSALES_IMPORT}
+    url = RECHAZOS_API_URL + "?" + urlencode(params)
+    try:
+        raw, ctype, final_url = _fetch_rechazos(url)
+        if "csv" in ctype.lower() or final_url.endswith("formato=csv"):
+            return guardar_rechazos_csv(raw, desde, hasta, final_url)
+        if "json" in ctype.lower():
+            return guardar_rechazos_payload(json.loads(raw), desde, hasta, final_url)
+    except ValueError as first_error:
+        if "HTTP 404" not in str(first_error) or not RECHAZOS_API_URL.endswith("/diario/integracion"):
+            raise
+        base = RECHAZOS_API_URL.rsplit("/diario/integracion", 1)[0]
+        resumen_url = base + "/diario/resumen?" + urlencode(params)
+        detalle_url = base + "/diario/detalle?" + urlencode(params)
+        try:
+            resumen_raw, _, _ = _fetch_rechazos(resumen_url)
+            detalle_raw, _, _ = _fetch_rechazos(detalle_url)
+        except ValueError as second_error:
+            raise ValueError(
+                "La API de rechazos no esta disponible en la URL configurada. "
+                f"Probo integracion, resumen y detalle. Ultimo error: {second_error}. "
+                "Verifica que la app origen tenga registrado/deployado app.routes.rechazos "
+                "o configura RECHAZOS_API_URL con la URL correcta."
+            ) from second_error
+        resumen_payload = json.loads(resumen_raw)
+        detalle_payload = json.loads(detalle_raw)
+        payload = {
+            "resumen_diario": resumen_payload.get("datos", resumen_payload),
+            "detalle_diario": detalle_payload.get("datos", detalle_payload),
+        }
+        return guardar_rechazos_payload(payload, desde, hasta, resumen_url)
+    raise ValueError(f"El endpoint no devolvio CSV ni JSON. URL: {url}")
+
+
 def guardar_rechazos_csv(raw, desde="", hasta="", origen="archivo"):
     df = pd.read_csv(StringIO(raw))
     payload = df.fillna("").to_dict(orient="records")
