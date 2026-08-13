@@ -53,7 +53,7 @@ input:focus{{outline:2px solid #C77D1A;outline-offset:1px}}
 a{{color:#1E3A8A;font-size:13.5px}}hr{{border:0;border-top:1px solid #DCE2EA;margin:24px 0}}@media(max-width:640px){{.box{{width:min(100% - 20px,620px);margin:18px auto;padding:22px 18px}}}}</style></head>
 <body><div class=box>
 <h1>Actualizar dashboard</h1>
-<p>Subí el export nuevo de Route Analytics. Se agregan solo los días que falten; lo ya cargado no cambia.</p>
+<p>Subí el export nuevo de Route Analytics y el Attempt Analytics. Las rutas existentes se actualizan con las columnas nuevas.</p>
 {msg}
 <form method=post action="/actualizar" enctype="multipart/form-data">
   <label>Export Route Analytics (.xls / .xlsx) *</label>
@@ -76,8 +76,8 @@ a{{color:#1E3A8A;font-size:13.5px}}hr{{border:0;border-top:1px solid #DCE2EA;mar
   <input type=date name=desde value="2026-01-01" required>
   <label>Hasta</label>
   <input type=date name=hasta value="{hasta_default}" required>
-  <label>Archivo de rechazos diarios (opcional .csv / .json)</label>
-  <input type=file name=rechazos_file accept=".csv,.json,text/csv,application/json">
+  <label>Archivo de rechazos diarios (opcional .csv / .json / .xls / .xlsx)</label>
+  <input type=file name=rechazos_file accept=".csv,.json,.xls,.xlsx,text/csv,application/json">
   <button class=btn type=submit>Importar rechazos</button>
 </form>
 <hr>
@@ -145,6 +145,7 @@ details{border-top:1px solid #E7ECF2;padding:12px 14px}summary{cursor:pointer;fo
 
 TABLES = {
     "rutas": {"label": "Rutas Foxtrot", "key": "rid", "load": lambda: pipeline.storage.load_all(), "cols": ["rid", "fecha", "mes", "suc", "chofer", "usable", "tml", "ti", "horas"]},
+    "attempts": {"label": "Attempt Analytics", "key": "attempt_key", "load": lambda: pipeline.storage.load_attempts(), "cols": ["attempt_key", "Route ID", "Customer ID", "Customer Name", "Visit Start Timestamp", "Driver Click Timestamp", "Aggregate Visit Status"]},
     "clientes": {"label": "Clientes", "key": "cliente", "load": lambda: pipeline.storage.load_clientes(), "cols": ["cliente", "sucursal", "razon_social", "nombre", "horario_entrega", "ventanas"]},
     "rechazos": {"label": "Rechazos", "key": "fecha", "load": lambda: pipeline.storage.load_rechazos(), "cols": ["fecha", "rechazos", "rechazo_bultos", "pct_rechazo_bultos", "origen"]},
     "rechazos_detalle": {"label": "Detalle rechazos", "key": "key", "load": lambda: pipeline.storage.load_rechazos_detalle(), "cols": ["fecha", "sucursal", "chofer", "sector", "motivo", "pedidos_rechazo", "bultos_rechazo", "hl_rechazo"]},
@@ -396,11 +397,13 @@ def actualizar():
         st = pipeline.actualizar(xls.stream, xls.filename, csvs, reset=reset)
     except Exception as e:
         return Response(_admin_page(f"Error procesando el export: {e}", err=True), mimetype="text/html", status=400)
-    msg = (f"Listo. Rutas nuevas agregadas: {st['agregadas']} · total en base: {st['total']} "
+    msg = (f"Listo. Rutas procesadas: {st['procesadas']} · nuevas agregadas: {st['agregadas']} · total en base: {st['total']} "
            f"({st['validas']} válidas, {st['sin_cierre']} sin cierre). "
            f"TML {st['tml_prom']} min ({st['tml_cumpl']}% cumple) · TI {st['ti_prom']} min ({st['ti_cumpl']}% cumple).")
     if st.get("actualiza_existentes"):
-        msg += f" On time recalculado para {st['procesadas']} rutas del export."
+        msg += " Las rutas existentes del export fueron actualizadas."
+    if st.get("attempts_guardados"):
+        msg += f" Attempts guardados/actualizados: {st['attempts_guardados']}."
     if clientes_importados is not None:
         msg += f" Clientes importados: {clientes_importados}."
     return Response(_admin_page(msg), mimetype="text/html")
@@ -416,9 +419,12 @@ def actualizar_rechazos():
     archivo = request.files.get("rechazos_file")
     try:
         if archivo and archivo.filename:
-            if archivo.filename.lower().endswith(".csv"):
+            nombre = archivo.filename.lower()
+            if nombre.endswith(".csv"):
                 raw = archivo.stream.read().decode("utf-8-sig")
                 st = pipeline.guardar_rechazos_csv(raw, desde, hasta, archivo.filename)
+            elif nombre.endswith((".xls", ".xlsx")):
+                st = pipeline.guardar_rechazos_excel(archivo.stream, desde, hasta, archivo.filename)
             else:
                 payload = json.load(archivo.stream)
                 st = pipeline.guardar_rechazos_payload(payload, desde, hasta, archivo.filename)

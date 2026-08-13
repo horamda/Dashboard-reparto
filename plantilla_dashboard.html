@@ -116,7 +116,7 @@ tfoot td{font-weight:700;border-top:2px solid var(--line);border-bottom:none}
   <div class="fg"><label>Chofer</label><select id="fCho"></select></div>
   <button class="reset" id="reset">Limpiar filtros</button>
  </div>
- <div class="tabs"><button class="tab" id="tabTeamRoom">Team Room</button><button class="tab active" id="tabMes">Mensual</button><button class="tab" id="tabSem">Semanal</button><button class="tab" id="tabDia">Diario</button><button class="tab" id="tabOnTime">On time</button><button class="tab" id="tabRechazos">Rechazos</button><button class="tab" id="tabOtif">OTIF</button><button class="tab" id="tabDqi">DQI</button><button class="tab" id="tabSatisfaccion">Satisfaccion del cliente</button><button class="tab" id="tabCalidad">Data Quality</button></div>
+ <div class="tabs"><button class="tab" id="tabTeamRoom">Team Room</button><button class="tab active" id="tabMes">Mensual</button><button class="tab" id="tabSem">Semanal</button><button class="tab" id="tabDia">Diario</button><button class="tab" id="tabHorarios">Horarios Foxtrot</button><button class="tab" id="tabOnTime">On time</button><button class="tab" id="tabRechazos">Rechazos</button><button class="tab" id="tabOtif">OTIF</button><button class="tab" id="tabDqi">DQI</button><button class="tab" id="tabSatisfaccion">Satisfaccion del cliente</button><button class="tab" id="tabCalidad">Data Quality</button></div>
  <div id="operationalSummary">
  <div class="sectlbl">Tiempos</div>
  <div class="cards c5">
@@ -263,9 +263,32 @@ tfoot td{font-weight:700;border-top:2px solid var(--line);border-bottom:none}
    <div class="panel"><h2>Productos con mas roturas</h2><div class="note">Ranking por bultos totales del periodo filtrado.</div>
     <table><thead><tr><th>Articulo</th><th>Producto</th><th>Bultos totales</th></tr></thead><tbody id="tbodyDqiProductos"></tbody></table></div>
   </div>
-  <div class="grid" style="grid-template-columns:1fr">
+ <div class="grid" style="grid-template-columns:1fr">
    <div class="panel"><h2>Roturas por articulo - ultimos 30 dias</h2><div class="note">Ranking por bultos totales, independiente del filtro de mes.</div>
     <table><thead><tr><th>Articulo</th><th>Producto</th><th>Bultos totales</th></tr></thead><tbody id="tbodyDqiUlt30Productos"></tbody></table></div>
+  </div>
+ </div>
+ <div id="viewHorarios" style="display:none">
+  <div class="hint">Inicio y finalizacion marcados por el chofer en Foxtrot. Usa los filtros superiores de mes, sucursal y chofer; el año se toma del mes seleccionado o del periodo completo.</div>
+  <div class="cards c4" style="margin-bottom:22px">
+   <div class="card" id="cFoxIni"><div class="k">Inicio promedio</div><div class="v" id="kFoxIni">-</div><div class="obj">horario de inicio Foxtrot</div><div class="bar"><i id="bFoxIni"></i></div></div>
+   <div class="card" id="cFoxFin"><div class="k">Fin promedio</div><div class="v" id="kFoxFin">-</div><div class="obj">horario de finalizacion Foxtrot</div><div class="bar"><i id="bFoxFin"></i></div></div>
+   <div class="card" id="cFoxDur"><div class="k">Duracion promedio</div><div class="v" id="kFoxDur">-</div><div class="obj">entre inicio y fin</div><div class="bar"><i id="bFoxDur"></i></div></div>
+   <div class="card" id="cFoxRutas"><div class="k">Rutas</div><div class="v" id="kFoxRutas">-</div><div class="obj">con horario Foxtrot</div><div class="bar"><i id="bFoxRutas"></i></div></div>
+  </div>
+  <div class="grid" style="grid-template-columns:1fr 1fr">
+   <div class="panel"><h2>Horario por mes</h2><div class="note">Promedio de inicio y fin por mes.</div><div class="chartbox" style="height:300px"><canvas id="chFoxMes"></canvas></div></div>
+   <div class="panel"><h2>Horario por dia</h2><div class="note">Promedio diario del periodo filtrado.</div><div class="chartbox" style="height:300px"><canvas id="chFoxDia"></canvas></div></div>
+  </div>
+  <div class="grid" style="grid-template-columns:1fr 1fr">
+   <div class="panel"><h2>Por persona</h2><div class="note">Promedios por chofer.</div>
+    <div class="tblscroll"><table><thead><tr><th>Persona</th><th>Rutas</th><th>Inicio prom.</th><th>Fin prom.</th><th>Duracion prom.</th></tr></thead><tbody id="tbodyFoxPersona"></tbody></table></div></div>
+   <div class="panel"><h2>Por camion</h2><div class="note">Promedios por camion si el export trae ese dato.</div>
+    <div class="tblscroll"><table><thead><tr><th>Camion</th><th>Rutas</th><th>Inicio prom.</th><th>Fin prom.</th><th>Duracion prom.</th></tr></thead><tbody id="tbodyFoxCamion"></tbody></table></div></div>
+  </div>
+  <div class="grid" style="grid-template-columns:1fr">
+   <div class="panel"><h2>Detalle de rutas</h2><div class="note">Fecha, sucursal, camion, persona e inicio / fin marcados en Foxtrot.</div>
+    <div class="tblscroll"><table><thead><tr><th>Fecha</th><th>Mes</th><th>Sucursal</th><th>Camion</th><th>Persona</th><th>Inicio</th><th>Fin</th><th>Duracion</th></tr></thead><tbody id="tbodyFoxDetalle"></tbody></table></div></div>
   </div>
  </div>
  <div id="viewOnTime" style="display:none">
@@ -449,6 +472,26 @@ function quality(scope){const total=scope.length,bad=scope.filter(r=>r.alerta).l
 function qualityByMonth(scope){const g={};scope.forEach(r=>{(g[r.mes]=g[r.mes]||[]).push(r)});return Object.keys(g).sort().map(k=>{const q=quality(g[k]);return{key:k,total:q.total,bad:q.bad,good:q.good,p:q.p}})}
 function addClientes(set,items){(items||[]).forEach(c=>{if(c&&c.cliente)set.add(c.cliente)})}
 function emptyRow(cols,msg){return '<tr><td colspan="'+cols+'" style="text-align:center;color:#657085;padding:18px">'+msg+'</td></tr>'}
+function tMin(v){if(!v)return null;const p=String(v).split(':').map(Number);return isNaN(p[0])||isNaN(p[1])?null:p[0]*60+p[1]}
+function tLbl(v){if(v==null||isNaN(v))return'-';v=Math.round(v);return String(Math.floor(v/60)).padStart(2,'0')+':'+String(v%60).padStart(2,'0')}
+function durLbl(v){if(v==null||isNaN(v))return'-';v=Math.round(v);return Math.floor(v/60)+' h '+String(v%60).padStart(2,'0')+' min'}
+function foxRows(){return R.filter(r=>full(r)&&tMin(r.inicio_foxtrot)!=null&&tMin(r.fin_foxtrot)!=null)}
+function foxAgg(rows,field){const g={};rows.forEach(r=>{const k=r[field]||'Sin dato';(g[k]=g[k]||[]).push(r)});return Object.keys(g).sort().map(k=>foxSummary(k,g[k]))}
+function foxSummary(key,rows){const ini=avg(rows.map(r=>tMin(r.inicio_foxtrot))),fin=avg(rows.map(r=>tMin(r.fin_foxtrot))),dur=avg(rows.map(r=>r.horas!=null?r.horas*60:(tMin(r.fin_foxtrot)-tMin(r.inicio_foxtrot))));return{key,n:rows.length,ini,fin,dur}}
+function foxTable(items,label){return items.length?items.map(r=>'<tr><td>'+r.key+'</td><td>'+r.n+'</td><td>'+tLbl(r.ini)+'</td><td>'+tLbl(r.fin)+'</td><td>'+durLbl(r.dur)+'</td></tr>').join(''):emptyRow(5,'No hay horarios Foxtrot para el filtro actual.')}
+function foxChart(id,items,keyFmt){if(!chartsReady())return;if(ch[id])ch[id].destroy();const labels=items.map(r=>keyFmt(r.key));
+ ch[id]=new Chart(document.getElementById(id),{type:'line',data:{labels,datasets:[
+  {label:'Inicio',data:items.map(r=>r.ini),borderColor:C.cli,backgroundColor:C.cli,borderWidth:2.5,tension:.25,pointRadius:3,fill:false},
+  {label:'Fin',data:items.map(r=>r.fin),borderColor:C.amber,backgroundColor:C.amber,borderWidth:2.5,tension:.25,pointRadius:3,fill:false}]},
+  options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:true,labels:{boxWidth:10,font:{size:10}}},tooltip:{callbacks:{label:x=>x.dataset.label+': '+tLbl(x.parsed.y)}}},
+  scales:{y:{min:360,max:1320,ticks:{stepSize:120,callback:tLbl,color:'#657085',font:{size:11}},grid:{color:'#eef1f5'}},x:{ticks:{color:'#657085',font:{size:10},maxRotation:60,minRotation:labels.length>12?45:0},grid:{display:false}}}}})}
+function renderHorarios(){const rows=foxRows(),sum=foxSummary('',rows),col=C.cli;
+ kFoxIni.textContent=tLbl(sum.ini);kFoxFin.textContent=tLbl(sum.fin);kFoxDur.textContent=durLbl(sum.dur);kFoxRutas.textContent=rows.length;
+ [[cFoxIni,bFoxIni,C.cli],[cFoxFin,bFoxFin,C.amber],[cFoxDur,bFoxDur,C.obj],[cFoxRutas,bFoxRutas,C.sec]].forEach(([c,b,x])=>{c.style.setProperty('--accent',x);b.style.background=x;b.style.width='100%'});
+ const byMes=foxAgg(rows,'mes'),byDia=foxAgg(rows,'fecha'),byPersona=foxAgg(rows,'chofer').sort((a,b)=>b.n-a.n||a.key.localeCompare(b.key)),byCamion=foxAgg(rows,'camion').sort((a,b)=>b.n-a.n||a.key.localeCompare(b.key));
+ foxChart('chFoxMes',byMes,m=>mLbl(m)+' '+m.slice(0,4));foxChart('chFoxDia',byDia,dLbl);
+ tbodyFoxPersona.innerHTML=foxTable(byPersona,'Persona');tbodyFoxCamion.innerHTML=foxTable(byCamion,'Camion');
+ tbodyFoxDetalle.innerHTML=rows.length?rows.slice().sort((a,b)=>b.fecha.localeCompare(a.fecha)||a.chofer.localeCompare(b.chofer)).map(r=>'<tr><td>'+dLbl(r.fecha)+'</td><td>'+mLbl(r.mes)+' '+r.mes.slice(0,4)+'</td><td>'+r.suc+'</td><td>'+(r.camion||'Sin camion')+'</td><td>'+r.chofer+'</td><td>'+r.inicio_foxtrot+'</td><td>'+r.fin_foxtrot+'</td><td>'+durLbl(r.horas!=null?r.horas*60:(tMin(r.fin_foxtrot)-tMin(r.inicio_foxtrot)))+'</td></tr>').join(''):emptyRow(8,'No hay horarios Foxtrot para el filtro actual.');}
 function onTime(scope){let ok=0,bad=0,sin=0,total=0;const cliCon=new Set(),cliSin=new Set();scope.forEach(r=>{ok+=r.pdv_ontime||0;bad+=r.pdv_fuera_ontime||0;sin+=r.pdv_sin_ventana||0;total+=r.pdv_total||0;addClientes(cliCon,r.clientes_con_ventana);addClientes(cliSin,r.clientes_sin_ventana)});const ev=ok+bad,cliTotal=cliCon.size+cliSin.size,cliVentanaPct=cliTotal?cliCon.size/cliTotal*100:null;return{ok,bad,sin,total,ev,cliCon:cliCon.size,cliSin:cliSin.size,cliTotal,cliVentanaPct,p:ev?ok/ev*100:null}}
 function onTimeByMonth(scope){const g={};scope.forEach(r=>{(g[r.mes]=g[r.mes]||[]).push(r)});return Object.keys(g).sort().map(k=>{const o=onTime(g[k]);return{key:k,ok:o.ok,bad:o.bad,sin:o.sin,total:o.total,ev:o.ev,cliCon:o.cliCon,cliSin:o.cliSin,cliTotal:o.cliTotal,cliVentanaPct:o.cliVentanaPct,p:o.p}})}
 function onTimeBy(field,scope){const g={};scope.forEach(r=>{const k=r[field]||'Sin dato';(g[k]=g[k]||[]).push(r)});return Object.keys(g).map(k=>{const o=onTime(g[k]);return{key:k,ok:o.ok,bad:o.bad,sin:o.sin,total:o.total,ev:o.ev,p:o.p}}).sort((a,b)=>b.ev-a.ev)}
@@ -660,14 +703,14 @@ function renderOnTime(){const scope=R.filter(full),o=onTime(scope),ok=o.p!=null&
  const msgSin=o.sin?'Hay '+o.sin+' pedidos sin ventana, pero esta carga no tiene el detalle por cliente. Volvé a subir Route Analytics, visitas Foxtrot y clientes para recalcular.':'No hay clientes sin ventana horaria cargada en el filtro actual.';
  tbodyOTClientes.innerHTML=fueraRows.length?fueraRows.map(c=>'<tr><td>'+c.cliente+'</td><td>'+c.nombre+'</td><td class="r">'+c.fuera+'</td><td>'+c.visita+'</td><td>'+c.ventana+'</td></tr>').join(''):emptyRow(5,msgFuera);
  tbodyOTClientesSin.innerHTML=sinRows.length?sinRows.map(c=>'<tr><td>'+c.cliente+'</td><td>'+c.nombre+'</td><td class="r">'+c.pedidos+'</td><td>'+c.motivo+'</td></tr>').join(''):emptyRow(4,msgSin);}
-function render(){renderCards();if(state.tab==='mes')renderMes();else if(state.tab==='dia')renderDia();else if(state.tab==='sem')renderSem();else if(state.tab==='calidad')renderCalidad();else if(state.tab==='rechazos')renderRechazos();else if(state.tab==='otif')renderOtif();else if(state.tab==='dqi')renderDqi();else if(state.tab==='satisfaccion')renderSatisfaccion();else if(state.tab==='teamroom')renderTeamRoom();else renderOnTime();}
+function render(){renderCards();if(state.tab==='mes')renderMes();else if(state.tab==='dia')renderDia();else if(state.tab==='sem')renderSem();else if(state.tab==='calidad')renderCalidad();else if(state.tab==='rechazos')renderRechazos();else if(state.tab==='otif')renderOtif();else if(state.tab==='dqi')renderDqi();else if(state.tab==='satisfaccion')renderSatisfaccion();else if(state.tab==='teamroom')renderTeamRoom();else if(state.tab==='horarios')renderHorarios();else renderOnTime();}
 ['fSuc','fMes','fCho'].forEach(id=>document.getElementById(id).addEventListener('change',e=>{state[{fSuc:'suc',fMes:'mes',fCho:'cho'}[id]]=e.target.value;render()}));
 reset.addEventListener('click',()=>{state.suc=state.mes=state.cho='__all';fSuc.value=fMes.value=fCho.value='__all';render()});
-function switchTab(t){state.tab=t;tabMes.classList.toggle('active',t==='mes');tabDia.classList.toggle('active',t==='dia');tabSem.classList.toggle('active',t==='sem');tabOnTime.classList.toggle('active',t==='ontime');tabSatisfaccion.classList.toggle('active',t==='satisfaccion');tabTeamRoom.classList.toggle('active',t==='teamroom');tabDqi.classList.toggle('active',t==='dqi');tabRechazos.classList.toggle('active',t==='rechazos');tabOtif.classList.toggle('active',t==='otif');tabCalidad.classList.toggle('active',t==='calidad');
- document.getElementById('operationalSummary').style.display=(t==='rechazos'||t==='ontime'||t==='otif'||t==='calidad'||t==='satisfaccion'||t==='teamroom'||t==='dqi')?'none':'';
- document.getElementById('viewMes').style.display=t==='mes'?'':'none';document.getElementById('viewDia').style.display=t==='dia'?'':'none';document.getElementById('viewSem').style.display=t==='sem'?'':'none';document.getElementById('viewCalidad').style.display=t==='calidad'?'':'none';document.getElementById('viewDqi').style.display=t==='dqi'?'':'none';document.getElementById('viewSatisfaccion').style.display=t==='satisfaccion'?'':'none';document.getElementById('viewTeamRoom').style.display=t==='teamroom'?'':'none';document.getElementById('viewOnTime').style.display=t==='ontime'?'':'none';document.getElementById('viewOtif').style.display=t==='otif'?'':'none';document.getElementById('viewRechazos').style.display=t==='rechazos'?'':'none';
+function switchTab(t){state.tab=t;tabMes.classList.toggle('active',t==='mes');tabDia.classList.toggle('active',t==='dia');tabSem.classList.toggle('active',t==='sem');tabHorarios.classList.toggle('active',t==='horarios');tabOnTime.classList.toggle('active',t==='ontime');tabSatisfaccion.classList.toggle('active',t==='satisfaccion');tabTeamRoom.classList.toggle('active',t==='teamroom');tabDqi.classList.toggle('active',t==='dqi');tabRechazos.classList.toggle('active',t==='rechazos');tabOtif.classList.toggle('active',t==='otif');tabCalidad.classList.toggle('active',t==='calidad');
+ document.getElementById('operationalSummary').style.display=(t==='rechazos'||t==='ontime'||t==='otif'||t==='calidad'||t==='satisfaccion'||t==='teamroom'||t==='dqi'||t==='horarios')?'none':'';
+ document.getElementById('viewMes').style.display=t==='mes'?'':'none';document.getElementById('viewDia').style.display=t==='dia'?'':'none';document.getElementById('viewSem').style.display=t==='sem'?'':'none';document.getElementById('viewHorarios').style.display=t==='horarios'?'':'none';document.getElementById('viewCalidad').style.display=t==='calidad'?'':'none';document.getElementById('viewDqi').style.display=t==='dqi'?'':'none';document.getElementById('viewSatisfaccion').style.display=t==='satisfaccion'?'':'none';document.getElementById('viewTeamRoom').style.display=t==='teamroom'?'':'none';document.getElementById('viewOnTime').style.display=t==='ontime'?'':'none';document.getElementById('viewOtif').style.display=t==='otif'?'':'none';document.getElementById('viewRechazos').style.display=t==='rechazos'?'':'none';
  if(t==='sem'&&!state.sem&&WEEKS.length)state.sem=WEEKS[WEEKS.length-1];render()}
-tabMes.addEventListener('click',()=>switchTab('mes'));tabSem.addEventListener('click',()=>switchTab('sem'));tabDia.addEventListener('click',()=>switchTab('dia'));tabOnTime.addEventListener('click',()=>switchTab('ontime'));tabTeamRoom.addEventListener('click',()=>switchTab('teamroom'));tabDqi.addEventListener('click',()=>switchTab('dqi'));tabSatisfaccion.addEventListener('click',()=>switchTab('satisfaccion'));tabRechazos.addEventListener('click',()=>switchTab('rechazos'));tabOtif.addEventListener('click',()=>switchTab('otif'));tabCalidad.addEventListener('click',()=>switchTab('calidad'));
+tabMes.addEventListener('click',()=>switchTab('mes'));tabSem.addEventListener('click',()=>switchTab('sem'));tabDia.addEventListener('click',()=>switchTab('dia'));tabHorarios.addEventListener('click',()=>switchTab('horarios'));tabOnTime.addEventListener('click',()=>switchTab('ontime'));tabTeamRoom.addEventListener('click',()=>switchTab('teamroom'));tabDqi.addEventListener('click',()=>switchTab('dqi'));tabSatisfaccion.addEventListener('click',()=>switchTab('satisfaccion'));tabRechazos.addEventListener('click',()=>switchTab('rechazos'));tabOtif.addEventListener('click',()=>switchTab('otif'));tabCalidad.addEventListener('click',()=>switchTab('calidad'));
 render();
 const chartScript=document.createElement('script');
 chartScript.src='https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js';

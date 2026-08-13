@@ -8,6 +8,7 @@ determinístico por ID, así una ruta ya cargada nunca cambia de valor al actual
 """
 
 import os, json, hashlib, re
+import unicodedata
 from datetime import date
 from io import StringIO
 from urllib.error import HTTPError
@@ -15,6 +16,7 @@ from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 import numpy as np
 import pandas as pd
+from openpyxl import load_workbook
 
 import storage
 
@@ -155,7 +157,7 @@ def _to_int(v):
     if v is None or v == "":
         return 0
     try:
-        return int(float(str(v).replace(",", ".")))
+        return int(_to_float(v))
     except Exception:
         return 0
 
@@ -164,9 +166,41 @@ def _to_float(v):
     if v is None or v == "":
         return 0.0
     try:
-        return float(str(v).replace(".", "").replace(",", ".")) if "," in str(v) else float(v)
+        if isinstance(v, (int, float, np.integer, np.floating)):
+            return float(v)
+        s = str(v).strip().replace("\xa0", "").replace(" ", "")
+        if not s:
+            return 0.0
+        if "," in s and "." in s:
+            return float(s.replace(".", "").replace(",", ".")) if s.rfind(",") > s.rfind(".") else float(s.replace(",", ""))
+        if "," in s:
+            return float(s.replace(".", "").replace(",", "."))
+        return float(s)
     except Exception:
         return 0.0
+
+
+def _json_safe(v):
+    if pd.isna(v):
+        return None
+    if isinstance(v, pd.Timestamp):
+        return v.isoformat()
+    if hasattr(v, "isoformat"):
+        try:
+            return v.isoformat()
+        except Exception:
+            pass
+    if isinstance(v, (np.integer,)):
+        return int(v)
+    if isinstance(v, (np.floating,)):
+        return float(v)
+    if isinstance(v, (np.bool_,)):
+        return bool(v)
+    return v
+
+
+def _row_raw_dict(row):
+    return {str(k): _json_safe(v) for k, v in row.items()}
 
 
 def _parse_fecha_ar(v):
@@ -406,6 +440,92 @@ def guardar_rechazos_csv(raw, desde="", hasta="", origen="archivo"):
     return guardar_rechazos_payload(payload, desde, hasta, origen)
 
 
+def _norm_header(v):
+    s = unicodedata.normalize("NFKD", str(v or "").replace("\n", " ").strip())
+    s = "".join(ch for ch in s if not unicodedata.combining(ch))
+    return re.sub(r"\s+", " ", s).upper()
+
+
+def guardar_rechazos_excel(file_obj, desde="", hasta="", origen="archivo"):
+    if hasattr(file_obj, "seek"):
+        file_obj.seek(0)
+    wb = load_workbook(file_obj, read_only=True, data_only=True)
+    ws = wb["BASE"] if "BASE" in wb.sheetnames else wb.worksheets[0]
+    rows = ws.iter_rows(values_only=True)
+    header = None
+    for row in rows:
+        vals = [_norm_header(v) for v in row]
+        if "FECHA" in vals and "BULTOS" in vals and ("UNIDAD PAQUETE" in vals or "UNIDAD DE MEDIDA" in vals):
+            header = vals
+            break
+    if not header:
+        raise ValueError("No se encontro una hoja de rechazos con columnas FECHA, BULTOS y UNIDAD PAQUETE.")
+    idx = {name: i for i, name in enumerate(header) if name}
+
+    def val(row, name, default=0):
+        i = idx.get(name)
+        return row[i] if i is not None and i < len(row) else default
+
+    recs, det, docs_por_fecha, docs_detalle = {}, {}, {}, {}
+    for nrow, row in enumerate(rows, start=1):
+        fecha = _parse_fecha_ar(val(row, "FECHA", ""))
+        if not fecha:
+            continue
+        bultos = _to_float(val(row, "BULTOS"))
+        bultos_rech = _to_float(val(row, "BULTOS RECHAZADOS"))
+        hl = _to_float(val(row, "UNIDAD PAQUETE", val(row, "UNIDAD DE MEDIDA")))
+        hl_rech = _to_float(val(row, "UNIDAD PAQUETE RECHAZADO", val(row, "UNIDAD DE MEDIDA RECHAZADO")))
+        pallets = _to_float(val(row, "UNIDAD DE MEDIDA"))
+        pallets_rech = _to_float(val(row, "UNIDAD DE MEDIDA RECHAZADO"))
+        doc = str(val(row, "DETALLE DOCUMENTO", "") or val(row, "NUMERO", "") or nrow).strip()
+        rechazo_flag = str(val(row, "RECHAZO", "")).strip().upper()
+        es_rechazo = bultos_rech > 0 or hl_rech > 0 or rechazo_flag not in ("", "0", "NO")
+
+        rec = recs.setdefault(fecha, {
+            "fecha": fecha, "sucursal": RECHAZOS_SUCURSAL, "sucursal_id": RECHAZOS_SUCURSAL_ID,
+            "rechazos": 0, "motivo": "", "pedidos_pdv_atendidos": 0, "pdv_unicos": 0, "nds": 0,
+            "bultos": 0.0, "rechazo_bultos": 0.0, "rechazo_bultos_total": 0.0, "pct_rechazo_bultos": 0.0,
+            "hl": 0.0, "rechazo_hl": 0.0, "rechazo_hl_total": 0.0, "pct_rechazo_hl": 0.0,
+            "pallets": 0.0, "rechazo_pallets": 0.0, "pct_rechazo_pallets": 0.0,
+            "salidas": 0, "pct_rechazo_pedidos": 0.0, "pico": False, "feriado": "", "evento": "",
+        })
+        rec["bultos"] += bultos
+        rec["rechazo_bultos"] += bultos_rech
+        rec["rechazo_bultos_total"] += bultos_rech
+        rec["hl"] += hl
+        rec["rechazo_hl"] += hl_rech
+        rec["rechazo_hl_total"] += hl_rech
+        rec["pallets"] += pallets
+        rec["rechazo_pallets"] += pallets_rech
+        if es_rechazo:
+            docs_por_fecha.setdefault(fecha, set()).add(doc)
+            chofer = str(val(row, "DESCRIPCION CHOFER", val(row, "DESCRIPCION DETALLDA CHOFER", "Sin chofer")) or "Sin chofer").strip()
+            motivo = str(val(row, "MOTIVO DE RECHAZO", val(row, "DESCRIPCION DETALLADA MOTIVO", "Sin motivo")) or "Sin motivo").strip()
+            sector = str(val(row, "DESCRIPCION RUTA", val(row, "RUTA", "Sin sector")) or "Sin sector").strip()
+            key = "|".join(x.replace("|", "/") for x in [fecha, RECHAZOS_SUCURSAL, chofer, sector, motivo])
+            d = det.setdefault(key, {"fecha": fecha, "mes": fecha[:7], "sucursal": RECHAZOS_SUCURSAL, "chofer": chofer,
+                                     "chofer_codigo": str(val(row, "CHOFER", "") or ""), "sector": sector, "motivo": motivo,
+                                     "pedidos_rechazo": 0, "ocurrencias": 0, "bultos_rechazo": 0.0,
+                                     "hl_rechazo": 0.0, "pallets_rechazo": 0.0})
+            docs_detalle.setdefault(key, set()).add(doc)
+            d["ocurrencias"] += 1
+            d["bultos_rechazo"] += bultos_rech
+            d["hl_rechazo"] += hl_rech
+            d["pallets_rechazo"] += pallets_rech
+
+    for fecha, rec in recs.items():
+        rec["rechazos"] = len(docs_por_fecha.get(fecha, set()))
+        rec["pct_rechazo_bultos"] = (rec["rechazo_bultos"] / rec["bultos"] * 100) if rec["bultos"] else 0.0
+        rec["pct_rechazo_hl"] = (rec["rechazo_hl"] / rec["hl"] * 100) if rec["hl"] else 0.0
+        rec["pct_rechazo_pallets"] = (rec["rechazo_pallets"] / rec["pallets"] * 100) if rec["pallets"] else 0.0
+    for key, item in det.items():
+        item["pedidos_rechazo"] = len(docs_detalle.get(key, set()))
+
+    guardados = storage.upsert_rechazos(recs)
+    detalle_guardados = storage.upsert_rechazos_detalle(det) if det else 0
+    return {"desde": desde, "hasta": hasta, "url": origen, "recibidos": len(recs), "guardados": guardados, "detalle_guardados": detalle_guardados}
+
+
 def guardar_rechazos_payload(payload, desde="", hasta="", origen="archivo"):
     recs = {}
     resumen = payload.get("resumen_diario") if isinstance(payload, dict) else None
@@ -575,6 +695,31 @@ def _leer_csv_visitas(csv_files):
     return pd.concat(frames, ignore_index=True)
 
 
+def _attempt_key(row, idx):
+    parts = [
+        row.get("Route ID"),
+        row.get("Waypoint ID"),
+        row.get("Customer ID"),
+        row.get("Visit Start Timestamp"),
+        row.get("Driver Click Timestamp"),
+        idx,
+    ]
+    return "|".join("" if pd.isna(p) else str(p) for p in parts)
+
+
+def procesar_attempts(csv_files):
+    visitas = _leer_csv_visitas(csv_files)
+    if visitas.empty:
+        return {}
+    out = {}
+    for idx, row in visitas.iterrows():
+        rec = _row_raw_dict(row)
+        key = _attempt_key(row, idx)
+        rec["attempt_key"] = key
+        out[key] = rec
+    return out
+
+
 def _mapa_correccion(csv_files):
     c = _leer_csv_visitas(csv_files)
     if c.empty:
@@ -646,6 +791,10 @@ def procesar_export(xls_file, xls_name="", csv_files=None):
     """Devuelve dict rid -> registro, calculado desde el export."""
     csv_files = csv_files or []
     x = _leer_excel(xls_file, xls_name)
+    hl_col = _pick_col(x, ["HL", "HLS", "Hectolitros", "Hectolitro", "Hectoliter", "Hectoliters", "Volume HL", "Delivered HL", "Planned HL", "Actual HL", "Volumen HL", "Volumen Hectolitros"])
+    bultos_col = _pick_col(x, ["Bultos", "Bultos Despachados", "Cases", "Delivered Cases", "Planned Cases", "Actual Cases", "Packages", "Unidades Paquete", "Unidad Paquete"])
+    salidas_col = _pick_col(x, ["Salidas", "Stops", "Stops Count", "Customers", "Deliveries", "Pedidos", "PDV"])
+    camion_col = _pick_col(x, ["Camion", "Camión", "Truck", "Vehicle", "Vehicle Name", "Vehicle ID", "Plate", "License Plate", "Patente", "Transporte", "Descripcion Transporte", "Descripción Transporte"])
     x["fox_ini"] = pd.to_datetime(x["Driver Marked Route Start Timestamp"], errors="coerce")
     x["fox_fin"] = pd.to_datetime(x["Driver Marked Route End Timestamp"], errors="coerce")
     x["suc"] = x["DC Name"].str.replace(" - del Palacio S.A.", "", regex=False)
@@ -673,7 +822,15 @@ def procesar_export(xls_file, xls_name="", csv_files=None):
         ah = r["dur_h"] if usable else r["raw_h"]
         rec = {"rid": rid, "suc": r["suc"], "chofer": r["Driver Name"],
                "mes": r["fox_ini"].strftime("%Y-%m"), "fecha": r["fox_ini"].strftime("%Y-%m-%d"),
-               "usable": usable, "alerta": bool(ah > OBJ["alerta_h"])}
+               "anio": r["fox_ini"].strftime("%Y"),
+               "inicio_foxtrot": r["fox_ini"].strftime("%H:%M") if pd.notna(r["fox_ini"]) else "",
+               "fin_foxtrot": r["fin_final"].strftime("%H:%M") if pd.notna(r["fin_final"]) else "",
+               "camion": str(r.get(camion_col, "")).strip() if camion_col is not None and str(r.get(camion_col, "")).strip() else "Sin camion",
+               "usable": usable, "alerta": bool(ah > OBJ["alerta_h"]),
+               "hl": _to_float(r.get(hl_col)) if hl_col is not None else 0.0,
+               "bultos": _to_float(r.get(bultos_col)) if bultos_col is not None else 0.0,
+               "salidas": _to_int(r.get(salidas_col)) if salidas_col is not None else 0,
+               "raw_foxtrot": _row_raw_dict(r)}
         if rid in omap:
             rec.update(omap[rid])
         if usable:
@@ -729,12 +886,14 @@ def actualizar(xls_file, xls_name, csv_files=None, reset=False):
         storage.reset()
     previas = len(storage.load_all())
     nuevos = procesar_export(xls_file, xls_name, csv_files)
-    actualiza_existentes = bool(csv_files)
-    agregadas = storage.upsert_all(nuevos) if actualiza_existentes else storage.add_new(nuevos)
+    attempts = procesar_attempts(csv_files) if csv_files else {}
+    actualiza_existentes = True
+    agregadas = storage.upsert_all(nuevos)
+    attempts_guardados = storage.upsert_attempts(attempts) if attempts else 0
     base = storage.load_all()
     us = [r for r in base.values() if r.get("usable")]
     tml = [r["tml"] for r in us]; ti = [r["ti"] for r in us]
-    return {"previas": previas, "agregadas": agregadas, "actualiza_existentes": actualiza_existentes, "procesadas": len(nuevos), "total": len(base),
+    return {"previas": previas, "agregadas": agregadas, "actualiza_existentes": actualiza_existentes, "procesadas": len(nuevos), "attempts_guardados": attempts_guardados, "total": len(base),
             "validas": len(us), "sin_cierre": len(base) - len(us),
             "tml_prom": round(float(np.mean(tml)), 1) if tml else None,
             "tml_cumpl": round(100 * float(np.mean([v <= 30 for v in tml]))) if tml else None,

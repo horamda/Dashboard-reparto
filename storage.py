@@ -12,6 +12,7 @@ no exista todavía; las ya cargadas nunca se modifican (semántica ON CONFLICT D
 
 import os
 import json
+import re
 from urllib.parse import quote
 
 
@@ -63,8 +64,73 @@ DATA_DIR = os.environ.get("DATA_DIR", os.path.join(AQUI, "data"))
 JSON_PATH = os.path.join(DATA_DIR, "datos_dashboard.json")
 CLIENTES_JSON_PATH = os.path.join(DATA_DIR, "clientes_dashboard.json")
 ARTICULOS_JSON_PATH = os.path.join(DATA_DIR, "articulos_dashboard.json")
+ATTEMPTS_JSON_PATH = os.path.join(DATA_DIR, "attempts_dashboard.json")
 
 BACKEND = "postgres" if DATABASE_URL else "json"
+
+
+ROUTE_RAW_COLUMNS = [
+    "DC ID", "DC Name", "DC Time Zone", "Route ID", "Route Name", "Planned Route Start Date",
+    "Planned Route Start Timestamp", "Driver ID", "Driver Name", "Driver Groups", "Is Digital Route",
+    "Digital Route: Driver Trace Passed", "Digital Route: Driver Click Score Passed",
+    "Digital Route: Hardware Trace Passed", "Imported Customers Count", "Real-time Sequencing Enabled",
+    "Customers with Confident Locations Count", "Customers with Unconfident Locations Count",
+    "Customers with Unknown Locations Count", "Successful Customers Count", "Failed Customers Count",
+    "Try Again Later Customers Count", "Mixed Status Customers Count", "Total Visited Customers Count",
+    "Total Unvisited Customers Count", "Reattempt Authorizations Count", "Total Clicks at Confident Locations",
+    "Total Clicks at Unconfident Locations", "Total Clicks at Unknown Locations", "Actual Route Departure Time",
+    "Actual Route Arrival Time", "Driver Click Score", "Total Customers Clicked",
+    "Total Visits Clicked with Distance Measured", "Total Clicks at Customer",
+    "Total Sequence Adhered Clicks", "Total Sequence Not Adhered Clicks",
+    "Total Sequence Adhered Clicks with No Decision", "Total Sequence Forgiven Clicks",
+    "Sequence Adherence", "Planned Foxtrot Driving Meters", "Total Driven Meters",
+    "Planned Foxtrot Driving Seconds", "Total Driven Seconds", "Planned Foxtrot Journey Seconds",
+    "Total Journey Seconds", "Total Stops Count", "Total Stop Time Seconds",
+    "Total Authorized Stops Count", "Total Authorized Stops Seconds", "Total Unauthorized Stops Count",
+    "Total Unauthorized Stops Seconds", "Total Data Gaps Count", "Total Data Gaps Seconds",
+    "Customers with Additional Visits", "Total Additional Visits",
+    "Additional Visits With Final Result Success", "Driver Marked Route Start Timestamp",
+    "Driver Marked Route Start Latitude", "Driver Marked Route Start Longitude",
+    "Driver Marked Route End Timestamp", "Driver Marked Route End Latitude",
+    "Driver Marked Route End Longitude", "End Terminus Changed", "Planned Total Waiting Time Seconds",
+    "Stem Start Duration (Seconds)", "Stem Start Distance (Meters)", "Stem End Duration (Seconds)",
+    "Stem End Distance (Meters)", "Beta: GPS Spoofer Suspected",
+]
+
+ATTEMPT_RAW_COLUMNS = [
+    "DC ID", "DC Name", "DC Time Zone", "Route ID", "Route Name", "Planned Route Start Date",
+    "Planned Route Start Timestamp", "Driver ID", "Driver Name", "Driver Groups", "Waypoint ID",
+    "Customer ID", "Customer Name", "Customer Location Confidence", "Visit Start Timestamp",
+    "Visit Duration Seconds", "Visit Meters from Customer", "Driver Click Timestamp",
+    "Aggregate Visit Status", "Sequence Adherence Status", "Waypoint Time Windows", "Visit Timeliness",
+    "Beta: Suspicious Drive By Attempt Flag", "Beta: Inferred Service Duration Seconds",
+]
+
+ROUTE_TYPED_COLUMNS = {
+    "fecha": "DATE",
+    "mes": "TEXT",
+    "anio": "INTEGER",
+    "sucursal": "TEXT",
+    "chofer": "TEXT",
+    "camion": "TEXT",
+    "inicio_foxtrot": "TIME",
+    "fin_foxtrot": "TIME",
+    "horas": "DOUBLE PRECISION",
+    "usable": "BOOLEAN",
+    "alerta": "BOOLEAN",
+    "tml": "DOUBLE PRECISION",
+    "ti": "DOUBLE PRECISION",
+    "adhsec": "DOUBLE PRECISION",
+    "adhcli": "DOUBLE PRECISION",
+    "bultos": "DOUBLE PRECISION",
+    "hl": "DOUBLE PRECISION",
+    "salidas": "INTEGER",
+}
+
+
+def _sql_col(name, prefix="fox"):
+    s = re.sub(r"[^a-z0-9]+", "_", name.lower()).strip("_")
+    return f"{prefix}_{s}"
 
 
 def backend_name():
@@ -88,6 +154,19 @@ if BACKEND == "postgres":
                     rec JSONB NOT NULL
                 );
             """)
+            for col, typ in ROUTE_TYPED_COLUMNS.items():
+                cur.execute(f"ALTER TABLE rutas_dashboard ADD COLUMN IF NOT EXISTS {col} {typ};")
+            for raw_col in ROUTE_RAW_COLUMNS:
+                cur.execute(f"ALTER TABLE rutas_dashboard ADD COLUMN IF NOT EXISTS {_sql_col(raw_col)} TEXT;")
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS attempts_dashboard (
+                    attempt_key TEXT PRIMARY KEY,
+                    route_id TEXT,
+                    rec JSONB NOT NULL
+                );
+            """)
+            for raw_col in ATTEMPT_RAW_COLUMNS:
+                cur.execute(f"ALTER TABLE attempts_dashboard ADD COLUMN IF NOT EXISTS {_sql_col(raw_col, 'att')} TEXT;")
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS clientes_dashboard (
                     cliente TEXT PRIMARY KEY,
@@ -124,16 +203,34 @@ if BACKEND == "postgres":
             cur.execute("SELECT rid, rec FROM rutas_dashboard;")
             return {rid: rec for rid, rec in cur.fetchall()}
 
+    def _route_row(rid, rec):
+        raw = rec.get("raw_foxtrot") or {}
+        typed = [
+            rec.get("fecha"), rec.get("mes"),
+            int(rec["anio"]) if rec.get("anio") not in (None, "") else None,
+            rec.get("suc"), rec.get("chofer"), rec.get("camion"),
+            rec.get("inicio_foxtrot") or None, rec.get("fin_foxtrot") or None,
+            rec.get("horas"), rec.get("usable"), rec.get("alerta"),
+            rec.get("tml"), rec.get("ti"), rec.get("adhsec"), rec.get("adhcli"),
+            rec.get("bultos"), rec.get("hl"), rec.get("salidas"),
+        ]
+        raw_vals = [None if raw.get(c) is None else str(raw.get(c)) for c in ROUTE_RAW_COLUMNS]
+        return tuple([rid, _extras.Json(rec)] + typed + raw_vals)
+
+    def _route_cols():
+        return ["rid", "rec"] + list(ROUTE_TYPED_COLUMNS) + [_sql_col(c) for c in ROUTE_RAW_COLUMNS]
+
     def add_new(recs):
         """Inserta solo las rutas nuevas. Devuelve cuántas se agregaron."""
         if not recs:
             return 0
-        rows = [(rid, _extras.Json(rec)) for rid, rec in recs.items()]
+        cols = _route_cols()
+        rows = [_route_row(rid, rec) for rid, rec in recs.items()]
         with _conn() as cn, cn.cursor() as cur:
             before = _count(cur)
             _extras.execute_values(
                 cur,
-                "INSERT INTO rutas_dashboard (rid, rec) VALUES %s "
+                f"INSERT INTO rutas_dashboard ({', '.join(cols)}) VALUES %s "
                 "ON CONFLICT (rid) DO NOTHING;",
                 rows,
             )
@@ -144,13 +241,15 @@ if BACKEND == "postgres":
         """Inserta rutas nuevas y actualiza las existentes. Devuelve cuántas nuevas se agregaron."""
         if not recs:
             return 0
-        rows = [(rid, _extras.Json(rec)) for rid, rec in recs.items()]
+        cols = _route_cols()
+        updates = ", ".join(f"{c} = EXCLUDED.{c}" for c in cols if c != "rid")
+        rows = [_route_row(rid, rec) for rid, rec in recs.items()]
         with _conn() as cn, cn.cursor() as cur:
             before = _count(cur)
             _extras.execute_values(
                 cur,
-                "INSERT INTO rutas_dashboard (rid, rec) VALUES %s "
-                "ON CONFLICT (rid) DO UPDATE SET rec = EXCLUDED.rec;",
+                f"INSERT INTO rutas_dashboard ({', '.join(cols)}) VALUES %s "
+                f"ON CONFLICT (rid) DO UPDATE SET {updates};",
                 rows,
             )
             after = _count(cur)
@@ -160,9 +259,33 @@ if BACKEND == "postgres":
         cur.execute("SELECT COUNT(*) FROM rutas_dashboard;")
         return cur.fetchone()[0]
 
+    def upsert_attempts(recs):
+        if not recs:
+            return 0
+        cols = ["attempt_key", "route_id", "rec"] + [_sql_col(c, "att") for c in ATTEMPT_RAW_COLUMNS]
+        updates = ", ".join(f"{c} = EXCLUDED.{c}" for c in cols if c != "attempt_key")
+        rows = []
+        for key, rec in recs.items():
+            raw_vals = [None if rec.get(c) is None else str(rec.get(c)) for c in ATTEMPT_RAW_COLUMNS]
+            rows.append(tuple([key, str(rec.get("Route ID") or ""), _extras.Json(rec)] + raw_vals))
+        with _conn() as cn, cn.cursor() as cur:
+            _extras.execute_values(
+                cur,
+                f"INSERT INTO attempts_dashboard ({', '.join(cols)}) VALUES %s "
+                f"ON CONFLICT (attempt_key) DO UPDATE SET {updates};",
+                rows,
+            )
+        return len(recs)
+
+    def load_attempts():
+        with _conn() as cn, cn.cursor() as cur:
+            cur.execute("SELECT attempt_key, rec FROM attempts_dashboard;")
+            return {key: rec for key, rec in cur.fetchall()}
+
     def reset():
         with _conn() as cn, cn.cursor() as cur:
             cur.execute("TRUNCATE rutas_dashboard;")
+            cur.execute("TRUNCATE attempts_dashboard;")
 
     def load_clientes():
         with _conn() as cn, cn.cursor() as cur:
@@ -251,6 +374,7 @@ if BACKEND == "postgres":
     def save_record(table, key, rec):
         specs = {
             "rutas": ("rutas_dashboard", "rid"),
+            "attempts": ("attempts_dashboard", "attempt_key"),
             "clientes": ("clientes_dashboard", "cliente"),
             "rechazos": ("rechazos_dashboard", "fecha"),
             "rechazos_detalle": ("rechazos_detalle_dashboard", "key"),
@@ -271,6 +395,7 @@ if BACKEND == "postgres":
     def delete_record(table, key):
         specs = {
             "rutas": ("rutas_dashboard", "rid"),
+            "attempts": ("attempts_dashboard", "attempt_key"),
             "clientes": ("clientes_dashboard", "cliente"),
             "rechazos": ("rechazos_dashboard", "fecha"),
             "rechazos_detalle": ("rechazos_detalle_dashboard", "key"),
@@ -325,6 +450,23 @@ else:
     def reset():
         if os.path.exists(JSON_PATH):
             os.remove(JSON_PATH)
+        if os.path.exists(ATTEMPTS_JSON_PATH):
+            os.remove(ATTEMPTS_JSON_PATH)
+
+    def upsert_attempts(recs):
+        base = load_attempts()
+        base.update(recs)
+        os.makedirs(DATA_DIR, exist_ok=True)
+        json.dump({"attempts": base}, open(ATTEMPTS_JSON_PATH, "w", encoding="utf-8"), ensure_ascii=False)
+        return len(recs)
+
+    def load_attempts():
+        if os.path.exists(ATTEMPTS_JSON_PATH):
+            try:
+                return json.load(open(ATTEMPTS_JSON_PATH, encoding="utf-8"))["attempts"]
+            except Exception:
+                return {}
+        return {}
 
     def load_clientes():
         if os.path.exists(CLIENTES_JSON_PATH):
@@ -406,6 +548,7 @@ else:
     def save_record(table, key, rec):
         loaders = {
             "rutas": (load_all, _dump),
+            "attempts": (load_attempts, lambda base: _dump_attempts(base)),
             "clientes": (load_clientes, lambda base: replace_clientes(base)),
             "rechazos": (load_rechazos, lambda base: upsert_rechazos(base)),
             "rechazos_detalle": (load_rechazos_detalle, lambda base: upsert_rechazos_detalle(base)),
@@ -423,6 +566,7 @@ else:
     def delete_record(table, key):
         loaders = {
             "rutas": (load_all, _dump),
+            "attempts": (load_attempts, lambda base: _dump_attempts(base)),
             "clientes": (load_clientes, lambda base: replace_clientes(base)),
             "rechazos": (load_rechazos, lambda base: _dump_rechazos(base)),
             "rechazos_detalle": (load_rechazos_detalle, lambda base: _dump_rechazos_detalle(base)),
@@ -441,6 +585,10 @@ else:
         path = os.path.join(DATA_DIR, "rechazos_dashboard.json")
         os.makedirs(DATA_DIR, exist_ok=True)
         json.dump({"rechazos": base}, open(path, "w", encoding="utf-8"), ensure_ascii=False)
+
+    def _dump_attempts(base):
+        os.makedirs(DATA_DIR, exist_ok=True)
+        json.dump({"attempts": base}, open(ATTEMPTS_JSON_PATH, "w", encoding="utf-8"), ensure_ascii=False)
 
     def _dump_rechazos_detalle(base):
         path = os.path.join(DATA_DIR, "rechazos_detalle_dashboard.json")
