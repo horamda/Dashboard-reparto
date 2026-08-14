@@ -159,10 +159,10 @@ tfoot td{font-weight:700;border-top:2px solid var(--line);border-bottom:none}
    <div class="panel"><h2>Adherencia por mes</h2><div class="note">Secuencia y click · objetivo 85%</div><div class="chartbox"><canvas id="chAdh"></canvas></div></div>
   </div>
   <div class="grid" style="grid-template-columns:1fr 1fr">
-   <div class="panel"><h2>Adherencia x chofer</h2><div class="note">Secuencia y click · objetivo 85%</div><div class="chartbox" style="height:300px"><canvas id="chAdhCho"></canvas></div></div>
+   <div class="panel"><h2>Adherencia x persona</h2><div class="note">Secuencia y click · objetivo 85%</div><div class="chartbox" style="height:300px"><canvas id="chAdhCho"></canvas></div></div>
    <div class="panel"><h2>Dispersión por mes</h2><div class="note">Rango ±10% · verde dentro, rojo fuera</div><div class="chartbox" style="height:300px"><canvas id="chDisp"></canvas></div></div>
   </div>
-  <div class="grid" style="grid-template-columns:1fr"><div class="panel"><h2>Horas en ruta x chofer</h2><div class="note">Promedio · objetivo 7 h</div><div class="chartbox" style="height:300px"><canvas id="chCho"></canvas></div></div></div>
+  <div class="grid" style="grid-template-columns:1fr"><div class="panel"><h2>Horas en ruta x persona</h2><div class="note">Promedio diario · normal + recarga · objetivo 7 h</div><div class="chartbox" style="height:300px"><canvas id="chCho"></canvas></div></div></div>
  </div>
 
  <div id="viewDia" style="display:none">
@@ -282,14 +282,21 @@ tfoot td{font-weight:700;border-top:2px solid var(--line);border-bottom:none}
    <div class="panel"><h2>Horario por dia</h2><div class="note">Promedio diario del periodo filtrado.</div><div class="chartbox" style="height:300px"><canvas id="chFoxDia"></canvas></div></div>
   </div>
   <div class="grid" style="grid-template-columns:1fr 1fr">
-   <div class="panel"><h2>Por persona</h2><div class="note">Promedios por chofer.</div>
-    <div class="tblscroll"><table><thead><tr><th>Persona</th><th>Rutas</th><th>Inicio prom.</th><th>Fin prom.</th><th>Duracion prom.</th></tr></thead><tbody id="tbodyFoxPersona"></tbody></table></div></div>
+   <div class="panel"><h2>Por persona</h2><div class="note">Promedios por persona, unificando registros RECARGA.</div>
+    <div class="tblscroll"><table><thead><tr><th>Persona</th><th>Jornadas</th><th>Rutas</th><th>Recargas</th><th>Inicio prom.</th><th>Fin prom.</th><th>Duracion prom.</th></tr></thead><tbody id="tbodyFoxPersona"></tbody></table></div></div>
    <div class="panel"><h2>Por camion</h2><div class="note">Promedios por camion si el export trae ese dato.</div>
     <div class="tblscroll"><table><thead><tr><th>Camion</th><th>Rutas</th><th>Inicio prom.</th><th>Fin prom.</th><th>Duracion prom.</th></tr></thead><tbody id="tbodyFoxCamion"></tbody></table></div></div>
   </div>
   <div class="grid" style="grid-template-columns:1fr">
+   <div class="panel"><h2>Horas de recarga por mes</h2><div class="note">Solo registros cuyo chofer contiene RECARGA.</div><div class="chartbox" style="height:300px"><canvas id="chRecargaMes"></canvas></div></div>
+  </div>
+  <div class="grid" style="grid-template-columns:1fr">
+   <div class="panel"><h2>Detalle recargas por mes</h2><div class="note">Promedio y total de horas de recarga.</div>
+    <div class="tblscroll"><table><thead><tr><th>Mes</th><th>Rutas recarga</th><th>Personas</th><th>Horas prom.</th><th>Horas total</th></tr></thead><tbody id="tbodyRecargaMes"></tbody></table></div></div>
+  </div>
+  <div class="grid" style="grid-template-columns:1fr">
    <div class="panel"><h2>Detalle de rutas</h2><div class="note">Fecha, sucursal, camion, persona e inicio / fin marcados en Foxtrot.</div>
-    <div class="tblscroll"><table><thead><tr><th>Fecha</th><th>Mes</th><th>Sucursal</th><th>Camion</th><th>Persona</th><th>Inicio</th><th>Fin</th><th>Duracion</th></tr></thead><tbody id="tbodyFoxDetalle"></tbody></table></div></div>
+    <div class="tblscroll"><table><thead><tr><th>Fecha</th><th>Mes</th><th>Sucursal</th><th>Camion</th><th>Persona</th><th>Tipo</th><th>Original</th><th>Inicio</th><th>Fin</th><th>Duracion</th></tr></thead><tbody id="tbodyFoxDetalle"></tbody></table></div></div>
   </div>
  </div>
  <div id="viewOnTime" style="display:none">
@@ -309,12 +316,12 @@ tfoot td{font-weight:700;border-top:2px solid var(--line);border-bottom:none}
     <table><thead><tr><th>Mes</th><th>Pedidos evaluables</th><th>On time</th><th>Pedidos fuera de ventana horaria</th><th>Pedidos sin ventana horaria cargada</th><th>Clientes Foxtrot únicos</th><th>Clientes c/ventana</th><th>Clientes s/ventana</th><th>% clientes c/ventana</th><th>% On time</th></tr></thead><tbody id="tbodyOT"></tbody></table></div>
   </div>
   <div class="grid" style="grid-template-columns:1fr 1fr">
-   <div class="panel"><h2>On time por chofer</h2><div class="note">% de pedidos dentro de ventana horaria</div><div class="chartbox" style="height:320px"><canvas id="chOTCho"></canvas></div></div>
+   <div class="panel"><h2>On time por persona</h2><div class="note">% de pedidos dentro de ventana horaria</div><div class="chartbox" style="height:320px"><canvas id="chOTCho"></canvas></div></div>
    <div class="panel"><h2>On time por zona</h2><div class="note">% de pedidos dentro de ventana horaria</div><div class="chartbox" style="height:320px"><canvas id="chOTZona"></canvas></div></div>
   </div>
   <div class="grid" style="grid-template-columns:1fr 1fr">
-   <div class="panel"><h2>Detalle por chofer</h2><div class="note">Ordenado por pedidos evaluables.</div>
-    <div class="tblscroll"><table><thead><tr><th>Chofer</th><th>Pedidos eval.</th><th>On time</th><th>Pedidos fuera de ventana</th><th>Sin ventana horaria</th><th>%</th></tr></thead><tbody id="tbodyOTCho"></tbody></table></div></div>
+   <div class="panel"><h2>Detalle por persona</h2><div class="note">Ordenado por pedidos evaluables.</div>
+    <div class="tblscroll"><table><thead><tr><th>Persona</th><th>Pedidos eval.</th><th>On time</th><th>Pedidos fuera de ventana</th><th>Sin ventana horaria</th><th>%</th></tr></thead><tbody id="tbodyOTCho"></tbody></table></div></div>
    <div class="panel"><h2>Detalle por zona</h2><div class="note">Zona / sucursal del Route Analytics.</div>
     <table><thead><tr><th>Zona</th><th>Pedidos eval.</th><th>On time</th><th>Pedidos fuera de ventana</th><th>Sin ventana horaria</th><th>%</th></tr></thead><tbody id="tbodyOTZona"></tbody></table></div>
   </div>
@@ -418,7 +425,12 @@ function rechazoBase(r){const vals=rechSucNorms(r);if(state.unidad!=='__all'){co
 function sucursalesFiltradas(){return DATA.sucursales.filter(s=>state.unidad==='__all'||(UNIDADES[state.unidad]&&UNIDADES[state.unidad].sucs.map(sucNorm).includes(sucNorm(s))))}
 fUnidad.innerHTML='<option value="__all">Todas</option>'+Object.keys(UNIDADES).map(k=>'<option value="'+k+'">'+UNIDADES[k].label+'</option>').join('');
 function refreshSucOptions(){const prev=state.suc,items=sucursalesFiltradas();opts(fSuc,items,'Todas');if(prev!=='__all'&&items.includes(prev)){fSuc.value=prev}else{state.suc='__all';fSuc.value='__all'}}
-refreshSucOptions();opts(fMes,MESES,'Todos');opts(fCho,DATA.choferes,'Todos');
+const cleanPersona=s=>String(s||'Sin dato').replace(/\bRECARGA\b/gi,'').replace(/\s+/g,' ').trim().toUpperCase()||'Sin dato';
+const personaBase=r=>cleanPersona(r.chofer);
+const esRecarga=r=>/\bRECARGA\b/i.test(String(r.chofer||''));
+const personaCorta=s=>String(s||'Sin dato').split(' ').slice(0,2).map((w,i)=>i?w[0]:w).join(' ');
+const PERSONAS=[...new Set(R.map(personaBase))].sort();
+refreshSucOptions();opts(fMes,MESES,'Todos');opts(fCho,PERSONAS,'Todos');
 const semData=[...new Set(R.filter(r=>r.usable).map(r=>weekKey(r.fecha)))].sort();
 const anios=[...new Set(R.map(r=>+r.fecha.slice(0,4)))].sort();
 const y0=anios[0]||new Date().getUTCFullYear(),y1=anios[anios.length-1]||y0;
@@ -434,7 +446,7 @@ fTeamSem.innerHTML=TEAM_WEEKS.map((w,i)=>'<option value="'+w+'">Sem '+(i+1)+' ·
 state.teamSem=semData.length?semData[semData.length-1]:(TEAM_WEEKS[TEAM_WEEKS.length-1]||null);
 fTeamSem.value=state.teamSem;
 fTeamSem.addEventListener('change',e=>{state.teamSem=e.target.value;render()});
-const base=r=>unidadOk(r)&&(state.suc==='__all'||r.suc===state.suc)&&(state.cho==='__all'||r.chofer===state.cho);
+const base=r=>unidadOk(r)&&(state.suc==='__all'||r.suc===state.suc)&&(state.cho==='__all'||personaBase(r)===state.cho);
 const full=r=>base(r)&&(state.mes==='__all'||r.mes===state.mes);
 function weekKey(f){const d=new Date(f+'T00:00:00Z');const g=d.getUTCDay();const diff=(g===0?6:g-1);d.setUTCDate(d.getUTCDate()-diff);return d.toISOString().slice(0,10)}
 function addDaysUTC(f,n){const d=new Date(f+'T00:00:00Z');d.setUTCDate(d.getUTCDate()+n);return d.toISOString().slice(0,10)}
@@ -443,11 +455,15 @@ const WD=['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'];
 const wdLbl=f=>{const d=new Date(f+'T00:00:00Z');const g=d.getUTCDay();return WD[(g===0?6:g-1)]+' '+dLbl(f)};
 const scopeCards=r=>state.tab==='sem'?(base(r)&&weekKey(r.fecha)===state.sem):full(r);
 function dispAgg(rows,val,plan,real){const withBase=rows.filter(r=>r[val]!=null&&r[plan]>0&&r[real]!=null);const den=withBase.reduce((s,r)=>s+r[plan],0);if(den>0)return Math.round(withBase.reduce((s,r)=>s+(r[plan]-r[real]),0)/den*1000)/10;return avg(rows.map(r=>r[val]))}
-function aggBy(field,scope){const g={};scope.forEach(r=>{(g[r[field]]=g[r[field]]||[]).push(r)});
+function aggByKey(scope,keyFn){const g={};scope.forEach(r=>{const k=keyFn(r)||'Sin dato';(g[k]=g[k]||[]).push(r)});
  return Object.keys(g).sort().map(k=>{const u=g[k];return{key:k,n:u.length,tml:avg(u.map(r=>r.tml)),ti:avg(u.map(r=>r.ti)),hr:avg(u.map(r=>r.horas)),as:avg(u.map(r=>r.adhsec)),ac:avg(u.map(r=>r.adhcli)),dk:dispAgg(u,'dispkm','disp_km_plan','disp_km_real'),dh:dispAgg(u,'disphs','disp_hs_plan','disp_hs_real')}})}
+function aggBy(field,scope){return aggByKey(scope,r=>r[field])}
+function personaDiaHoras(scope){const dias={};scope.forEach(r=>{const k=r.fecha+'|'+personaBase(r),x=dias[k]||(dias[k]={key:personaBase(r),fecha:r.fecha,horas:0,rutas:0,recargas:0});x.horas+=r.horas||0;x.rutas+=1;if(esRecarga(r))x.recargas+=1});
+ const g={};Object.values(dias).forEach(d=>{const x=g[d.key]||(g[d.key]={key:d.key,jornadas:0,n:0,recargas:0,vals:[]});x.jornadas+=1;x.n+=d.rutas;x.recargas+=d.recargas;x.vals.push(d.horas)});
+ return Object.values(g).map(x=>({key:x.key,jornadas:x.jornadas,n:x.n,recargas:x.recargas,hr:avg(x.vals)}))}
 let ch={};
 const chartsReady=()=>typeof Chart!=='undefined';
-const hhmmH=h=>{const H=Math.floor(h),M=Math.round((h-H)*60);return M===60?(H+1)+':00':H+':'+String(M).padStart(2,'0')};
+const hhmmH=h=>{if(h==null||isNaN(h))return'–';const H=Math.floor(h),M=Math.round((h-H)*60);return M===60?(H+1)+':00':H+':'+String(M).padStart(2,'0')};
 function arcPath(r,d0,d1){const pol=deg=>{const a=(deg-180)*Math.PI/180;return[100+r*Math.cos(a),100+r*Math.sin(a)]};const[x0,y0]=pol(d0),[x1,y1]=pol(d1),lg=(d1-d0)>180?1:0;return 'M'+x0.toFixed(2)+' '+y0.toFixed(2)+' A'+r+' '+r+' 0 '+lg+' 1 '+x1.toFixed(2)+' '+y1.toFixed(2)}
 function gauge(id,value,max,obj,color,txt){const r=80,f=Math.max(0,Math.min(1,(value||0)/max));const pol=(rr,deg)=>{const a=(deg-180)*Math.PI/180;return[100+rr*Math.cos(a),100+rr*Math.sin(a)]};const od=(Math.min(obj,max)/max)*180,[ox0,oy0]=pol(r-13,od),[ox1,oy1]=pol(r+13,od);document.getElementById(id).innerHTML='<svg viewBox="0 0 200 118">'+'<path d="'+arcPath(r,0,180)+'" stroke="#EAEDF2" stroke-width="14" fill="none" stroke-linecap="round"/>'+'<path d="'+arcPath(r,0,Math.max(f*180,0.1))+'" stroke="'+color+'" stroke-width="14" fill="none" stroke-linecap="round"/>'+'<line x1="'+ox0.toFixed(1)+'" y1="'+oy0.toFixed(1)+'" x2="'+ox1.toFixed(1)+'" y2="'+oy1.toFixed(1)+'" stroke="#15233B" stroke-width="3"/>'+'<text x="100" y="90" text-anchor="middle" font-size="30" font-weight="700" fill="#15233B">'+txt+'</text>'+'<text x="16" y="114" font-size="10" fill="#657085">0</text>'+'<text x="184" y="114" text-anchor="end" font-size="10" fill="#657085">'+max+'</text></svg>'}
 function renderGauges(aTml,aHr,aTi){gauge('ggTml',aTml,58,OBJ.tml,colLow(aTml,OBJ.tml),aTml==null?'–':Math.round(aTml));gauge('ggHr',aHr,8,OBJ.ruta,colRuta(aHr),aHr==null?'–':hhmmH(aHr));gauge('ggTi',aTi,69,OBJ.ti,colLow(aTi,OBJ.ti),aTi==null?'–':Math.round(aTi))}
@@ -476,7 +492,7 @@ function dispChart(id,labels,kV,hV){if(!chartsReady())return;if(ch[id])ch[id].de
    tooltip:{callbacks:{label:x=>x.dataset.label+': '+sgn(x.parsed.y)+(['Km','Hs'].includes(x.dataset.label)?(Math.abs(x.parsed.y)<=OD?' (dentro)':' (fuera)'):'')}}},
    scales:{y:{ticks:{callback:v=>v+'%',color:'#657085',font:{size:11}},grid:{color:'#eef1f5'}},x:{ticks:{color:'#657085',font:{size:10},maxRotation:60,minRotation:labels.length>12?45:0},grid:{display:false}}}}})}
 function rowsHtml(items,keyFmt,withDisp){return items.map(s=>{const cl=(v,o)=>v==null?'':(v<=o?'g':'r'),ca=v=>v==null?'':(v>=OA?'g':'r'),cd=v=>v==null?'':(Math.abs(v)<=OD?'g':'r');
-  return '<tr><td>'+keyFmt(s.key)+'</td><td>'+s.n+'</td><td class="'+cl(s.tml,OBJ.tml)+'">'+r1(s.tml)+'</td><td class="'+cl(s.ti,OBJ.ti)+'">'+r1(s.ti)+'</td><td class="'+cl(s.hr,OBJ.ruta)+'">'+r2(s.hr)+'</td><td class="'+ca(s.as)+'">'+(s.as==null?'–':r1(s.as)+'%')+'</td><td class="'+ca(s.ac)+'">'+(s.ac==null?'–':r1(s.ac)+'%')+'</td>'+(withDisp?('<td class="'+cd(s.dk)+'">'+sgn(s.dk)+'</td><td class="'+cd(s.dh)+'">'+sgn(s.dh)+'</td>'):'')+'</tr>'}).join('')}
+  return '<tr><td>'+keyFmt(s.key)+'</td><td>'+s.n+'</td><td class="'+cl(s.tml,OBJ.tml)+'">'+r1(s.tml)+'</td><td class="'+cl(s.ti,OBJ.ti)+'">'+r1(s.ti)+'</td><td class="'+cl(s.hr,OBJ.ruta)+'">'+hhmmH(s.hr)+'</td><td class="'+ca(s.as)+'">'+(s.as==null?'–':r1(s.as)+'%')+'</td><td class="'+ca(s.ac)+'">'+(s.ac==null?'–':r1(s.ac)+'%')+'</td>'+(withDisp?('<td class="'+cd(s.dk)+'">'+sgn(s.dk)+'</td><td class="'+cd(s.dh)+'">'+sgn(s.dh)+'</td>'):'')+'</tr>'}).join('')}
 function quality(scope){const total=scope.length,bad=scope.filter(r=>r.alerta).length,good=total-bad,p=total?good/total*100:null;return{total,bad,good,p}}
 function qualityByMonth(scope){const g={};scope.forEach(r=>{(g[r.mes]=g[r.mes]||[]).push(r)});return Object.keys(g).sort().map(k=>{const q=quality(g[k]);return{key:k,total:q.total,bad:q.bad,good:q.good,p:q.p}})}
 function addClientes(set,items){(items||[]).forEach(c=>{if(c&&c.cliente)set.add(c.cliente)})}
@@ -488,6 +504,16 @@ function foxRows(){return R.filter(r=>r.usable&&full(r)&&tMin(r.inicio_foxtrot)!
 function foxAgg(rows,field){const g={};rows.forEach(r=>{const k=r[field]||'Sin dato';(g[k]=g[k]||[]).push(r)});return Object.keys(g).sort().map(k=>foxSummary(k,g[k]))}
 function foxSummary(key,rows){const ini=avg(rows.map(r=>tMin(r.inicio_foxtrot))),fin=avg(rows.map(r=>tMin(r.fin_foxtrot))),dur=avg(rows.map(r=>r.horas!=null?r.horas*60:(tMin(r.fin_foxtrot)-tMin(r.inicio_foxtrot))));return{key,n:rows.length,ini,fin,dur}}
 function foxTable(items,label){return items.length?items.map(r=>'<tr><td>'+r.key+'</td><td>'+r.n+'</td><td>'+tLbl(r.ini)+'</td><td>'+tLbl(r.fin)+'</td><td>'+durLbl(r.dur)+'</td></tr>').join(''):emptyRow(5,'No hay horarios Foxtrot para el filtro actual.')}
+function foxPersonaAgg(rows){const dias={};rows.forEach(r=>{const k=r.fecha+'|'+personaBase(r),ini=tMin(r.inicio_foxtrot),fin=tMin(r.fin_foxtrot),dur=r.horas!=null?r.horas*60:(fin-ini),x=dias[k]||(dias[k]={key:personaBase(r),fecha:r.fecha,ini:null,fin:null,dur:0,rutas:0,recargas:0});x.ini=x.ini==null?ini:Math.min(x.ini,ini);x.fin=x.fin==null?fin:Math.max(x.fin,fin);x.dur+=dur||0;x.rutas+=1;if(esRecarga(r))x.recargas+=1});
+ const g={};Object.values(dias).forEach(d=>{const x=g[d.key]||(g[d.key]={key:d.key,jornadas:0,n:0,recargas:0,inis:[],fins:[],durs:[]});x.jornadas+=1;x.n+=d.rutas;x.recargas+=d.recargas;x.inis.push(d.ini);x.fins.push(d.fin);x.durs.push(d.dur)});
+ return Object.values(g).map(x=>({key:x.key,jornadas:x.jornadas,n:x.n,recargas:x.recargas,ini:avg(x.inis),fin:avg(x.fins),dur:avg(x.durs)}))}
+function foxPersonaTable(items){return items.length?items.map(r=>'<tr><td>'+r.key+'</td><td>'+r.jornadas+'</td><td>'+r.n+'</td><td>'+r.recargas+'</td><td>'+tLbl(r.ini)+'</td><td>'+tLbl(r.fin)+'</td><td>'+durLbl(r.dur)+'</td></tr>').join(''):emptyRow(7,'No hay horarios Foxtrot para el filtro actual.')}
+function recargaMes(rows){const g={};rows.filter(esRecarga).forEach(r=>{const k=r.mes,x=g[k]||(g[k]={key:k,n:0,total:0,personas:new Set()});x.n+=1;x.total+=r.horas!=null?r.horas*60:(tMin(r.fin_foxtrot)-tMin(r.inicio_foxtrot));x.personas.add(personaBase(r))});return Object.keys(g).sort().map(k=>{const x=g[k];return{key:k,n:x.n,total:x.total,prom:x.n?x.total/x.n:null,personas:x.personas.size}})}
+function recargaRows(items){return items.length?items.map(r=>'<tr><td>'+mLbl(r.key)+' '+r.key.slice(0,4)+'</td><td>'+r.n+'</td><td>'+r.personas+'</td><td>'+durLbl(r.prom)+'</td><td>'+durLbl(r.total)+'</td></tr>').join(''):emptyRow(5,'No hay recargas para el filtro actual.')}
+function recargaChart(id,items){if(!chartsReady())return;if(ch[id])ch[id].destroy();const labels=items.map(r=>mLbl(r.key)+' '+r.key.slice(0,4)),vals=items.map(r=>r.prom/60);
+ ch[id]=new Chart(document.getElementById(id),{type:'bar',data:{labels,datasets:[{label:'Promedio recarga',data:vals,backgroundColor:C.amber,borderRadius:4,maxBarThickness:34}]},
+  options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:x=>hhmmH(x.parsed.y)+' promedio · '+items[x.dataIndex].n+' recargas'}}},
+  scales:{y:{beginAtZero:true,ticks:{callback:hhmmH,color:'#657085',font:{size:11}},grid:{color:'#eef1f5'}},x:{ticks:{color:'#657085',font:{size:10}},grid:{display:false}}}}})}
 function foxChart(id,items,keyFmt){if(!chartsReady())return;if(ch[id])ch[id].destroy();const labels=items.map(r=>keyFmt(r.key));
  ch[id]=new Chart(document.getElementById(id),{type:'line',data:{labels,datasets:[
   {label:'Inicio',data:items.map(r=>r.ini),borderColor:C.cli,backgroundColor:C.cli,borderWidth:2.5,tension:.25,pointRadius:3,fill:false},
@@ -497,13 +523,15 @@ function foxChart(id,items,keyFmt){if(!chartsReady())return;if(ch[id])ch[id].des
 function renderHorarios(){const rows=foxRows(),sum=foxSummary('',rows),col=C.cli;
  kFoxIni.textContent=tLbl(sum.ini);kFoxFin.textContent=tLbl(sum.fin);kFoxDur.textContent=durLbl(sum.dur);kFoxRutas.textContent=rows.length;
  [[cFoxIni,bFoxIni,C.cli],[cFoxFin,bFoxFin,C.amber],[cFoxDur,bFoxDur,C.obj],[cFoxRutas,bFoxRutas,C.sec]].forEach(([c,b,x])=>{c.style.setProperty('--accent',x);b.style.background=x;b.style.width='100%'});
- const byMes=foxAgg(rows,'mes'),byDia=foxAgg(rows,'fecha'),byPersona=foxAgg(rows,'chofer').sort((a,b)=>b.n-a.n||a.key.localeCompare(b.key)),byCamion=foxAgg(rows,'camion').sort((a,b)=>b.n-a.n||a.key.localeCompare(b.key));
+ const byMes=foxAgg(rows,'mes'),byDia=foxAgg(rows,'fecha'),byPersona=foxPersonaAgg(rows).sort((a,b)=>b.n-a.n||a.key.localeCompare(b.key)),byCamion=foxAgg(rows,'camion').sort((a,b)=>b.n-a.n||a.key.localeCompare(b.key)),byRecarga=recargaMes(rows);
  foxChart('chFoxMes',byMes,m=>mLbl(m)+' '+m.slice(0,4));foxChart('chFoxDia',byDia,dLbl);
- tbodyFoxPersona.innerHTML=foxTable(byPersona,'Persona');tbodyFoxCamion.innerHTML=foxTable(byCamion,'Camion');
- tbodyFoxDetalle.innerHTML=rows.length?rows.slice().sort((a,b)=>b.fecha.localeCompare(a.fecha)||a.chofer.localeCompare(b.chofer)).map(r=>'<tr><td>'+dLbl(r.fecha)+'</td><td>'+mLbl(r.mes)+' '+r.mes.slice(0,4)+'</td><td>'+r.suc+'</td><td>'+(r.camion||'Sin camion')+'</td><td>'+r.chofer+'</td><td>'+r.inicio_foxtrot+'</td><td>'+r.fin_foxtrot+'</td><td>'+durLbl(r.horas!=null?r.horas*60:(tMin(r.fin_foxtrot)-tMin(r.inicio_foxtrot)))+'</td></tr>').join(''):emptyRow(8,'No hay horarios Foxtrot para el filtro actual.');}
+ recargaChart('chRecargaMes',byRecarga);tbodyRecargaMes.innerHTML=recargaRows(byRecarga);
+ tbodyFoxPersona.innerHTML=foxPersonaTable(byPersona);tbodyFoxCamion.innerHTML=foxTable(byCamion,'Camion');
+ tbodyFoxDetalle.innerHTML=rows.length?rows.slice().sort((a,b)=>b.fecha.localeCompare(a.fecha)||personaBase(a).localeCompare(personaBase(b))||a.chofer.localeCompare(b.chofer)).map(r=>'<tr><td>'+dLbl(r.fecha)+'</td><td>'+mLbl(r.mes)+' '+r.mes.slice(0,4)+'</td><td>'+r.suc+'</td><td>'+(r.camion||'Sin camion')+'</td><td>'+personaBase(r)+'</td><td>'+(esRecarga(r)?'Recarga':'Normal')+'</td><td>'+r.chofer+'</td><td>'+r.inicio_foxtrot+'</td><td>'+r.fin_foxtrot+'</td><td>'+durLbl(r.horas!=null?r.horas*60:(tMin(r.fin_foxtrot)-tMin(r.inicio_foxtrot)))+'</td></tr>').join(''):emptyRow(10,'No hay horarios Foxtrot para el filtro actual.');}
 function onTime(scope){let ok=0,bad=0,sin=0,total=0;const cliCon=new Set(),cliSin=new Set();scope.forEach(r=>{ok+=r.pdv_ontime||0;bad+=r.pdv_fuera_ontime||0;sin+=r.pdv_sin_ventana||0;total+=r.pdv_total||0;addClientes(cliCon,r.clientes_con_ventana);addClientes(cliSin,r.clientes_sin_ventana)});const ev=ok+bad,cliTotal=cliCon.size+cliSin.size,cliVentanaPct=cliTotal?cliCon.size/cliTotal*100:null;return{ok,bad,sin,total,ev,cliCon:cliCon.size,cliSin:cliSin.size,cliTotal,cliVentanaPct,p:ev?ok/ev*100:null}}
 function onTimeByMonth(scope){const g={};scope.forEach(r=>{(g[r.mes]=g[r.mes]||[]).push(r)});return Object.keys(g).sort().map(k=>{const o=onTime(g[k]);return{key:k,ok:o.ok,bad:o.bad,sin:o.sin,total:o.total,ev:o.ev,cliCon:o.cliCon,cliSin:o.cliSin,cliTotal:o.cliTotal,cliVentanaPct:o.cliVentanaPct,p:o.p}})}
-function onTimeBy(field,scope){const g={};scope.forEach(r=>{const k=r[field]||'Sin dato';(g[k]=g[k]||[]).push(r)});return Object.keys(g).map(k=>{const o=onTime(g[k]);return{key:k,ok:o.ok,bad:o.bad,sin:o.sin,total:o.total,ev:o.ev,p:o.p}}).sort((a,b)=>b.ev-a.ev)}
+function onTimeByKey(scope,keyFn){const g={};scope.forEach(r=>{const k=keyFn(r)||'Sin dato';(g[k]=g[k]||[]).push(r)});return Object.keys(g).map(k=>{const o=onTime(g[k]);return{key:k,ok:o.ok,bad:o.bad,sin:o.sin,total:o.total,ev:o.ev,p:o.p}}).sort((a,b)=>b.ev-a.ev)}
+function onTimeBy(field,scope){return onTimeByKey(scope,r=>r[field])}
 function topClientesFuera(scope){const g={};scope.forEach(r=>(r.clientes_fuera_ontime||[]).forEach(c=>{const k=c.cliente||'Sin ID';const x=g[k]||(g[k]={cliente:k,nombre:c.nombre||'',fuera:0,visita:'',ventana:c.ventana||''});x.fuera+=1;x.nombre=x.nombre||c.nombre||'';x.visita=c.visita||x.visita;x.ventana=x.ventana||c.ventana||''}));return Object.values(g).sort((a,b)=>b.fuera-a.fuera||a.nombre.localeCompare(b.nombre)).slice(0,30)}
 function topClientesSinVentana(scope){const g={};scope.forEach(r=>(r.clientes_sin_ventana||[]).forEach(c=>{const k=c.cliente||'Sin ID';const x=g[k]||(g[k]={cliente:k,nombre:c.nombre||'',pedidos:0,motivo:c.motivo||'sin ventana cargada'});x.pedidos+=1;x.nombre=x.nombre||c.nombre||'';x.motivo=x.motivo||c.motivo||'sin ventana cargada'}));return Object.values(g).sort((a,b)=>b.pedidos-a.pedidos||a.nombre.localeCompare(b.nombre)).slice(0,30)}
 function otRows(items){return items.length?items.map(s=>'<tr><td>'+s.key+'</td><td>'+s.ev+'</td><td class="g">'+s.ok+'</td><td class="'+(s.bad?'r':'g')+'">'+s.bad+'</td><td class="'+(s.sin?'r':'g')+'">'+s.sin+'</td><td class="'+(s.p>=85?'g':'r')+'">'+(s.p==null?'–':r1(s.p)+'%')+'</td></tr>').join(''):emptyRow(6,'No hay pedidos para el filtro actual.')}
@@ -624,7 +652,7 @@ function renderOtif(){const routeScope=R.filter(scopeCards),rows=rechazosScope()
  tbodyOtif.innerHTML=mes.length?mes.map(r=>'<tr><td>'+mLbl(r.key)+'</td><td>'+fmt0(r.total)+'</td><td class="g">'+fmt0(r.onTime)+'</td><td class="'+(r.rech?'r':'g')+'">'+fmt0(r.rech)+'</td><td class="g">'+fmt0(r.ok)+'</td><td class="'+((r.noOtif||0)>5?'r':'g')+'">'+fmtPct(r.noOtif)+'</td><td class="'+(r.otif>=95?'g':'r')+'">'+fmtPct(r.otif)+'</td></tr>').join(''):emptyRow(7,'No hay datos OTIF cargados para el filtro actual.');}
 function renderCards(){const cards=R.filter(scopeCards),us=cards.filter(r=>r.usable);
  const aTml=avg(us.map(r=>r.tml)),aTi=avg(us.map(r=>r.ti)),aHr=avg(us.map(r=>r.horas));
- kTml.textContent=r1(aTml);kTi.textContent=r1(aTi);kHr.textContent=r2(aHr);kN.textContent=us.length;
+ kTml.textContent=r1(aTml);kTi.textContent=r1(aTi);kHr.textContent=hhmmH(aHr);kN.textContent=us.length;
  const set=(p,val,col,max)=>{document.getElementById('c'+p).style.setProperty('--accent',col);const b=document.getElementById('b'+p);b.style.background=col;b.style.width=Math.min(100,Math.abs(val/max)*100)+'%'};
  set('Tml',aTml||0,colLow(aTml,OBJ.tml),58);set('Ti',aTi||0,colLow(aTi,OBJ.ti),69);set('Hr',aHr||0,colRuta(aHr),OBJ.ruta_max);
  const na=cards.filter(r=>r.alerta).length;kW.textContent=na;set('W',na,na>0?C.bad:C.good,Math.max(1,cards.length));
@@ -638,26 +666,26 @@ function renderCards(){const cards=R.filter(scopeCards),us=cards.filter(r=>r.usa
 function renderMes(){const usM=R.filter(r=>r.usable&&full(r));const OC=65;const cmp=(k,o)=>{const a=usM.map(r=>r[k]).filter(v=>v!=null);return a.length?a.filter(v=>v<=o).length/a.length*100:null};[["TI","ti",OBJ.ti],["TML","tml",OBJ.tml]].forEach(([p,k,o])=>{const c=cmp(k,o),ok=c!=null&&c>=OC,col=c==null?C.obj:(ok?C.good:C.bad);document.getElementById("c"+p+"cmp").style.setProperty("--accent",col);document.getElementById("k"+p+"cmp").textContent=c==null?"–":r1(c)+"%";const b=document.getElementById("b"+p+"cmp");b.style.background=col;b.style.width=Math.min(100,c||0)+"%";const bg=document.getElementById("g"+p+"cmp");bg.className="badge "+(ok?"ok":"no");bg.textContent=ok?"CUMPLE":"NO";});const ser=aggBy('mes',R.filter(r=>r.usable&&base(r)));
  const lab=ser.map(s=>mLbl(s.key));
  barGen('chTml',lab,ser.map(s=>s.tml),v=>r1(v)+'',v=>colLow(v,OBJ.tml),OBJ.tml,true);
- barGen('chHr',lab,ser.map(s=>s.hr),v=>r2(v),colRuta,OBJ.ruta,true);
+ barGen('chHr',lab,ser.map(s=>s.hr),hhmmH,colRuta,OBJ.ruta,true);
  barGen('chTi',lab,ser.map(s=>s.ti),v=>r1(v)+'',v=>colLow(v,OBJ.ti),OBJ.ti,true);
  tbody.innerHTML=rowsHtml(ser,mLbl,false);
  const tot=R.filter(r=>r.usable&&base(r));
- tfoot.innerHTML='<tr><td>Total</td><td>'+tot.length+'</td><td>'+r1(avg(tot.map(r=>r.tml)))+'</td><td>'+r1(avg(tot.map(r=>r.ti)))+'</td><td>'+r2(avg(tot.map(r=>r.horas)))+'</td><td>'+r1(avg(tot.map(r=>r.adhsec)))+'%</td><td>'+r1(avg(tot.map(r=>r.adhcli)))+'%</td></tr>';
+ tfoot.innerHTML='<tr><td>Total</td><td>'+tot.length+'</td><td>'+r1(avg(tot.map(r=>r.tml)))+'</td><td>'+r1(avg(tot.map(r=>r.ti)))+'</td><td>'+hhmmH(avg(tot.map(r=>r.horas)))+'</td><td>'+r1(avg(tot.map(r=>r.adhsec)))+'%</td><td>'+r1(avg(tot.map(r=>r.adhcli)))+'%</td></tr>';
  adhChart('chAdh',lab,ser.map(s=>s.as),ser.map(s=>s.ac));
  dispChart('chDisp',lab,ser.map(s=>s.dk),ser.map(s=>s.dh));
- // adherencia y horas x chofer
- const cho=aggBy('chofer',R.filter(r=>r.usable&&full(r)));
+ // adherencia y horas x persona
+ const cho=aggByKey(R.filter(r=>r.usable&&full(r)),personaBase);
  if(!chartsReady())return;if(ch.adhc)ch.adhc.destroy();const rc=cho.slice().sort((a,b)=>(b.as||0)-(a.as||0));
- ch.adhc=new Chart(document.getElementById('chAdhCho'),{data:{labels:rc.map(r=>r.key.split(' ').slice(0,2).map((w,i)=>i?w[0]:w).join(' ')),datasets:[
+ ch.adhc=new Chart(document.getElementById('chAdhCho'),{data:{labels:rc.map(r=>personaCorta(r.key)),datasets:[
    {type:'bar',label:'Secuencia',data:rc.map(r=>r.as),backgroundColor:C.sec+'cc',borderRadius:3,maxBarThickness:15},
    {type:'bar',label:'Click',data:rc.map(r=>r.ac),backgroundColor:C.cli+'cc',borderRadius:3,maxBarThickness:15},
    {type:'line',label:'Obj 85%',data:rc.map(()=>OA),borderColor:C.bad,borderWidth:2,borderDash:[6,4],pointRadius:0}]},
    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:true,labels:{boxWidth:10,font:{size:10}}},tooltip:{callbacks:{label:x=>x.dataset.label+': '+r1(x.parsed.y)+'%'}}},
     scales:{y:{suggestedMax:100,ticks:{callback:v=>v+'%',color:'#657085',font:{size:11}},grid:{color:'#eef1f5'}},x:{ticks:{color:'#26334d',font:{size:10},maxRotation:60,minRotation:45},grid:{display:false}}}}});
- const rh=cho.slice().sort((a,b)=>(b.hr||0)-(a.hr||0));if(ch.cho)ch.cho.destroy();
- ch.cho=new Chart(document.getElementById('chCho'),{data:{labels:rh.map(r=>r.key.split(' ').slice(0,2).map((w,i)=>i?w[0]:w).join(' ')),
+ const rh=personaDiaHoras(R.filter(r=>r.usable&&full(r))).sort((a,b)=>(b.hr||0)-(a.hr||0));if(ch.cho)ch.cho.destroy();
+ ch.cho=new Chart(document.getElementById('chCho'),{data:{labels:rh.map(r=>personaCorta(r.key)),
    datasets:[{type:'bar',data:rh.map(r=>r.hr),backgroundColor:rh.map(r=>colRuta(r.hr)),borderRadius:4,maxBarThickness:22},{type:'line',data:rh.map(()=>OBJ.ruta),borderColor:C.obj,borderWidth:2,borderDash:[6,4],pointRadius:0}]},
-   options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:x=>x.datasetIndex===1?'Objetivo 7 h':r2(x.parsed.x)+' h · '+rh[x.dataIndex].n+' rutas'}}},
+   options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:x=>x.datasetIndex===1?'Objetivo 7:00':hhmmH(x.parsed.x)+' · '+rh[x.dataIndex].jornadas+' jornadas · '+rh[x.dataIndex].recargas+' recargas'}}},
     scales:{x:{beginAtZero:true,ticks:{callback:v=>r1(v)+'h',color:'#657085',font:{size:11}},grid:{color:'#eef1f5'}},y:{ticks:{color:'#26334d',font:{size:11}},grid:{display:false}}}}});}
 function renderDia(){
  const scope=R.filter(r=>r.usable&&base(r)&&(state.mes==='__all'||r.mes===state.mes));
@@ -666,7 +694,7 @@ function renderDia(){
    ? '<b>Mostrando todos los días</b> del período. Elegí un <b>Mes</b> arriba para ver el detalle diario de ese mes.'
    : '<b>Detalle diario de '+mLbl(state.mes)+' 2026</b> · '+dd.length+' días con reparto.';
  barGen('chTmlD',lab,dd.map(s=>s.tml),v=>r1(v)+'',v=>colLow(v,OBJ.tml),OBJ.tml,few);
- barGen('chHrD',lab,dd.map(s=>s.hr),v=>r2(v),colRuta,OBJ.ruta,few);
+ barGen('chHrD',lab,dd.map(s=>s.hr),hhmmH,colRuta,OBJ.ruta,few);
  barGen('chTiD',lab,dd.map(s=>s.ti),v=>r1(v)+'',v=>colLow(v,OBJ.ti),OBJ.ti,few);
  adhChart('chAdhD',lab,dd.map(s=>s.as),dd.map(s=>s.ac));
  dispChart('chDispD',lab,dd.map(s=>s.dk),dd.map(s=>s.dh));
@@ -675,7 +703,7 @@ function renderSem(){if(!state.sem&&WEEKS.length)state.sem=WEEKS[WEEKS.length-1]
  const dd=aggBy('fecha',R.filter(r=>r.usable&&base(r)&&weekKey(r.fecha)===state.sem));const lab=dd.map(s=>wdLbl(s.key));
  document.getElementById('hintSem').innerHTML=dd.length?('<b>Semana '+weekLabel(state.sem)+'</b> · '+dd.length+' días con reparto'):('<b>Semana '+weekLabel(state.sem)+'</b> · sin datos en esta semana');
  barGen('chTmlS',lab,dd.map(s=>s.tml),v=>r1(v)+'',v=>colLow(v,OBJ.tml),OBJ.tml,true);
- barGen('chHrS',lab,dd.map(s=>s.hr),v=>r2(v),colRuta,OBJ.ruta,true);
+ barGen('chHrS',lab,dd.map(s=>s.hr),hhmmH,colRuta,OBJ.ruta,true);
  barGen('chTiS',lab,dd.map(s=>s.ti),v=>r1(v)+'',v=>colLow(v,OBJ.ti),OBJ.ti,true);
  adhChart('chAdhS',lab,dd.map(s=>s.as),dd.map(s=>s.ac));
  dispChart('chDispS',lab,dd.map(s=>s.dk),dd.map(s=>s.dh));
@@ -704,7 +732,7 @@ function renderOnTime(){const scope=R.filter(full),o=onTime(scope),ok=o.p!=null&
  const ser=onTimeByMonth(R.filter(base)),lab=ser.map(s=>mLbl(s.key));
  barGen('chOT',lab,ser.map(s=>s.p),v=>v==null?'–':r1(v)+'%',v=>v==null?C.obj:(v>=85?C.good:C.bad),85,true);
  tbodyOT.innerHTML=ser.length?ser.map(s=>'<tr><td>'+mLbl(s.key)+'</td><td>'+s.ev+'</td><td class="g">'+s.ok+'</td><td class="'+(s.bad?'r':'g')+'">'+s.bad+'</td><td class="'+(s.sin?'r':'g')+'">'+s.sin+'</td><td>'+s.cliTotal+'</td><td>'+s.cliCon+'</td><td class="'+(s.cliSin?'r':'g')+'">'+s.cliSin+'</td><td class="'+(s.cliVentanaPct>=85?'g':'r')+'">'+(s.cliVentanaPct==null?'–':r1(s.cliVentanaPct)+'%')+'</td><td class="'+(s.p>=85?'g':'r')+'">'+(s.p==null?'–':r1(s.p)+'%')+'</td></tr>').join(''):emptyRow(10,'No hay datos on time para mostrar.');
- const byCho=onTimeBy('chofer',R.filter(full)),byZona=onTimeBy('suc',R.filter(full));
+ const byCho=onTimeByKey(R.filter(full),personaBase),byZona=onTimeBy('suc',R.filter(full));
  otChart('chOTCho',byCho);otChart('chOTZona',byZona);
  tbodyOTCho.innerHTML=otRows(byCho);tbodyOTZona.innerHTML=otRows(byZona);
  const fueraRows=topClientesFuera(scope),sinRows=topClientesSinVentana(scope);
