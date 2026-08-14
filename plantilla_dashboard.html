@@ -275,7 +275,7 @@ tfoot td{font-weight:700;border-top:2px solid var(--line);border-bottom:none}
    <div class="card" id="cFoxIni"><div class="k">Inicio promedio</div><div class="v" id="kFoxIni">-</div><div class="obj">horario de inicio Foxtrot</div><div class="bar"><i id="bFoxIni"></i></div></div>
    <div class="card" id="cFoxFin"><div class="k">Fin promedio</div><div class="v" id="kFoxFin">-</div><div class="obj">horario de finalizacion Foxtrot</div><div class="bar"><i id="bFoxFin"></i></div></div>
    <div class="card" id="cFoxDur"><div class="k">Duracion promedio</div><div class="v" id="kFoxDur">-</div><div class="obj">entre inicio y fin</div><div class="bar"><i id="bFoxDur"></i></div></div>
-   <div class="card" id="cFoxRutas"><div class="k">Rutas</div><div class="v" id="kFoxRutas">-</div><div class="obj">con horario Foxtrot</div><div class="bar"><i id="bFoxRutas"></i></div></div>
+   <div class="card" id="cFoxRutas"><div class="k">Rutas</div><div class="v" id="kFoxRutas">-</div><div class="obj">con cierre valido</div><div class="bar"><i id="bFoxRutas"></i></div></div>
   </div>
   <div class="grid" style="grid-template-columns:1fr 1fr">
    <div class="panel"><h2>Horario por mes</h2><div class="note">Promedio de inicio y fin por mes.</div><div class="chartbox" style="height:300px"><canvas id="chFoxMes"></canvas></div></div>
@@ -484,7 +484,7 @@ function emptyRow(cols,msg){return '<tr><td colspan="'+cols+'" style="text-align
 function tMin(v){if(!v)return null;const p=String(v).split(':').map(Number);return isNaN(p[0])||isNaN(p[1])?null:p[0]*60+p[1]}
 function tLbl(v){if(v==null||isNaN(v))return'-';v=Math.round(v);return String(Math.floor(v/60)).padStart(2,'0')+':'+String(v%60).padStart(2,'0')}
 function durLbl(v){if(v==null||isNaN(v))return'-';v=Math.round(v);return Math.floor(v/60)+' h '+String(v%60).padStart(2,'0')+' min'}
-function foxRows(){return R.filter(r=>full(r)&&tMin(r.inicio_foxtrot)!=null&&tMin(r.fin_foxtrot)!=null)}
+function foxRows(){return R.filter(r=>r.usable&&full(r)&&tMin(r.inicio_foxtrot)!=null&&tMin(r.fin_foxtrot)!=null)}
 function foxAgg(rows,field){const g={};rows.forEach(r=>{const k=r[field]||'Sin dato';(g[k]=g[k]||[]).push(r)});return Object.keys(g).sort().map(k=>foxSummary(k,g[k]))}
 function foxSummary(key,rows){const ini=avg(rows.map(r=>tMin(r.inicio_foxtrot))),fin=avg(rows.map(r=>tMin(r.fin_foxtrot))),dur=avg(rows.map(r=>r.horas!=null?r.horas*60:(tMin(r.fin_foxtrot)-tMin(r.inicio_foxtrot))));return{key,n:rows.length,ini,fin,dur}}
 function foxTable(items,label){return items.length?items.map(r=>'<tr><td>'+r.key+'</td><td>'+r.n+'</td><td>'+tLbl(r.ini)+'</td><td>'+tLbl(r.fin)+'</td><td>'+durLbl(r.dur)+'</td></tr>').join(''):emptyRow(5,'No hay horarios Foxtrot para el filtro actual.')}
