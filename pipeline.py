@@ -47,6 +47,12 @@ DQI_CSV_URL = os.environ.get(
     "DQI_CSV_URL",
     "https://docs.google.com/spreadsheets/d/e/2PACX-1vSC5R8XlW4kETbkIDmX95n_XEVJE4JMf-NNp7wYi6mE5OAfj-EENAC9jK0-IlkN1A/pub?gid=1861746295&single=true&output=csv",
 )
+DPO_GKPI_URLS = [
+    ("Casa Central", "Mar de Ajo", "1", os.environ.get("DPO_GKPI_MDA_URL", "https://docs.google.com/spreadsheets/d/e/2PACX-1vTRrt57z-QDSRmDblvUV6AHs_Q1og0qgW0Ec-fp1L0QjLr8R_346nhHEkKsndqka-wQUdKSc2-3PizX/pub?gid=1241670089&single=true&output=csv")),
+    ("Sucursal Dolores", "Dolores", "2", os.environ.get("DPO_GKPI_DOL_URL", "https://docs.google.com/spreadsheets/d/e/2PACX-1vTRrt57z-QDSRmDblvUV6AHs_Q1og0qgW0Ec-fp1L0QjLr8R_346nhHEkKsndqka-wQUdKSc2-3PizX/pub?gid=249846040&single=true&output=csv")),
+    ("Casa Central", "Mar de Ajo", "1", os.environ.get("DPO_GKPI_MDA_EXTRA_URL", "https://docs.google.com/spreadsheets/d/e/2PACX-1vTRrt57z-QDSRmDblvUV6AHs_Q1og0qgW0Ec-fp1L0QjLr8R_346nhHEkKsndqka-wQUdKSc2-3PizX/pub?gid=1883083406&single=true&output=csv")),
+    ("Sucursal Dolores", "Dolores", "2", os.environ.get("DPO_GKPI_DOL_EXTRA_URL", "https://docs.google.com/spreadsheets/d/e/2PACX-1vTRrt57z-QDSRmDblvUV6AHs_Q1og0qgW0Ec-fp1L0QjLr8R_346nhHEkKsndqka-wQUdKSc2-3PizX/pub?gid=680588527&single=true&output=csv")),
+]
 
 storage.init()
 
@@ -335,6 +341,97 @@ def cargar_dqi():
         for fecha, valor in sorted(daily.items())
     ]
     return {"rows": rows, "detalles": detalles, "error": ""}
+
+
+def _pick_col_norm(df, candidates):
+    def clean(s):
+        s = "".join(c for c in unicodedata.normalize("NFD", str(s)) if unicodedata.category(c) != "Mn")
+        return re.sub(r"\s+", " ", s).strip().lower()
+    lookup = {clean(c): c for c in df.columns}
+    for name in candidates:
+        col = lookup.get(clean(name))
+        if col is not None:
+            return col
+    for c in df.columns:
+        low = clean(c)
+        if any(clean(name) in low for name in candidates):
+            return c
+    return None
+
+
+def _dpo_ok(v):
+    s = str(v or "").strip().upper()
+    if not s:
+        return None
+    return s in ("OK", "SI", "SÍ", "TRUE", "1", "A TIEMPO")
+
+
+def cargar_dpo_gkpis():
+    rows, errors = [], []
+    for unidad, sucursal, sid_default, url in DPO_GKPI_URLS:
+        try:
+            req = Request(url, headers={"Accept": "text/csv", "User-Agent": "Mozilla/5.0"})
+            raw = urlopen(req, timeout=30).read().decode("utf-8-sig", errors="replace")
+            df = pd.read_csv(StringIO(raw), dtype=str).fillna("")
+        except Exception as e:
+            errors.append(f"No se pudo leer DPO {sucursal}: {e}")
+            continue
+        fecha_col = _pick_col_norm(df, ["Fecha"])
+        camion_col = _pick_col_norm(df, ["Camion", "Camión"])
+        nro_col = _pick_col_norm(df, ["N° Camion", "N Camion", "Numero Camion"])
+        chofer_col = _pick_col_norm(df, ["Chofer / Responsable billetera", "Chofer"])
+        ay1_col = _pick_col_norm(df, ["Ayudante1", "Ayudante 1"])
+        ay2_col = _pick_col_norm(df, ["Ayudante2", "Ayudante 2"])
+        up_col = _pick_col_norm(df, ["UP"])
+        clientes_col = _pick_col_norm(df, ["CLIENTES", "Clientes"])
+        personas_col = _pick_col_norm(df, ["PERSONAS", "Personas"])
+        pallets_col = _pick_col_norm(df, ["Pallets"])
+        obs_col = _pick_col_norm(df, ["Observaciones"])
+        carga_col = _pick_col_norm(df, ["Cargado a tiempo?"])
+        descarga_col = _pick_col_norm(df, ["Descargado a tiempo?"])
+        hora_carga_col = _pick_col_norm(df, ["Hora de carga?"])
+        estado_col = _pick_col_norm(df, ["Estado"])
+        sid_col = _pick_col_norm(df, ["sucursal_id"])
+        if fecha_col is None or camion_col is None:
+            errors.append(f"DPO {sucursal}: faltan columnas Fecha/Camion.")
+            continue
+        for idx, r in df.iterrows():
+            fecha = _parse_fecha_ar(r.get(fecha_col, ""))
+            camion = str(r.get(camion_col, "") or "").strip()
+            if not fecha or not camion:
+                continue
+            if fecha[:4] != "2026":
+                continue
+            sid = str(r.get(sid_col, "") or sid_default).strip() if sid_col else sid_default
+            suc = "Mar de Ajo" if sid == "1" else "Dolores"
+            nro = str(r.get(nro_col, "") or "").strip() if nro_col else ""
+            estado = str(r.get(estado_col, "") or "").strip() if estado_col else ""
+            rows.append({
+                "key": f"{fecha}|{sid}|{nro or camion}|{idx}",
+                "fecha": fecha,
+                "mes": fecha[:7],
+                "anio": int(fecha[:4]),
+                "unidad": "Casa Central" if sid == "1" else "Sucursal Dolores",
+                "suc": suc,
+                "sucursal_id": sid,
+                "camion": camion,
+                "nro_camion": nro or camion,
+                "chofer": str(r.get(chofer_col, "") or "").strip() if chofer_col else "",
+                "ayudante1": str(r.get(ay1_col, "") or "").strip() if ay1_col else "",
+                "ayudante2": str(r.get(ay2_col, "") or "").strip() if ay2_col else "",
+                "up": _to_float(r.get(up_col)) if up_col else None,
+                "clientes": _to_float(r.get(clientes_col)) if clientes_col else None,
+                "personas": _to_float(r.get(personas_col)) if personas_col else None,
+                "pallets": _to_float(r.get(pallets_col)) if pallets_col else None,
+                "cargado_ok": _dpo_ok(r.get(carga_col)) if carga_col else None,
+                "descargado_ok": _dpo_ok(r.get(descarga_col)) if descarga_col else None,
+                "hora_carga": str(r.get(hora_carga_col, "") or "").strip() if hora_carga_col else "",
+                "estado": estado,
+                "recarga": bool(estado),
+                "observaciones": str(r.get(obs_col, "") or "").strip() if obs_col else "",
+            })
+    rows = sorted(rows, key=lambda r: (r["fecha"], r["suc"], r["nro_camion"], r["chofer"]))
+    return {"rows": rows, "error": " ".join(errors)}
 
 
 def dqi_objetivo_bultos_mes():
@@ -936,6 +1033,7 @@ def _data_desde_base(base):
             "rechazos_detalle": rechazos_detalle,
             "satisfaccion": cargar_satisfaccion(),
             "dqi": cargar_dqi(),
+            "dpo": cargar_dpo_gkpis(),
             "settings": {"dqi_objetivo_bultos_mes": dqi_objetivo_bultos_mes()},
             "choferes": sorted({r["chofer"] for r in rutas}),
             "sucursales": sorted({r["suc"] for r in rutas}),
