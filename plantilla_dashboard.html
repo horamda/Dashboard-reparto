@@ -57,10 +57,12 @@ th,td{padding:8px 8px;text-align:right;border-bottom:1px solid var(--line)}
 th:first-child,td:first-child{text-align:left}
 thead th{font-size:10.5px;text-transform:uppercase;letter-spacing:.3px;color:var(--muted);font-weight:600;border-bottom:2px solid var(--line);position:sticky;top:0;z-index:2;background:var(--card)}
 tbody tr:hover{background:#f6f8fb}
+tbody tr.warn{background:#FFF7CC}
+tbody tr.warn:hover{background:#FFECA3}
 td.g{color:var(--good);font-weight:600}td.r{color:var(--bad);font-weight:600}
 tfoot td{font-weight:700;border-top:2px solid var(--line);border-bottom:none}
 .tblscroll{max-height:360px;overflow:auto;border-radius:8px}
-.tblscroll table{min-width:680px}
+.tblscroll table{min-width:980px}
 .clientlist{max-height:520px;min-height:180px;overflow:auto}
 .clientlist table{min-width:720px}
 .rechlist{max-height:560px;border:1px solid var(--line);border-radius:10px;overflow:auto}
@@ -117,13 +119,13 @@ tfoot td{font-weight:700;border-top:2px solid var(--line);border-bottom:none}
   <div class="fg"><label>Chofer</label><select id="fCho"></select></div>
   <button class="reset" id="reset">Limpiar filtros</button>
  </div>
- <div class="tabs"><button class="tab" id="tabTeamRoom">Team Room</button><button class="tab active" id="tabMes">Mensual</button><button class="tab" id="tabSem">Semanal</button><button class="tab" id="tabDia">Diario</button><button class="tab" id="tabHorarios">Horarios Foxtrot</button><button class="tab" id="tabDpo">DPO GKPIs</button><button class="tab" id="tabOnTime">On time</button><button class="tab" id="tabRechazos">Rechazos</button><button class="tab" id="tabOtif">OTIF</button><button class="tab" id="tabDqi">DQI</button><button class="tab" id="tabSatisfaccion">Satisfaccion del cliente</button><button class="tab" id="tabCalidad">Data Quality</button></div>
+ <div class="tabs"><button class="tab" id="tabTeamRoom">Team Room</button><button class="tab active" id="tabMes">Mensual</button><button class="tab" id="tabSem">Semanal</button><button class="tab" id="tabDia">Diario</button><button class="tab" id="tabHorarios">Horarios Foxtrot</button><button class="tab" id="tabOnTime">On time</button><button class="tab" id="tabRechazos">Rechazos</button><button class="tab" id="tabOtif">OTIF</button><button class="tab" id="tabDqi">DQI</button><button class="tab" id="tabSatisfaccion">Satisfaccion del cliente</button><button class="tab" id="tabDpo">DPO GKPIs</button><button class="tab" id="tabCalidad">Data Quality</button></div>
  <div id="operationalSummary">
  <div class="sectlbl">Tiempos</div>
  <div class="cards c5">
   <div class="card" id="cTml"><div class="k">TML · minutos</div><div class="v" id="kTml">–</div><div class="obj">objetivo 30 min</div><div class="bar"><i id="bTml"></i></div></div>
   <div class="card" id="cTi"><div class="k">TI · minutos</div><div class="v" id="kTi">–</div><div class="obj">objetivo 30 min</div><div class="bar"><i id="bTi"></i></div></div>
-  <div class="card" id="cHr"><div class="k">Horas en ruta</div><div class="v" id="kHr">–</div><div class="obj">objetivo 7 h · máx 8 h</div><div class="bar"><i id="bHr"></i></div></div>
+  <div class="card" id="cHr"><div class="k">Horas en ruta</div><div class="v" id="kHr">–</div><div class="obj">prom. jornada · normal + recarga</div><div class="bar"><i id="bHr"></i></div></div>
   <div class="card" id="cN"><div class="k">Jornadas</div><div class="v" id="kN">–</div><div class="obj">persona/día con cierre válido</div><div class="bar"><i style="width:100%;background:var(--ink2)"></i></div></div>
   <div class="card" id="cW"><div class="k">Datos no confiables</div><div class="v" id="kW">–</div><div class="obj">rutas con más de 12 h</div><div class="bar"><i id="bW"></i></div></div>
  </div>
@@ -138,7 +140,7 @@ tfoot td{font-weight:700;border-top:2px solid var(--line);border-bottom:none}
  <div class="sectlbl">Medidores</div>
  <div class="gauges">
   <div class="gcard"><div class="gt">TML · minutos</div><div id="ggTml"></div><div class="gsub">objetivo 30</div></div>
-  <div class="gcard"><div class="gt">Tiempo en ruta</div><div id="ggHr"></div><div class="gsub">objetivo 7 h</div></div>
+  <div class="gcard"><div class="gt">Tiempo en ruta</div><div id="ggHr"></div><div class="gsub">jornada normal + recarga</div></div>
   <div class="gcard"><div class="gt">TI · minutos</div><div id="ggTi"></div><div class="gsub">objetivo 30</div></div>
  </div>
  </div>
@@ -150,7 +152,7 @@ tfoot td{font-weight:700;border-top:2px solid var(--line);border-bottom:none}
   </div>
   <div class="grid">
    <div class="panel"><h2>TML por mes</h2><div class="note">Minutos · objetivo 30</div><div class="chartbox"><canvas id="chTml"></canvas></div></div>
-   <div class="panel"><h2>Tiempo en ruta por mes</h2><div class="note">Horas · objetivo 7</div><div class="chartbox"><canvas id="chHr"></canvas></div></div>
+   <div class="panel"><h2>Tiempo en ruta por mes</h2><div class="note">Promedio por jornada · normal + recarga · objetivo 7</div><div class="chartbox"><canvas id="chHr"></canvas></div></div>
    <div class="panel"><h2>TI por mes</h2><div class="note">Minutos · objetivo 30</div><div class="chartbox"><canvas id="chTi"></canvas></div></div>
   </div>
   <div class="grid" style="grid-template-columns:2fr 1fr">
@@ -169,7 +171,7 @@ tfoot td{font-weight:700;border-top:2px solid var(--line);border-bottom:none}
   <div class="hint" id="hintDia"></div>
   <div class="grid">
    <div class="panel"><h2>TML por día</h2><div class="note">Minutos · objetivo 30</div><div class="chartbox"><canvas id="chTmlD"></canvas></div></div>
-   <div class="panel"><h2>Tiempo en ruta por día</h2><div class="note">Horas · objetivo 7</div><div class="chartbox"><canvas id="chHrD"></canvas></div></div>
+   <div class="panel"><h2>Tiempo en ruta por día</h2><div class="note">Promedio por jornada · normal + recarga · objetivo 7</div><div class="chartbox"><canvas id="chHrD"></canvas></div></div>
    <div class="panel"><h2>TI por día</h2><div class="note">Minutos · objetivo 30</div><div class="chartbox"><canvas id="chTiD"></canvas></div></div>
   </div>
   <div class="grid" style="grid-template-columns:1fr 1fr">
@@ -184,7 +186,7 @@ tfoot td{font-weight:700;border-top:2px solid var(--line);border-bottom:none}
   <div class="hint" id="hintSem"></div>
   <div class="grid">
    <div class="panel"><h2>TML por día</h2><div class="note">Minutos · objetivo 30</div><div class="chartbox"><canvas id="chTmlS"></canvas></div></div>
-   <div class="panel"><h2>Tiempo en ruta por día</h2><div class="note">Horas · objetivo 7</div><div class="chartbox"><canvas id="chHrS"></canvas></div></div>
+   <div class="panel"><h2>Tiempo en ruta por día</h2><div class="note">Promedio por jornada · normal + recarga · objetivo 7</div><div class="chartbox"><canvas id="chHrS"></canvas></div></div>
    <div class="panel"><h2>TI por día</h2><div class="note">Minutos · objetivo 30</div><div class="chartbox"><canvas id="chTiS"></canvas></div></div>
   </div>
   <div class="grid" style="grid-template-columns:1fr 1fr">
@@ -274,7 +276,7 @@ tfoot td{font-weight:700;border-top:2px solid var(--line);border-bottom:none}
   <div class="cards c4" style="margin-bottom:22px">
    <div class="card" id="cFoxIni"><div class="k">Inicio promedio</div><div class="v" id="kFoxIni">-</div><div class="obj">horario de inicio Foxtrot</div><div class="bar"><i id="bFoxIni"></i></div></div>
    <div class="card" id="cFoxFin"><div class="k">Fin promedio</div><div class="v" id="kFoxFin">-</div><div class="obj">horario de finalizacion Foxtrot</div><div class="bar"><i id="bFoxFin"></i></div></div>
-   <div class="card" id="cFoxDur"><div class="k">Duracion promedio</div><div class="v" id="kFoxDur">-</div><div class="obj">entre inicio y fin</div><div class="bar"><i id="bFoxDur"></i></div></div>
+   <div class="card" id="cFoxDur"><div class="k">Duracion promedio</div><div class="v" id="kFoxDur">-</div><div class="obj">jornada normal + recarga</div><div class="bar"><i id="bFoxDur"></i></div></div>
    <div class="card" id="cFoxRutas"><div class="k">Jornadas</div><div class="v" id="kFoxRutas">-</div><div class="obj">persona/día con cierre valido</div><div class="bar"><i id="bFoxRutas"></i></div></div>
   </div>
   <div class="grid" style="grid-template-columns:1fr 1fr">
@@ -295,8 +297,8 @@ tfoot td{font-weight:700;border-top:2px solid var(--line);border-bottom:none}
     <div class="tblscroll"><table><thead><tr><th>Mes</th><th>Rutas recarga</th><th>Personas</th><th>Horas prom.</th><th>Horas total</th></tr></thead><tbody id="tbodyRecargaMes"></tbody></table></div></div>
   </div>
   <div class="grid" style="grid-template-columns:1fr">
-   <div class="panel"><h2>Detalle de rutas</h2><div class="note">Fecha, sucursal, camion, persona e inicio / fin marcados en Foxtrot.</div>
-    <div class="tblscroll"><table><thead><tr><th>Fecha</th><th>Mes</th><th>Sucursal</th><th>Camion</th><th>Persona</th><th>Tipo</th><th>Original</th><th>Inicio</th><th>Fin</th><th>Duracion</th></tr></thead><tbody id="tbodyFoxDetalle"></tbody></table></div></div>
+   <div class="panel"><h2>Detalle de jornadas</h2><div class="note">Una fila por fecha y persona. Carga y recarga se muestran separadas; total dia suma ambas.</div>
+    <div class="tblscroll"><table><thead><tr><th>Fecha</th><th>Mes</th><th>Sucursal</th><th>Camion</th><th>Persona</th><th>Inicio carga</th><th>Fin carga</th><th>Horas carga</th><th>Inicio recarga</th><th>Fin recarga</th><th>Horas recarga</th><th>Total dia</th><th>Tramos</th></tr></thead><tbody id="tbodyFoxDetalle"></tbody></table></div></div>
  </div>
  </div>
  <div id="viewDpo" style="display:none">
@@ -308,7 +310,7 @@ tfoot td{font-weight:700;border-top:2px solid var(--line);border-bottom:none}
    <div class="card" id="cDpoPers"><div class="k">Prom. pers/viaje</div><div class="v" id="kDpoPers">-</div><div class="obj">total personal / salidas</div><div class="bar"><i id="bDpoPers"></i></div></div>
    <div class="card" id="cDpoDias"><div class="k">Dias habiles</div><div class="v" id="kDpoDias">-</div><div class="obj">dias con salidas DPO</div><div class="bar"><i id="bDpoDias"></i></div></div>
    <div class="card" id="cDpoRepDia"><div class="k">Repartos por dia</div><div class="v" id="kDpoRepDia">-</div><div class="obj">salidas consolidadas / dias</div><div class="bar"><i id="bDpoRepDia"></i></div></div>
-   <div class="card" id="cDpoHsProm"><div class="k">Prom. hs reparto</div><div class="v" id="kDpoHsProm">-</div><div class="obj">promedio Foxtrot del filtro</div><div class="bar"><i id="bDpoHsProm"></i></div></div>
+   <div class="card" id="cDpoHsProm"><div class="k">Prom. hs reparto</div><div class="v" id="kDpoHsProm">-</div><div class="obj">prom. jornada Foxtrot</div><div class="bar"><i id="bDpoHsProm"></i></div></div>
    <div class="card" id="cDpoHsTrab"><div class="k">Hs trabajadas transito</div><div class="v" id="kDpoHsTrab">-</div><div class="obj">hs prom x personal total</div><div class="bar"><i id="bDpoHsTrab"></i></div></div>
    <div class="card" id="cDpoSalRec"><div class="k">Salidas con recarga</div><div class="v" id="kDpoSalRec">-</div><div class="obj">salidas consolidadas</div><div class="bar"><i id="bDpoSalRec"></i></div></div>
    <div class="card" id="cDpoRecargas"><div class="k">Recargas registradas</div><div class="v" id="kDpoRecargas">-</div><div class="obj">filas de recarga</div><div class="bar"><i id="bDpoRecargas"></i></div></div>
@@ -551,6 +553,12 @@ function foxJornadaAgg(rows,field){const g={};foxJornadas(rows).forEach(r=>{cons
 function foxPersonaTable(items){return items.length?items.map(r=>'<tr><td>'+r.key+'</td><td>'+r.jornadas+'</td><td>'+r.n+'</td><td>'+r.recargas+'</td><td>'+tLbl(r.ini)+'</td><td>'+tLbl(r.fin)+'</td><td>'+durLbl(r.dur)+'</td></tr>').join(''):emptyRow(7,'No hay horarios Foxtrot para el filtro actual.')}
 function recargaMes(rows){const g={};rows.filter(esRecarga).forEach(r=>{const k=r.mes,x=g[k]||(g[k]={key:k,n:0,total:0,personas:new Set()});x.n+=1;x.total+=r.horas!=null?r.horas*60:(tMin(r.fin_foxtrot)-tMin(r.inicio_foxtrot));x.personas.add(personaBase(r))});return Object.keys(g).sort().map(k=>{const x=g[k];return{key:k,n:x.n,total:x.total,prom:x.n?x.total/x.n:null,personas:x.personas.size}})}
 function recargaRows(items){return items.length?items.map(r=>'<tr><td>'+mLbl(r.key)+' '+r.key.slice(0,4)+'</td><td>'+r.n+'</td><td>'+r.personas+'</td><td>'+durLbl(r.prom)+'</td><td>'+durLbl(r.total)+'</td></tr>').join(''):emptyRow(5,'No hay recargas para el filtro actual.')}
+function foxDetalleTable(rows){if(!rows.length)return emptyRow(13,'No hay horarios Foxtrot para el filtro actual.');const g={};rows.forEach(r=>{const k=r.fecha+'|'+personaBase(r),dur=r.horas!=null?r.horas*60:(tMin(r.fin_foxtrot)-tMin(r.inicio_foxtrot)),x=g[k]||(g[k]={fecha:r.fecha,mes:r.mes,suc:r.suc,camion:r.camion||'Sin camion',persona:personaBase(r),carga:0,recarga:0,cargaIni:null,cargaFin:null,recIni:null,recFin:null,tramos:[]}),rec=esRecarga(r);
+  if(rec){x.recarga+=dur||0;x.recIni=x.recIni==null?tMin(r.inicio_foxtrot):Math.min(x.recIni,tMin(r.inicio_foxtrot));x.recFin=x.recFin==null?tMin(r.fin_foxtrot):Math.max(x.recFin,tMin(r.fin_foxtrot))}
+  else{x.carga+=dur||0;x.cargaIni=x.cargaIni==null?tMin(r.inicio_foxtrot):Math.min(x.cargaIni,tMin(r.inicio_foxtrot));x.cargaFin=x.cargaFin==null?tMin(r.fin_foxtrot):Math.max(x.cargaFin,tMin(r.fin_foxtrot))}
+  x.tramos.push((rec?'Recarga':'Carga')+' '+r.inicio_foxtrot+'-'+r.fin_foxtrot)
+ });
+ return Object.values(g).sort((a,b)=>b.fecha.localeCompare(a.fecha)||a.persona.localeCompare(b.persona)).map(r=>{const total=(r.carga||0)+(r.recarga||0),grp=r.recarga?' class="warn"':'';return '<tr'+grp+'><td>'+dLbl(r.fecha)+'</td><td>'+mLbl(r.mes)+' '+r.mes.slice(0,4)+'</td><td>'+r.suc+'</td><td>'+r.camion+'</td><td>'+r.persona+'</td><td>'+tLbl(r.cargaIni)+'</td><td>'+tLbl(r.cargaFin)+'</td><td>'+durLbl(r.carga)+'</td><td>'+tLbl(r.recIni)+'</td><td>'+tLbl(r.recFin)+'</td><td>'+durLbl(r.recarga)+'</td><td><b>'+durLbl(total)+'</b></td><td>'+r.tramos.join(' / ')+'</td></tr>'}).join('')}
 function recargaChart(id,items){if(!chartsReady())return;if(ch[id])ch[id].destroy();const labels=items.map(r=>mLbl(r.key)+' '+r.key.slice(0,4)),vals=items.map(r=>r.prom/60);
  ch[id]=new Chart(document.getElementById(id),{type:'bar',data:{labels,datasets:[{label:'Promedio recarga',data:vals,backgroundColor:C.amber,borderRadius:4,maxBarThickness:34}]},
   options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:x=>hhmmH(x.parsed.y)+' promedio · '+items[x.dataIndex].n+' recargas'}}},
@@ -568,7 +576,7 @@ function renderHorarios(){const rows=foxRows(),jRows=foxJornadas(rows),sum=foxJo
  foxChart('chFoxMes',byMes,m=>mLbl(m)+' '+m.slice(0,4));foxChart('chFoxDia',byDia,dLbl);
  recargaChart('chRecargaMes',byRecarga);tbodyRecargaMes.innerHTML=recargaRows(byRecarga);
  tbodyFoxPersona.innerHTML=foxPersonaTable(byPersona);tbodyFoxCamion.innerHTML=foxTable(byCamion,'Camion');
- tbodyFoxDetalle.innerHTML=rows.length?rows.slice().sort((a,b)=>b.fecha.localeCompare(a.fecha)||personaBase(a).localeCompare(personaBase(b))||a.chofer.localeCompare(b.chofer)).map(r=>'<tr><td>'+dLbl(r.fecha)+'</td><td>'+mLbl(r.mes)+' '+r.mes.slice(0,4)+'</td><td>'+r.suc+'</td><td>'+(r.camion||'Sin camion')+'</td><td>'+personaBase(r)+'</td><td>'+(esRecarga(r)?'Recarga':'Normal')+'</td><td>'+r.chofer+'</td><td>'+r.inicio_foxtrot+'</td><td>'+r.fin_foxtrot+'</td><td>'+durLbl(r.horas!=null?r.horas*60:(tMin(r.fin_foxtrot)-tMin(r.inicio_foxtrot)))+'</td></tr>').join(''):emptyRow(10,'No hay horarios Foxtrot para el filtro actual.');}
+ tbodyFoxDetalle.innerHTML=foxDetalleTable(rows);}
 function onTime(scope){let ok=0,bad=0,sin=0,total=0;const cliCon=new Set(),cliSin=new Set();scope.forEach(r=>{ok+=r.pdv_ontime||0;bad+=r.pdv_fuera_ontime||0;sin+=r.pdv_sin_ventana||0;total+=r.pdv_total||0;addClientes(cliCon,r.clientes_con_ventana);addClientes(cliSin,r.clientes_sin_ventana)});const ev=ok+bad,cliTotal=cliCon.size+cliSin.size,cliVentanaPct=cliTotal?cliCon.size/cliTotal*100:null;return{ok,bad,sin,total,ev,cliCon:cliCon.size,cliSin:cliSin.size,cliTotal,cliVentanaPct,p:ev?ok/ev*100:null}}
 function onTimeByMonth(scope){const g={};scope.forEach(r=>{(g[r.mes]=g[r.mes]||[]).push(r)});return Object.keys(g).sort().map(k=>{const o=onTime(g[k]);return{key:k,ok:o.ok,bad:o.bad,sin:o.sin,total:o.total,ev:o.ev,cliCon:o.cliCon,cliSin:o.cliSin,cliTotal:o.cliTotal,cliVentanaPct:o.cliVentanaPct,p:o.p}})}
 function onTimeByKey(scope,keyFn){const g={};scope.forEach(r=>{const k=keyFn(r)||'Sin dato';(g[k]=g[k]||[]).push(r)});return Object.keys(g).map(k=>{const o=onTime(g[k]);return{key:k,ok:o.ok,bad:o.bad,sin:o.sin,total:o.total,ev:o.ev,p:o.p}}).sort((a,b)=>b.ev-a.ev)}
