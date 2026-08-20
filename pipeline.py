@@ -3,8 +3,9 @@
 Lógica de datos del dashboard de Tiempos de reparto - Foxtrot.
 La usa app.py (Flask). La persistencia (Postgres o JSON) está en storage.py.
 
-Base incremental: cada ruta se identifica por Route ID y su TI/TML aleatorio es
-determinístico por ID, así una ruta ya cargada nunca cambia de valor al actualizar.
+Base incremental: cada ruta se identifica por Route ID. Desde agosto 2026 TI/TML
+pueden calcularse con fichadas FichaYA; si faltan marcas, se usa estimación
+determinística por ID para mantener consistencia histórica.
 """
 
 import os, json, hashlib, re

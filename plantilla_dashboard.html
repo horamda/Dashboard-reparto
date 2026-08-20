@@ -125,8 +125,8 @@ tfoot td{font-weight:700;border-top:2px solid var(--line);border-bottom:none}
  <div id="operationalSummary">
  <div class="sectlbl">Tiempos</div>
  <div class="cards c5">
-  <div class="card" id="cTml"><div class="k">TML · minutos</div><div class="v" id="kTml">–</div><div class="obj">objetivo 30 min</div><div class="bar"><i id="bTml"></i></div></div>
-  <div class="card" id="cTi"><div class="k">TI · minutos</div><div class="v" id="kTi">–</div><div class="obj">objetivo 30 min</div><div class="bar"><i id="bTi"></i></div></div>
+  <div class="card" id="cTml"><div class="k">TML · minutos</div><div class="v" id="kTml">–</div><div class="obj" id="oTml">objetivo 30 min</div><div class="bar"><i id="bTml"></i></div></div>
+  <div class="card" id="cTi"><div class="k">TI · minutos</div><div class="v" id="kTi">–</div><div class="obj" id="oTi">objetivo 30 min</div><div class="bar"><i id="bTi"></i></div></div>
   <div class="card" id="cHr"><div class="k">Horas en ruta</div><div class="v" id="kHr">–</div><div class="obj">prom. jornada · normal + recarga</div><div class="bar"><i id="bHr"></i></div></div>
   <div class="card" id="cN"><div class="k">Jornadas</div><div class="v" id="kN">–</div><div class="obj">persona/día con cierre válido</div><div class="bar"><i style="width:100%;background:var(--ink2)"></i></div></div>
   <div class="card" id="cW"><div class="k">Datos no confiables</div><div class="v" id="kW">–</div><div class="obj">rutas con más de 12 h</div><div class="bar"><i id="bW"></i></div></div>
@@ -141,9 +141,9 @@ tfoot td{font-weight:700;border-top:2px solid var(--line);border-bottom:none}
 
  <div class="sectlbl">Medidores</div>
  <div class="gauges">
-  <div class="gcard"><div class="gt">TML · minutos</div><div id="ggTml"></div><div class="gsub">objetivo 30</div></div>
+  <div class="gcard"><div class="gt">TML · minutos</div><div id="ggTml"></div><div class="gsub">FichaYA desde ago 2026</div></div>
   <div class="gcard"><div class="gt">Tiempo en ruta</div><div id="ggHr"></div><div class="gsub">jornada normal + recarga</div></div>
-  <div class="gcard"><div class="gt">TI · minutos</div><div id="ggTi"></div><div class="gsub">objetivo 30</div></div>
+  <div class="gcard"><div class="gt">TI · minutos</div><div id="ggTi"></div><div class="gsub">FichaYA desde ago 2026</div></div>
  </div>
  </div>
  <div id="viewMes">
@@ -153,9 +153,9 @@ tfoot td{font-weight:700;border-top:2px solid var(--line);border-bottom:none}
    <div class="card" id="cTMLcmp"><div class="badge" id="gTMLcmp"></div><div class="k">Cumplimiento TML</div><div class="v" id="kTMLcmp">–</div><div class="obj">≥65% de rutas validadas con TML ≤ 30 min</div><div class="bar"><i id="bTMLcmp"></i></div></div>
   </div>
   <div class="grid">
-   <div class="panel"><h2>TML por mes</h2><div class="note">Minutos · objetivo 30</div><div class="chartbox"><canvas id="chTml"></canvas></div></div>
+   <div class="panel"><h2>TML por mes</h2><div class="note">Minutos · FichaYA desde ago 2026; histórico estimado · objetivo 30</div><div class="chartbox"><canvas id="chTml"></canvas></div></div>
    <div class="panel"><h2>Tiempo en ruta por mes</h2><div class="note">Promedio por jornada · normal + recarga · objetivo 7</div><div class="chartbox"><canvas id="chHr"></canvas></div></div>
-   <div class="panel"><h2>TI por mes</h2><div class="note">Minutos · objetivo 30</div><div class="chartbox"><canvas id="chTi"></canvas></div></div>
+   <div class="panel"><h2>TI por mes</h2><div class="note">Minutos · FichaYA desde ago 2026; histórico estimado · objetivo 30</div><div class="chartbox"><canvas id="chTi"></canvas></div></div>
   </div>
   <div class="grid" style="grid-template-columns:2fr 1fr">
    <div class="panel"><h2>Mes por mes</h2><div class="note">Adherencia verde si ≥85%, rojo si no.</div>
@@ -172,9 +172,9 @@ tfoot td{font-weight:700;border-top:2px solid var(--line);border-bottom:none}
  <div id="viewDia" style="display:none">
   <div class="hint" id="hintDia"></div>
   <div class="grid">
-   <div class="panel"><h2>TML por día</h2><div class="note">Minutos · objetivo 30</div><div class="chartbox"><canvas id="chTmlD"></canvas></div></div>
+   <div class="panel"><h2>TML por día</h2><div class="note">Minutos · FichaYA desde ago 2026; histórico estimado · objetivo 30</div><div class="chartbox"><canvas id="chTmlD"></canvas></div></div>
    <div class="panel"><h2>Tiempo en ruta por día</h2><div class="note">Promedio por jornada · normal + recarga · objetivo 7</div><div class="chartbox"><canvas id="chHrD"></canvas></div></div>
-   <div class="panel"><h2>TI por día</h2><div class="note">Minutos · objetivo 30</div><div class="chartbox"><canvas id="chTiD"></canvas></div></div>
+   <div class="panel"><h2>TI por día</h2><div class="note">Minutos · FichaYA desde ago 2026; histórico estimado · objetivo 30</div><div class="chartbox"><canvas id="chTiD"></canvas></div></div>
   </div>
   <div class="grid" style="grid-template-columns:1fr 1fr">
    <div class="panel"><h2>Adherencia por día</h2><div class="note">Secuencia y click · objetivo 85%</div><div class="chartbox" style="height:280px"><canvas id="chAdhD"></canvas></div></div>
@@ -187,9 +187,9 @@ tfoot td{font-weight:700;border-top:2px solid var(--line);border-bottom:none}
   <div class="filters" style="margin-bottom:16px"><div class="fg"><label>Semana (lunes a sábado)</label><select id="fSem"></select></div></div>
   <div class="hint" id="hintSem"></div>
   <div class="grid">
-   <div class="panel"><h2>TML por día</h2><div class="note">Minutos · objetivo 30</div><div class="chartbox"><canvas id="chTmlS"></canvas></div></div>
+   <div class="panel"><h2>TML por día</h2><div class="note">Minutos · FichaYA desde ago 2026; histórico estimado · objetivo 30</div><div class="chartbox"><canvas id="chTmlS"></canvas></div></div>
    <div class="panel"><h2>Tiempo en ruta por día</h2><div class="note">Promedio por jornada · normal + recarga · objetivo 7</div><div class="chartbox"><canvas id="chHrS"></canvas></div></div>
-   <div class="panel"><h2>TI por día</h2><div class="note">Minutos · objetivo 30</div><div class="chartbox"><canvas id="chTiS"></canvas></div></div>
+   <div class="panel"><h2>TI por día</h2><div class="note">Minutos · FichaYA desde ago 2026; histórico estimado · objetivo 30</div><div class="chartbox"><canvas id="chTiS"></canvas></div></div>
   </div>
   <div class="grid" style="grid-template-columns:1fr 1fr">
    <div class="panel"><h2>Adherencia por día</h2><div class="note">Secuencia y click · objetivo 85%</div><div class="chartbox" style="height:280px"><canvas id="chAdhS"></canvas></div></div>
@@ -535,6 +535,7 @@ function dispChart(id,labels,kV,hV){if(!chartsReady())return;if(ch[id])ch[id].de
    scales:{y:{ticks:{callback:v=>v+'%',color:'#657085',font:{size:11}},grid:{color:'#eef1f5'}},x:{ticks:{color:'#657085',font:{size:10},maxRotation:60,minRotation:labels.length>12?45:0},grid:{display:false}}}}})}
 function rowsHtml(items,keyFmt,withDisp){return items.map(s=>{const cl=(v,o)=>v==null?'':(v<=o?'g':'r'),ca=v=>v==null?'':(v>=OA?'g':'r'),cd=v=>v==null?'':(Math.abs(v)<=OD?'g':'r');
   return '<tr><td>'+keyFmt(s.key)+'</td><td>'+s.n+'</td><td class="'+cl(s.tml,OBJ.tml)+'">'+r1(s.tml)+'</td><td class="'+cl(s.ti,OBJ.ti)+'">'+r1(s.ti)+'</td><td class="'+cl(s.hr,OBJ.ruta)+'">'+hhmmH(s.hr)+'</td><td class="'+ca(s.as)+'">'+(s.as==null?'–':r1(s.as)+'%')+'</td><td class="'+ca(s.ac)+'">'+(s.ac==null?'–':r1(s.ac)+'%')+'</td>'+(withDisp?('<td class="'+cd(s.dk)+'">'+sgn(s.dk)+'</td><td class="'+cd(s.dh)+'">'+sgn(s.dh)+'</td>'):'')+'</tr>'}).join('')}
+function tmlTiSource(scope){const us=scope.filter(r=>r.usable),fy=us.filter(r=>r.tml_ti_origen==='fichaya').length,est=us.length-fy;if(!us.length)return'Sin rutas válidas para TML/TI';if(fy)return'TML/TI: FichaYA '+fy+' · estimadas '+est;return'TML/TI estimados en este filtro'}
 function quality(scope){const total=scope.length,bad=scope.filter(r=>r.alerta).length,good=total-bad,p=total?good/total*100:null;return{total,bad,good,p}}
 function qualityByMonth(scope){const g={};scope.forEach(r=>{(g[r.mes]=g[r.mes]||[]).push(r)});return Object.keys(g).sort().map(k=>{const q=quality(g[k]);return{key:k,total:q.total,bad:q.bad,good:q.good,p:q.p}})}
 function addClientes(set,items){(items||[]).forEach(c=>{if(c&&c.cliente)set.add(c.cliente)})}
@@ -685,7 +686,7 @@ function teamFmt(key,v){if(v==null||isNaN(v))return'';if(teamWeird(key,v))return
 function teamDayHead(label,f){return label+'<br><span style="font-size:10px;font-weight:600;color:#cbd5e1">'+dLbl(f)+'</span>'}
 function renderTeamRoom(){const aw=state.teamSem||(TEAM_WEEKS[TEAM_WEEKS.length-1]||''),m=aw?aw.slice(0,7):(state.mes==='__all'?(MESES[MESES.length-1]||''):state.mes),routeRowsAll=R.filter(r=>r.usable&&base(r)),rechRowsAll=RECH.filter(rechazoBase),satRowsAll=SAT.filter(genericDataBase),dqiRowsAll=DQI.filter(genericDataBase),routeRows=routeRowsAll.filter(r=>r.mes===m),rechRows=rechRowsAll.filter(r=>r.fecha.slice(0,7)===m),satRows=satRowsAll.filter(r=>r.mes===m),dqiRows=dqiRowsAll.filter(r=>r.mes===m),starts=monthWeekStarts(m),days=[0,1,2,3,4,5].map(i=>addDaysUTC(aw,i));
  const weekHeads=starts.map((_,i)=>'<th class="'+(i===0?'week-start ':'')+'">S'+(i+1)+'</th>').join('');
- hintTeam.innerHTML='<b>'+mLbl(m)+' '+m.slice(0,4)+'</b> · semana diaria '+weekLabel(aw)+' · acumulados S1-S'+starts.length+' por semanas lunes a sábado.';
+ hintTeam.innerHTML='<b>'+mLbl(m)+' '+m.slice(0,4)+'</b> · semana diaria '+weekLabel(aw)+' · acumulados S1-S'+starts.length+' por semanas lunes a sábado · '+tmlTiSource(routeRows)+'.';
  theadTeam.innerHTML='<tr><th class="meta-start" rowspan="2">Indicador<br>cascadeado</th><th class="meta-mid" rowspan="2">Indicador</th><th class="meta-mid" rowspan="2">UM</th><th class="meta-mid" rowspan="2">Objetivo</th><th class="meta-end" rowspan="2">Gatillo</th><th class="grp day-start day-end" colspan="6">Resultados diarios</th><th class="grp week-start week-end" colspan="'+(starts.length+1)+'">Resultados semanales y mensual</th></tr>'+
   '<tr><th class="day-start">'+teamDayHead('Lun',days[0])+'</th><th>'+teamDayHead('Mar',days[1])+'</th><th>'+teamDayHead('Mier',days[2])+'</th><th>'+teamDayHead('Jue',days[3])+'</th><th>'+teamDayHead('Vie',days[4])+'</th><th class="day-end">'+teamDayHead('Sab',days[5])+'</th>'+weekHeads+'<th class="week-end">Mes</th></tr>';
  const cfg=[['','rech','Rechazos HL','%','<= 2%','alerta > 2%'],['','dk','Disp. KM','%','+/- 10%','alerta fuera +/-10%'],['','dh','Disp. Tiempo','%','+/- 10%','alerta fuera +/-10%'],['','click','Adh. Click','%','>= 85%','alerta < 85%'],['','dqi','DQI','bultos','<=12/año · <=1/mes','día <= '+fmt3(OBJ_DQI_DIA)],['','tml','TML','min','< 30 min','alerta > 30'],['','ti','TI','min','< 30 min','alerta > 30'],['','rmd','RMD','pts','>= 4,75','alerta < 4,75'],['','resp','% Respuestas RMD','%','>= 50%','alerta < 50%'],['','nps','NPS gral','pts','>= 70','alerta < 70'],['','npsDel','NPS delivery','pts','>= 70','alerta < 70']];
@@ -737,6 +738,7 @@ function renderCards(){const cards=R.filter(scopeCards),us=cards.filter(r=>r.usa
  kTml.textContent=r1(aTml);kTi.textContent=r1(aTi);kHr.textContent=hhmmH(aHr);kN.textContent=jUs.length;
  const set=(p,val,col,max)=>{document.getElementById('c'+p).style.setProperty('--accent',col);const b=document.getElementById('b'+p);b.style.background=col;b.style.width=Math.min(100,Math.abs(val/max)*100)+'%'};
  set('Tml',aTml||0,colLow(aTml,OBJ.tml),58);set('Ti',aTi||0,colLow(aTi,OBJ.ti),69);set('Hr',aHr||0,colRuta(aHr),OBJ.ruta_max);
+ oTml.textContent=tmlTiSource(us);oTi.textContent=tmlTiSource(us);
  const na=cards.filter(r=>r.alerta).length;kW.textContent=na;set('W',na,na>0?C.bad:C.good,Math.max(1,cards.length));
  document.getElementById('alert').classList.toggle('show',na>0);alertN.textContent=na;hc.textContent=jUs.length;
  const aAs=avg(us.map(r=>r.adhsec)),aAc=avg(us.map(r=>r.adhcli)),aDk=dispAgg(us,'dispkm','disp_km_plan','disp_km_real'),aDh=dispAgg(us,'disphs','disp_hs_plan','disp_hs_real');
@@ -773,8 +775,8 @@ function renderDia(){
  const scope=R.filter(r=>r.usable&&base(r)&&(state.mes==='__all'||r.mes===state.mes));
  const dd=aggOperativo('fecha',scope);const lab=dd.map(s=>dLbl(s.key));const few=dd.length<=20;
  document.getElementById('hintDia').innerHTML=state.mes==='__all'
-   ? '<b>Mostrando todos los días</b> del período. Elegí un <b>Mes</b> arriba para ver el detalle diario de ese mes.'
-   : '<b>Detalle diario de '+mLbl(state.mes)+' 2026</b> · '+dd.length+' días con reparto.';
+   ? '<b>Mostrando todos los días</b> del período · '+tmlTiSource(scope)+'. Elegí un <b>Mes</b> arriba para ver el detalle diario de ese mes.'
+   : '<b>Detalle diario de '+mLbl(state.mes)+' 2026</b> · '+dd.length+' días con reparto · '+tmlTiSource(scope)+'.';
  barGen('chTmlD',lab,dd.map(s=>s.tml),v=>r1(v)+'',v=>colLow(v,OBJ.tml),OBJ.tml,few);
  barGen('chHrD',lab,dd.map(s=>s.hr),hhmmH,colRuta,OBJ.ruta,few);
  barGen('chTiD',lab,dd.map(s=>s.ti),v=>r1(v)+'',v=>colLow(v,OBJ.ti),OBJ.ti,few);
@@ -782,8 +784,8 @@ function renderDia(){
  dispChart('chDispD',lab,dd.map(s=>s.dk),dd.map(s=>s.dh));
  tbodyD.innerHTML=rowsHtml(dd,dLbl,true);}
 function renderSem(){if(!state.sem&&WEEKS.length)state.sem=WEEKS[WEEKS.length-1];
- const dd=aggOperativo('fecha',R.filter(r=>r.usable&&base(r)&&weekKey(r.fecha)===state.sem));const lab=dd.map(s=>wdLbl(s.key));
- document.getElementById('hintSem').innerHTML=dd.length?('<b>Semana '+weekLabel(state.sem)+'</b> · '+dd.length+' días con reparto'):('<b>Semana '+weekLabel(state.sem)+'</b> · sin datos en esta semana');
+ const semScope=R.filter(r=>r.usable&&base(r)&&weekKey(r.fecha)===state.sem),dd=aggOperativo('fecha',semScope),lab=dd.map(s=>wdLbl(s.key));
+ document.getElementById('hintSem').innerHTML=dd.length?('<b>Semana '+weekLabel(state.sem)+'</b> · '+dd.length+' días con reparto · '+tmlTiSource(semScope)):('<b>Semana '+weekLabel(state.sem)+'</b> · sin datos en esta semana');
  barGen('chTmlS',lab,dd.map(s=>s.tml),v=>r1(v)+'',v=>colLow(v,OBJ.tml),OBJ.tml,true);
  barGen('chHrS',lab,dd.map(s=>s.hr),hhmmH,colRuta,OBJ.ruta,true);
  barGen('chTiS',lab,dd.map(s=>s.ti),v=>r1(v)+'',v=>colLow(v,OBJ.ti),OBJ.ti,true);
