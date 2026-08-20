@@ -9,7 +9,7 @@ determinístico por ID, así una ruta ya cargada nunca cambia de valor al actual
 
 import os, json, hashlib, re
 import unicodedata
-from datetime import date
+from datetime import date, datetime
 from io import StringIO
 from urllib.error import HTTPError
 from urllib.parse import urlencode
@@ -35,6 +35,10 @@ RECHAZOS_API_URL = os.environ.get(
 RECHAZOS_SUCURSAL = os.environ.get("RECHAZOS_SUCURSAL", "Dolores")
 RECHAZOS_SUCURSAL_ID = os.environ.get("RECHAZOS_SUCURSAL_ID", "2")
 RECHAZOS_SUCURSALES_IMPORT = os.environ.get("RECHAZOS_API_SUCURSAL", "TODAS")
+FICHAYA_API_BASE_URL = os.environ.get("FICHAYA_API_BASE_URL", "https://control-asistencia.up.railway.app").rstrip("/")
+FICHAYA_API_USERNAME = os.environ.get("FICHAYA_API_USERNAME") or os.environ.get("EXTERNAL_API_USERNAME")
+FICHAYA_API_PASSWORD = os.environ.get("FICHAYA_API_PASSWORD") or os.environ.get("EXTERNAL_API_PASSWORD")
+FICHAYA_TML_TI_DESDE = os.environ.get("FICHAYA_TML_TI_DESDE", "2026-08-01")
 SATISFACCION_CSV_URL = os.environ.get(
     "SATISFACCION_CSV_URL",
     "https://docs.google.com/spreadsheets/d/e/2PACX-1vQkEVyl9kmmMf5vsi--tz5mf39u80tJoFcBzWFFLWhHuXepY5dBEqmSzXLbD0AXapFPj9DLMBqii7TA/pub?gid=0&single=true&output=csv",
@@ -126,6 +130,101 @@ def _norm_id(v):
     if m:
         return m.group(1)
     return s
+
+
+def _norm_persona_key(v):
+    s = unicodedata.normalize("NFKD", str(v or "").strip().upper())
+    s = "".join(ch for ch in s if not unicodedata.combining(ch))
+    return re.sub(r"\s+", " ", s)
+
+
+def _parse_fecha_fichaya(v):
+    s = str(v or "").strip()
+    for fmt in ("%Y-%m-%d", "%d/%m/%Y", "%d/%m/%y"):
+        try:
+            return datetime.strptime(s[:10], fmt).date()
+        except ValueError:
+            pass
+    return None
+
+
+def _parse_hora_fichaya(v):
+    s = str(v or "").strip()
+    for fmt in ("%H:%M:%S", "%H:%M"):
+        try:
+            return datetime.strptime(s[:8], fmt).time()
+        except ValueError:
+            pass
+    return None
+
+
+def _fichaya_token():
+    if not FICHAYA_API_USERNAME or not FICHAYA_API_PASSWORD:
+        return None
+    url = FICHAYA_API_BASE_URL + "/api/v1/external/auth/token"
+    body = json.dumps({"username": FICHAYA_API_USERNAME, "password": FICHAYA_API_PASSWORD}).encode("utf-8")
+    req = Request(url, data=body, headers={"Content-Type": "application/json", "Accept": "application/json"}, method="POST")
+    with urlopen(req, timeout=30) as res:
+        return json.loads(res.read().decode("utf-8")).get("access_token")
+
+
+def cargar_fichadas(desde, hasta):
+    token = _fichaya_token()
+    if not token:
+        return {}
+    params = urlencode({
+        "fecha_desde": desde,
+        "fecha_hasta": hasta,
+        "tipo_marca": "jornada",
+        "estado": "all",
+        "limit": 20000,
+    })
+    url = FICHAYA_API_BASE_URL + "/api/v1/external/reportes/asistencia.csv?" + params
+    req = Request(url, headers={"Authorization": f"Bearer {token}", "Accept": "text/csv"})
+    with urlopen(req, timeout=60) as res:
+        raw = res.read().decode("utf-8-sig")
+    df = pd.read_csv(StringIO(raw))
+    idx = {}
+    for _, row in df.fillna("").iterrows():
+        fecha = _parse_fecha_fichaya(row.get("FECHA"))
+        hora = _parse_hora_fichaya(row.get("HORA"))
+        nombre = _norm_persona_key(row.get("NOMBRE"))
+        if not fecha or not hora or not nombre:
+            continue
+        mov = _norm_persona_key(row.get("TIPO MOV"))
+        key = (fecha.strftime("%Y-%m-%d"), nombre)
+        item = idx.setdefault(key, {"ingresos": [], "egresos": []})
+        if mov in ("ENTRADA", "INGRESO"):
+            item["ingresos"].append(hora)
+        elif mov in ("SALIDA", "EGRESO"):
+            item["egresos"].append(hora)
+    for item in idx.values():
+        item["ingreso"] = min(item["ingresos"]) if item["ingresos"] else None
+        item["egreso"] = max(item["egresos"]) if item["egresos"] else None
+    return idx
+
+
+def _minutos_entre(a, b):
+    if not a or not b:
+        return None
+    return int(round((datetime.combine(date.today(), b) - datetime.combine(date.today(), a)).total_seconds() / 60))
+
+
+def _tml_ti_desde_fichadas(fichadas, fecha, chofer, fox_ini, fox_fin):
+    item = fichadas.get((fecha, _norm_persona_key(chofer))) if fichadas else None
+    if not item or pd.isna(fox_ini) or pd.isna(fox_fin):
+        return None
+    tml = _minutos_entre(item.get("ingreso"), fox_ini.time())
+    ti = _minutos_entre(fox_fin.time(), item.get("egreso"))
+    if tml is None or ti is None or not (0 <= tml <= 240) or not (0 <= ti <= 240):
+        return None
+    return {
+        "tml": tml,
+        "ti": ti,
+        "tml_ti_origen": "fichaya",
+        "fichaya_ingreso": item["ingreso"].strftime("%H:%M"),
+        "fichaya_egreso": item["egreso"].strftime("%H:%M"),
+    }
 
 
 def _norm_customer_id_foxtrot(v):
@@ -976,6 +1075,18 @@ def procesar_export(xls_file, xls_name="", csv_files=None):
     x["dur_h"] = (x["fin_final"] - x["fox_ini"]).dt.total_seconds() / 3600
     x.loc[(x["dur_h"] <= 0) | (x["dur_h"] > 14), "usable"] = False
 
+    fichadas = {}
+    fechas_fichaya = sorted({
+        d.strftime("%Y-%m-%d")
+        for d in x.loc[valid, "fox_ini"].dropna()
+        if d.strftime("%Y-%m-%d") >= FICHAYA_TML_TI_DESDE
+    })
+    if fechas_fichaya:
+        try:
+            fichadas = cargar_fichadas(fechas_fichaya[0], fechas_fichaya[-1])
+        except Exception:
+            fichadas = {}
+
     out = {}
     for i in x[valid].index:
         r = x.loc[i]; rid = str(r["Route ID"]); usable = bool(r["usable"])
@@ -999,8 +1110,12 @@ def procesar_export(xls_file, xls_name="", csv_files=None):
             km_real = _num_or_none(r.get("Total Driven Meters"))
             hs_plan = _num_or_none(r.get("Planned Foxtrot Driving Seconds"))
             hs_real = _num_or_none(r.get("Total Driven Seconds"))
-            rec.update({"ti": _clamp_normal(g, TI_CENTRO, TI_SD, 25, 45),
-                        "tml": _clamp_normal(g, TML_CENTRO, TML_SD, 20, 45),
+            tml_ti_real = None
+            if rec["fecha"] >= FICHAYA_TML_TI_DESDE:
+                tml_ti_real = _tml_ti_desde_fichadas(fichadas, rec["fecha"], rec["chofer"], r["fox_ini"], r["fin_final"])
+            rec.update({"ti": tml_ti_real["ti"] if tml_ti_real else _clamp_normal(g, TI_CENTRO, TI_SD, 25, 45),
+                        "tml": tml_ti_real["tml"] if tml_ti_real else _clamp_normal(g, TML_CENTRO, TML_SD, 20, 45),
+                        "tml_ti_origen": "fichaya" if tml_ti_real else "estimado",
                         "horas": round(r["dur_h"], 3),
                         "adhsec": round(r["Sequence Adherence"] * 100, 1) if pd.notna(r.get("Sequence Adherence")) else None,
                         "adhcli": round(r["Driver Click Score"] * 100, 1) if pd.notna(r.get("Driver Click Score")) else None,
@@ -1010,6 +1125,8 @@ def procesar_export(xls_file, xls_name="", csv_files=None):
                         "disp_hs_real": hs_real,
                         "dispkm": _dispersion(km_plan, km_real),
                         "disphs": _dispersion(hs_plan, hs_real)})
+            if tml_ti_real:
+                rec.update({k: v for k, v in tml_ti_real.items() if k not in ("tml", "ti", "tml_ti_origen")})
             _descartar_dispersion_anomala(rec)
         out[rid] = rec
     return out
