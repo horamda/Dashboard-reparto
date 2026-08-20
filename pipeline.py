@@ -195,6 +195,9 @@ def cargar_fichadas(desde, hasta):
         mov = _norm_persona_key(row.get("TIPO MOV"))
         key = (fecha.strftime("%Y-%m-%d"), nombre)
         item = idx.setdefault(key, {"ingresos": [], "egresos": []})
+        codigo = _norm_id(row.get("CODIGO"))
+        if codigo:
+            idx[(fecha.strftime("%Y-%m-%d"), "LEGAJO:" + codigo)] = item
         if mov in ("ENTRADA", "INGRESO"):
             item["ingresos"].append(hora)
         elif mov in ("SALIDA", "EGRESO"):

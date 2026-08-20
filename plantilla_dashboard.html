@@ -10,6 +10,9 @@ body{font-family:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-
 .wrap{width:min(100% - 32px,1240px);margin:0 auto;padding:0 0 56px}
 header{background:var(--ink);color:#fff;padding:20px 0 18px;margin-bottom:18px;border-bottom:3px solid #C77D1A;position:sticky;top:0;z-index:20;box-shadow:0 8px 24px rgba(21,35,59,.18)}
 header .wrap{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;padding-bottom:0}
+.head-actions{display:flex;align-items:center;justify-content:flex-end;gap:8px;flex-wrap:wrap}
+.head-actions a{color:#fff;text-decoration:none;border:1px solid rgba(255,255,255,.24);background:rgba(255,255,255,.08);border-radius:8px;padding:8px 10px;font-size:12.5px;font-weight:700;white-space:nowrap}
+.head-actions a:hover{background:#fff;color:var(--ink)}
 h1{font-size:clamp(17px,2.4vw,22px);font-weight:750;letter-spacing:0;line-height:1.15}.sub{color:#c4cee0;font-size:13px;margin-top:5px}
 .hcount{text-align:right;color:#cdd7e6;font-size:12px;min-width:118px}.hcount b{display:block;font-size:clamp(22px,4vw,28px);color:#fff;font-weight:750;line-height:1.05}
 .alert{display:none;align-items:center;gap:10px;background:#FEF2F2;border:1px solid #FCA5A5;border-left:4px solid var(--bad);color:#991B1B;border-radius:10px;padding:12px 16px;margin-bottom:18px;font-size:13.5px}
@@ -106,11 +109,12 @@ tfoot td{font-weight:700;border-top:2px solid var(--line);border-bottom:none}
 .pill{display:inline-flex;align-items:center;justify-content:center;min-width:52px;padding:3px 7px;border-radius:999px;font-weight:800;font-size:11.5px}
 .pill.good{background:#DCFCE7;color:#166534}.pill.bad{background:#FEE2E2;color:#991B1B}.pill.neutral{background:#EEF2F7;color:var(--ink2)}
 @media(max-width:1100px){.filters{grid-template-columns:repeat(2,minmax(170px,1fr))}.reset{width:100%}.grid{grid-template-columns:1fr!important}}
-@media(max-width:720px){.wrap{width:min(100% - 20px,1240px);padding-bottom:40px}header{position:relative;padding:18px 0 16px}header .wrap{align-items:flex-start}.hcount{text-align:left}.filters{grid-template-columns:1fr;padding:12px}.panel{padding:14px 12px;overflow:hidden}.panel>table{display:block;overflow-x:auto;white-space:nowrap}.card{min-height:104px;padding:14px}.cards,.c5,.c4,.c2{grid-template-columns:1fr}.tab{padding:9px 14px}.chartbox{height:260px}.tblscroll{margin:0 -8px;padding:0 8px;border-radius:0}.team-table{min-width:980px;font-size:11px}.team-table th,.team-table td{padding:8px 6px}.team-table tbody td:nth-child(2){font-size:11.5px;padding-left:10px}.team-table th:first-child,.team-table td:first-child{max-width:82px;min-width:82px;white-space:normal}.rech-table{min-width:1080px}.rech-table th,.rech-table td{padding:9px 8px}.pill{min-width:48px}}
+@media(max-width:720px){.wrap{width:min(100% - 20px,1240px);padding-bottom:40px}header{position:relative;padding:18px 0 16px}header .wrap{align-items:flex-start}.head-actions{justify-content:flex-start}.head-actions a{padding:7px 9px;font-size:12px}.hcount{text-align:left}.filters{grid-template-columns:1fr;padding:12px}.panel{padding:14px 12px;overflow:hidden}.panel>table{display:block;overflow-x:auto;white-space:nowrap}.card{min-height:104px;padding:14px}.cards,.c5,.c4,.c2{grid-template-columns:1fr}.tab{padding:9px 14px}.chartbox{height:260px}.tblscroll{margin:0 -8px;padding:0 8px;border-radius:0}.team-table{min-width:980px;font-size:11px}.team-table th,.team-table td{padding:8px 6px}.team-table tbody td:nth-child(2){font-size:11.5px;padding-left:10px}.team-table th:first-child,.team-table td:first-child{max-width:82px;min-width:82px;white-space:normal}.rech-table{min-width:1080px}.rech-table th,.rech-table td{padding:9px 8px}.pill{min-width:48px}}
 @media(max-width:420px){.wrap{width:min(100% - 14px,1240px)}.panel{padding:12px 9px}.filters{gap:10px}.team-table{min-width:920px}.team-table th,.team-table td{padding:7px 5px}.team-table th:first-child,.team-table td:first-child{max-width:72px;min-width:72px}.card .v{font-size:22px}}
 </style></head><body>
 <header><div class="wrap"><div><h1>Tiempos de reparto · Foxtrot - FichaYA - 2026 </h1>
 <div class="sub" id="periodo">del Palacio S.A.</div></div>
+<div class="head-actions"><a href="/inicio">Panel principal</a><a href="/reporte-fichaya-foxtrot">Reporte FichaYA</a><a href="/asociar-fichaya">Asociar nombres</a><a href="/admin">Admin</a><a href="/logout">Salir</a></div>
 <div class="hcount"><b id="hc">0</b>jornadas analizadas</div></div></header>
 <div class="wrap">
  <div class="alert" id="alert"><span>&#9888;</span><span><b id="alertN">0</b> rutas no confiables : se consideran <b>datos corruptos o no confiables</b> y quedan fuera de los indicadores operativos.</span></div>

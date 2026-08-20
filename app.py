@@ -15,11 +15,14 @@ clave para subir datos.
 """
 
 import os
+import csv
 import json
 import secrets
 import time
 from datetime import date
 from html import escape
+from io import StringIO
+from urllib.parse import urlencode
 from flask import Flask, request, redirect, url_for, Response, session
 import pipeline
 
@@ -68,7 +71,7 @@ a{{color:#1E3A8A;font-size:13.5px}}hr{{border:0;border-top:1px solid #DCE2EA;mar
     <input type=checkbox name=reset value=1 style="width:auto;margin-right:6px">Rehacer la base de cero (borra lo guardado)</label>
   <button class=btn type=submit>Actualizar</button>
 </form>
-<p style="margin-top:18px"><a href="/dashboard">&larr; Volver al dashboard</a> · <a href="/datos">Revisar datos cargados</a> · <a href="/foxtrot-calidad">Calidad Foxtrot</a> · <a href="/logout">Cerrar sesión</a></p>
+<p style="margin-top:18px"><a href="/inicio">Panel principal</a> · <a href="/dashboard">Dashboard</a> · <a href="/datos">Revisar datos cargados</a> · <a href="/foxtrot-calidad">Calidad Foxtrot</a> · <a href="/reporte-fichaya-foxtrot">Reporte FichaYA/Foxtrot</a> · <a href="/logout">Cerrar sesión</a></p>
 <hr>
 <h1>Importar rechazos</h1>
 <p>Consume el endpoint CSV de rechazos diarios de Dolores y lo guarda en la base.</p>
@@ -202,7 +205,7 @@ def _admin_page(msg="", err=False):
 
 def _login_page(msg="", err=False):
     m = f'<div class="err">{msg}</div>' if msg else ""
-    next_url = request.args.get("next") or request.form.get("next") or url_for("admin")
+    next_url = request.args.get("next") or request.form.get("next") or url_for("inicio")
     return LOGIN_HTML.format(msg=m, next_url=next_url)
 
 
@@ -220,6 +223,27 @@ def _dashboard_response():
     if not pipeline.hay_datos():
         return Response(LANDING, mimetype="text/html")
     return Response(pipeline.render_dashboard(), mimetype="text/html")
+
+
+def _main_page():
+    blocked = _require_login()
+    if blocked:
+        return blocked
+    cards = [
+        ("Dashboard operativo", "Indicadores principales, Team Room, DPO, rechazos, OTIF y calidad.", "/dashboard", "Abrir dashboard"),
+        ("Actualizar datos", "Carga de Route Analytics, visitas Foxtrot, clientes, rechazos y artículos.", "/admin", "Ir a admin"),
+        ("Datos cargados", "Revisión y edición directa de rutas, clientes, rechazos, artículos y configuración.", "/datos", "Revisar datos"),
+        ("Calidad Foxtrot", "Auditoría de columnas vacías y autocompletado de campos Foxtrot.", "/foxtrot-calidad", "Ver calidad"),
+        ("Reporte FichaYA / Foxtrot", "Empleado, fichada de ingreso, inicio Foxtrot, TML, fin Foxtrot, salida y TI.", "/reporte-fichaya-foxtrot", "Abrir reporte"),
+        ("Asociar nombres", "Mapa entre nombres de choferes Foxtrot y nombres de empleados FichaYA.", "/asociar-fichaya", "Asociar"),
+    ]
+    items = "".join(
+        f"""<a class=hub-card href="{escape(url)}"><span>{escape(title)}</span><p>{escape(desc)}</p><b>{escape(cta)}</b></a>"""
+        for title, desc, url, cta in cards
+    )
+    return f"""<!doctype html><html lang=es><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><title>Panel principal</title>
+<style>*{{box-sizing:border-box}}body{{font-family:system-ui,Segoe UI,Arial,sans-serif;background:#EEF1F5;color:#15233B;margin:0;line-height:1.45;-webkit-font-smoothing:antialiased}}.wrap{{width:min(100% - 28px,1180px);margin:28px auto 44px}}.top{{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;margin-bottom:22px}}h1{{font-size:28px;line-height:1.1;margin:0 0 6px}}.muted{{color:#657085;font-size:14px;margin:0}}.nav{{display:flex;gap:8px;flex-wrap:wrap}}.nav a{{background:#fff;color:#15233B;border:1px solid #DCE2EA;text-decoration:none;border-radius:8px;padding:10px 13px;font-size:13.5px;font-weight:650}}.grid{{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px}}.hub-card{{display:block;background:#fff;border:1px solid #DCE2EA;border-left:5px solid #C77D1A;border-radius:10px;padding:18px 18px 16px;text-decoration:none;color:#15233B;min-height:154px;box-shadow:0 8px 22px rgba(21,35,59,.045)}}.hub-card:hover{{border-color:#C77D1A;box-shadow:0 10px 24px rgba(21,35,59,.08);transform:translateY(-1px)}}.hub-card span{{display:block;font-size:17px;font-weight:800;margin-bottom:7px}}.hub-card p{{color:#657085;font-size:13.5px;margin:0 0 18px}}.hub-card b{{display:inline-block;background:#15233B;color:#fff;border-radius:8px;padding:9px 12px;font-size:13px}}@media(max-width:720px){{.top{{display:block}}.nav{{margin-top:12px}}h1{{font-size:24px}}.wrap{{width:min(100% - 18px,1180px);margin-top:18px}}}}</style></head>
+<body><div class=wrap><div class=top><div><h1>Panel principal</h1><p class=muted>Accesos del sistema de reparto, Foxtrot y FichaYA.</p></div><div class=nav><a href="/logout">Cerrar sesión</a></div></div><div class=grid>{items}</div></div></body></html>"""
 
 
 def _short_value(value):
@@ -529,16 +553,253 @@ def _datos_page(table="rutas", q="", msg="", err=False, edit_key=""):
         body = f'<tr><td class=empty colspan="{len(spec["cols"]) + 1}">No hay registros para mostrar.</td></tr>'
     return f"""<!doctype html><html lang=es><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><title>Datos cargados</title>{DATOS_CSS}</head>
 <body><div class=wrap><div class=top><div><h1>Datos cargados</h1><p class=muted>Revisión y edición directa de las tablas usadas por el dashboard.</p></div>
-<div class=nav><a class=secondary href="/dashboard">Dashboard</a><a class=secondary href="/foxtrot-calidad">Calidad Foxtrot</a><a class=secondary href="/admin">Admin</a><a href="/logout">Salir</a></div></div>{alert}
+<div class=nav><a class=secondary href="/dashboard">Dashboard</a><a class=secondary href="/foxtrot-calidad">Calidad Foxtrot</a><a class=secondary href="/reporte-fichaya-foxtrot">Reporte FichaYA/Foxtrot</a><a class=secondary href="/admin">Admin</a><a href="/logout">Salir</a></div></div>{alert}
 <div class=tabs>{tabs}</div><form class=tools method=get action="/datos"><input type=hidden name=tabla value="{escape(table)}"><input name=q value="{escape(q)}" placeholder="Buscar en esta tabla"><button class=btn type=submit>Buscar</button><a class="btn secondary" href="/datos?tabla={escape(table)}">Limpiar</a></form>
 <div class=panel><div class=table-wrap><table><thead><tr>{header}</tr></thead><tbody>{body}</tbody></table></div></div>
 <p class=muted style="margin-top:12px">Se muestran hasta 500 registros por búsqueda. Editar JSON incorrecto puede afectar el dashboard.</p>
 </div></body></html>"""
 
 
+def _time_to_label(value):
+    if value is None:
+        return ""
+    if hasattr(value, "strftime"):
+        return value.strftime("%H:%M")
+    return str(value or "")[:5]
+
+
+def _route_time(value):
+    return pipeline._parse_hora_fichaya(value)
+
+
+def _fichaya_name_map():
+    rec = (pipeline.storage.load_settings().get("fichaya_nombre_map") or {})
+    raw = rec.get("valor") if isinstance(rec, dict) else rec
+    return raw if isinstance(raw, dict) else {}
+
+
+def _fichaya_empleados():
+    rec = (pipeline.storage.load_settings().get("fichaya_empleados") or {})
+    raw = rec.get("valor") if isinstance(rec, dict) else rec
+    return raw if isinstance(raw, dict) else {}
+
+
+def _import_fichaya_empleados(file_obj):
+    if hasattr(file_obj, "seek"):
+        file_obj.seek(0)
+    wb = pipeline.load_workbook(file_obj, read_only=True, data_only=True)
+    ws = wb["Empleados"] if "Empleados" in wb.sheetnames else wb.worksheets[0]
+    rows = list(ws.iter_rows(values_only=True))
+    header_idx = None
+    for i, row in enumerate(rows):
+        vals = [str(v or "").strip().lower() for v in row]
+        if "legajo" in vals and "apellido" in vals and "nombre" in vals:
+            header_idx = i
+            break
+    if header_idx is None:
+        raise ValueError("No encontré columnas legajo, apellido y nombre.")
+    header = [str(v or "").strip().lower() for v in rows[header_idx]]
+    idx = {name: i for i, name in enumerate(header) if name}
+    empleados = {}
+    for row in rows[header_idx + 1:]:
+        legajo = pipeline._norm_id(row[idx["legajo"]] if idx.get("legajo") is not None and idx["legajo"] < len(row) else "")
+        if not legajo or not legajo.isdigit():
+            continue
+        apellido = str(row[idx["apellido"]] if idx.get("apellido") is not None and idx["apellido"] < len(row) and row[idx["apellido"]] is not None else "").strip()
+        nombre = str(row[idx["nombre"]] if idx.get("nombre") is not None and idx["nombre"] < len(row) and row[idx["nombre"]] is not None else "").strip()
+        nombre_completo = " ".join(x for x in [apellido, nombre] if x).strip()
+        empleados[legajo] = {
+            "legajo": legajo,
+            "nombre": nombre_completo,
+            "sucursal": str(row[idx["sucursal_nombre"]] if idx.get("sucursal_nombre") is not None and idx["sucursal_nombre"] < len(row) and row[idx["sucursal_nombre"]] is not None else "").strip(),
+            "puesto": str(row[idx["puesto_nombre"]] if idx.get("puesto_nombre") is not None and idx["puesto_nombre"] < len(row) and row[idx["puesto_nombre"]] is not None else "").strip(),
+            "estado": str(row[idx["estado"]] if idx.get("estado") is not None and idx["estado"] < len(row) and row[idx["estado"]] is not None else "").strip(),
+        }
+    pipeline.storage.save_setting("fichaya_empleados", {"valor": empleados})
+    return empleados
+
+
+def _fichaya_lookup_ref(foxtrot_name, mapping=None, empleados=None):
+    mapping = mapping if mapping is not None else _fichaya_name_map()
+    empleados = empleados if empleados is not None else _fichaya_empleados()
+    entry = mapping.get(pipeline._norm_persona_key(foxtrot_name))
+    if isinstance(entry, dict):
+        legajo = pipeline._norm_id(entry.get("legajo"))
+        nombre = entry.get("nombre") or (empleados.get(legajo) or {}).get("nombre") or ""
+        return {"legajo": legajo, "nombre": nombre or foxtrot_name or ""}
+    if isinstance(entry, str) and entry:
+        emp = empleados.get(pipeline._norm_id(entry))
+        if emp:
+            return {"legajo": emp["legajo"], "nombre": emp.get("nombre") or foxtrot_name or ""}
+        return {"legajo": "", "nombre": entry}
+    return {"legajo": "", "nombre": foxtrot_name or ""}
+
+
+def _fichaya_report_rows(desde="2026-08-01", hasta=None, suc="", chofer=""):
+    hasta = hasta or date.today().strftime("%Y-%m-%d")
+    base = list(pipeline.storage.load_all().values())
+    rows = [
+        r for r in base
+        if r.get("usable") and (r.get("fecha") or "") >= desde and (r.get("fecha") or "") <= hasta
+    ]
+    if suc:
+        rows = [r for r in rows if (r.get("suc") or "") == suc]
+    if chofer:
+        rows = [r for r in rows if pipeline._norm_persona_key(r.get("chofer")) == pipeline._norm_persona_key(chofer)]
+    rows = sorted(rows, key=lambda r: (r.get("fecha") or "", r.get("suc") or "", r.get("chofer") or "", r.get("inicio_foxtrot") or ""))
+
+    fichadas, warning = {}, ""
+    fichaya_live_ok = False
+    if rows:
+        try:
+            fechas = [r.get("fecha") for r in rows if r.get("fecha")]
+            fichadas = pipeline.cargar_fichadas(min(fechas), max(fechas)) if fechas else {}
+            fichaya_live_ok = bool(fichadas)
+            if not fichaya_live_ok:
+                warning = "No se recibieron fichadas desde FichaYA en vivo. Revisar credenciales, disponibilidad del servicio o si el rango tiene marcas cargadas."
+        except Exception as exc:
+            warning = f"No se pudo consultar FichaYA en vivo ({exc}). El reporte requiere conexión activa a FichaYA para calcular TML/TI."
+
+    mapping = _fichaya_name_map()
+    empleados = _fichaya_empleados()
+    out = []
+    for rec in rows:
+        fecha = rec.get("fecha") or ""
+        nombre = rec.get("chofer") or ""
+        ref = _fichaya_lookup_ref(nombre, mapping, empleados)
+        legajo_fichaya = ref.get("legajo", "")
+        nombre_fichaya = ref.get("nombre", "")
+        item = None
+        if fichadas and legajo_fichaya:
+            item = fichadas.get((fecha, "LEGAJO:" + legajo_fichaya))
+        if fichadas and item is None:
+            item = fichadas.get((fecha, pipeline._norm_persona_key(nombre_fichaya)))
+        ingreso = item.get("ingreso") if item else None
+        egreso = item.get("egreso") if item else None
+        ini = _route_time(rec.get("inicio_foxtrot"))
+        fin = _route_time(rec.get("fin_foxtrot"))
+        tml = pipeline._minutos_entre(ingreso, ini)
+        ti = pipeline._minutos_entre(fin, egreso)
+        tml_ok = tml is not None and 0 <= tml <= 240
+        ti_ok = ti is not None and 0 <= ti <= 240
+        estado = "OK" if tml_ok and ti_ok else "Faltan fichadas FichaYA"
+        if rows and not fichaya_live_ok:
+            estado = "Sin conexión FichaYA"
+        if (tml is not None and not tml_ok) or (ti is not None and not ti_ok):
+            estado = "Revisar"
+        out.append({
+            "fecha": fecha,
+            "sucursal": rec.get("suc") or "",
+            "empleado": nombre,
+            "legajo_fichaya": legajo_fichaya,
+            "empleado_fichaya": nombre_fichaya if nombre_fichaya != nombre else "",
+            "fichada_ingreso": _time_to_label(ingreso),
+            "inicio_foxtrot": rec.get("inicio_foxtrot") or "",
+            "tml": tml if tml_ok else "",
+            "finalizacion_foxtrot": rec.get("fin_foxtrot") or "",
+            "fichada_salida": _time_to_label(egreso),
+            "ti": ti if ti_ok else "",
+            "route_id": rec.get("rid") or "",
+            "estado": estado,
+        })
+    return out, warning
+
+
+def _fichaya_report_page():
+    blocked = _require_login()
+    if blocked:
+        return blocked
+    desde = request.args.get("desde") or "2026-08-01"
+    hasta = request.args.get("hasta") or date.today().strftime("%Y-%m-%d")
+    suc = request.args.get("suc") or ""
+    chofer = request.args.get("chofer") or ""
+    all_rows = [r for r in pipeline.storage.load_all().values() if r.get("usable") and (r.get("fecha") or "") >= "2026-08-01"]
+    sucs = sorted({r.get("suc") for r in all_rows if r.get("suc")})
+    choferes = sorted({r.get("chofer") for r in all_rows if r.get("chofer")})
+    rows, warning = _fichaya_report_rows(desde, hasta, suc, chofer)
+    csv_qs = urlencode({"desde": desde, "hasta": hasta, "suc": suc, "chofer": chofer})
+    opts_suc = '<option value="">Todas</option>' + ''.join(f'<option value="{escape(x)}"{" selected" if x == suc else ""}>{escape(x)}</option>' for x in sucs)
+    opts_cho = '<option value="">Todos</option>' + ''.join(f'<option value="{escape(x)}"{" selected" if x == chofer else ""}>{escape(x)}</option>' for x in choferes)
+    body = "".join(
+        "<tr>"
+        f"<td>{escape(r['fecha'])}</td><td>{escape(r['sucursal'])}</td><td>{escape(r['empleado'])}</td><td>{escape(r['legajo_fichaya'])}</td><td>{escape(r['empleado_fichaya'])}</td>"
+        f"<td>{escape(r['fichada_ingreso'])}</td><td>{escape(r['inicio_foxtrot'])}</td><td class=r>{escape(str(r['tml']))}</td>"
+        f"<td>{escape(r['finalizacion_foxtrot'])}</td><td>{escape(r['fichada_salida'])}</td><td class=r>{escape(str(r['ti']))}</td>"
+        f"<td>{escape(r['estado'])}</td><td class=trunc>{escape(r['route_id'])}</td></tr>"
+        for r in rows
+    ) or '<tr><td class=empty colspan=13>No hay rutas desde agosto con esos filtros.</td></tr>'
+    alert = f'<div class="msg err">{escape(warning)}</div>' if warning else ""
+    return f"""<!doctype html><html lang=es><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><title>Reporte FichaYA Foxtrot</title>{DATOS_CSS}
+<style>.tools select,.tools input{{min-height:40px;border:1px solid #DCE2EA;border-radius:8px;padding:9px 10px;background:#fff}}.r{{font-weight:750}}.ok{{color:#166534}}.bad{{color:#991B1B}}</style></head>
+<body><div class=wrap><div class=top><div><h1>Reporte FichaYA + Foxtrot</h1><p class=muted>Desde agosto 2026. TML = inicio Foxtrot - fichada ingreso. TI = fichada salida - finalización Foxtrot.</p></div>
+<div class=nav><a class=secondary href="/dashboard">Dashboard</a><a class=secondary href="/datos">Datos</a><a href="/admin">Admin</a></div></div>{alert}
+<form class=tools method=get action="/reporte-fichaya-foxtrot">
+<label>Desde <input type=date name=desde value="{escape(desde)}"></label>
+<label>Hasta <input type=date name=hasta value="{escape(hasta)}"></label>
+<label>Sucursal <select name=suc>{opts_suc}</select></label>
+<label>Chofer <select name=chofer>{opts_cho}</select></label>
+<button class=btn type=submit>Filtrar</button><a class="btn secondary" href="/reporte-fichaya-foxtrot">Limpiar</a><a class="btn secondary" href="/asociar-fichaya">Asociar nombres</a><a class=btn href="/reporte-fichaya-foxtrot.csv?{csv_qs}">Descargar CSV</a>
+</form>
+<div class=panel><div class=table-wrap><table><thead><tr><th>Fecha</th><th>Sucursal</th><th>Empleado Foxtrot</th><th>Legajo FichaYA</th><th>Empleado FichaYA</th><th>Fichada ingreso</th><th>Inicio Foxtrot</th><th>TML</th><th>Finalización Foxtrot</th><th>Fichada salida</th><th>TI</th><th>Estado</th><th>Route ID</th></tr></thead><tbody>{body}</tbody></table></div></div>
+<p class=muted style="margin-top:12px">Filas: {len(rows)}. Si faltan credenciales FichaYA o marcas del empleado, las fichadas quedan vacías.</p>
+</div></body></html>"""
+
+
+def _fichaya_mapping_page(msg="", err=False):
+    blocked = _require_login()
+    if blocked:
+        return blocked
+    mapping = _fichaya_name_map()
+    empleados = _fichaya_empleados()
+    rutas = [
+        r for r in pipeline.storage.load_all().values()
+        if r.get("usable") and (r.get("fecha") or "") >= "2026-08-01" and r.get("chofer")
+    ]
+    choferes = sorted({r.get("chofer") for r in rutas})
+    candidates = []
+    try:
+        if rutas:
+            fechas = [r.get("fecha") for r in rutas if r.get("fecha")]
+            fichadas = pipeline.cargar_fichadas(min(fechas), max(fechas))
+            candidates = sorted({name for _, name in fichadas.keys()})
+    except Exception:
+        candidates = []
+    emp_options = "".join(
+        f'<option value="{escape(leg)}">{escape(leg)} · {escape(emp.get("nombre", ""))} · {escape(emp.get("sucursal", ""))}</option>'
+        for leg, emp in sorted(empleados.items(), key=lambda kv: kv[1].get("nombre", ""))
+    )
+    datalist = '<datalist id="fichayaNames">' + ''.join(f'<option value="{escape(x)}"></option>' for x in candidates) + '</datalist>'
+    body = ""
+    for name in choferes:
+        norm = pipeline._norm_persona_key(name)
+        mapped = mapping.get(norm, {})
+        mapped_legajo = pipeline._norm_id(mapped.get("legajo") if isinstance(mapped, dict) else mapped)
+        mapped_name = (empleados.get(mapped_legajo) or {}).get("nombre", "")
+        body += f"""<tr><td>{escape(name)}</td><td><select name="map__{escape(norm)}"><option value="">Usar nombre Foxtrot</option>{emp_options.replace('value="' + escape(mapped_legajo) + '"', 'value="' + escape(mapped_legajo) + '" selected', 1) if mapped_legajo else emp_options}</select><small>{escape(mapped_name)}</small></td></tr>"""
+    if not body:
+        body = '<tr><td class=empty colspan=2>No hay choferes Foxtrot desde agosto.</td></tr>'
+    alert = f'<div class="msg{" err" if err else ""}">{escape(msg)}</div>' if msg else ""
+    return f"""<!doctype html><html lang=es><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><title>Asociar nombres FichaYA</title>{DATOS_CSS}
+<style>td select{{width:100%;min-width:300px;border:1px solid #DCE2EA;border-radius:8px;padding:8px 10px;background:#fff}}td small{{display:block;color:#657085;margin-top:4px}}.panel{{max-width:960px}}.upload{{max-width:960px;background:#fff;border:1px solid #DCE2EA;border-radius:10px;padding:14px;margin-bottom:16px}}</style></head>
+<body><div class=wrap><div class=top><div><h1>Asociar nombres Foxtrot / FichaYA</h1><p class=muted>Relacioná cada chofer de Foxtrot contra el legajo de FichaYA. El reporte busca fichadas por legajo primero.</p></div>
+<div class=nav><a class=secondary href="/reporte-fichaya-foxtrot">Reporte</a><a class=secondary href="/dashboard">Dashboard</a><a href="/admin">Admin</a></div></div>{alert}
+<form class=upload method=post action="/asociar-fichaya/importar" enctype="multipart/form-data"><b>Importar empleados FichaYA</b><p class=muted>Subí el Excel exportado desde FichaYA para cargar legajos y nombres.</p><input type=file name=empleados accept=".xlsx,.xls" required> <button class=btn type=submit>Importar empleados</button></form>
+<form method=post action="/asociar-fichaya/guardar">{datalist}<div class=panel><div class=table-wrap><table><thead><tr><th>Nombre Foxtrot</th><th>Legajo / empleado FichaYA</th></tr></thead><tbody>{body}</tbody></table></div></div>
+<button class=btn type=submit style="margin-top:16px">Guardar asociaciones</button></form>
+<p class=muted style="margin-top:12px">Empleados FichaYA cargados: {len(empleados)}. Candidatos por fichadas disponibles: {len(candidates)}. El reporte usa esta asociación al calcular TML/TI.</p>
+</div></body></html>"""
+
+
 @app.route("/")
 def home():
-    return _dashboard_response()
+    if _is_logged_in():
+        return redirect(url_for("inicio"))
+    return redirect(url_for("login"))
+
+
+@app.route("/inicio")
+def inicio():
+    return _main_page()
 
 
 @app.route("/dashboard")
@@ -555,7 +816,7 @@ def login():
         password = request.form.get("password", "")
         if secrets.compare_digest(user, ADMIN_USER) and secrets.compare_digest(password, ADMIN_PASSWORD):
             session["admin_logged_in"] = True
-            return redirect(request.form.get("next") or url_for("admin"))
+            return redirect(request.form.get("next") or url_for("inicio"))
         return Response(_login_page("Usuario o clave incorrectos.", err=True), mimetype="text/html", status=403)
     return Response(_login_page(), mimetype="text/html")
 
@@ -608,6 +869,76 @@ def foxtrot_calidad():
         ),
         mimetype="text/html",
     )
+
+
+@app.route("/reporte-fichaya-foxtrot")
+def reporte_fichaya_foxtrot():
+    return _fichaya_report_page()
+
+
+@app.route("/reporte-fichaya-foxtrot.csv")
+def reporte_fichaya_foxtrot_csv():
+    blocked = _require_login()
+    if blocked:
+        return blocked
+    rows, warning = _fichaya_report_rows(
+        request.args.get("desde") or "2026-08-01",
+        request.args.get("hasta") or date.today().strftime("%Y-%m-%d"),
+        request.args.get("suc") or "",
+        request.args.get("chofer") or "",
+    )
+    buf = StringIO()
+    fields = ["fecha", "sucursal", "empleado", "legajo_fichaya", "empleado_fichaya", "fichada_ingreso", "inicio_foxtrot", "tml", "finalizacion_foxtrot", "fichada_salida", "ti", "estado", "route_id"]
+    writer = csv.DictWriter(buf, fieldnames=fields)
+    writer.writeheader()
+    writer.writerows(rows)
+    resp = Response(buf.getvalue(), mimetype="text/csv; charset=utf-8")
+    resp.headers["Content-Disposition"] = "attachment; filename=reporte_fichaya_foxtrot.csv"
+    if warning:
+        resp.headers["X-Report-Warning"] = warning[:500]
+    return resp
+
+
+@app.route("/asociar-fichaya")
+def asociar_fichaya():
+    return _fichaya_mapping_page(
+        msg=request.args.get("msg", ""),
+        err=request.args.get("err") == "1",
+    )
+
+
+@app.route("/asociar-fichaya/importar", methods=["POST"])
+def asociar_fichaya_importar():
+    blocked = _require_login()
+    if blocked:
+        return blocked
+    archivo = request.files.get("empleados")
+    if not archivo or not archivo.filename:
+        return redirect(url_for("asociar_fichaya", msg="Falta el archivo de empleados.", err=1))
+    try:
+        empleados = _import_fichaya_empleados(archivo.stream)
+    except Exception as e:
+        return redirect(url_for("asociar_fichaya", msg=f"Error importando empleados: {e}", err=1))
+    return redirect(url_for("asociar_fichaya", msg=f"Empleados FichaYA importados: {len(empleados)}."))
+
+
+@app.route("/asociar-fichaya/guardar", methods=["POST"])
+def asociar_fichaya_guardar():
+    blocked = _require_login()
+    if blocked:
+        return blocked
+    empleados = _fichaya_empleados()
+    mapping = {}
+    for key, value in request.form.items():
+        if not key.startswith("map__"):
+            continue
+        norm = key[5:]
+        legajo = pipeline._norm_id(value)
+        if legajo:
+            emp = empleados.get(legajo) or {}
+            mapping[norm] = {"legajo": legajo, "nombre": emp.get("nombre", "")}
+    pipeline.storage.save_setting("fichaya_nombre_map", {"valor": mapping})
+    return redirect(url_for("asociar_fichaya", msg=f"Asociaciones guardadas: {len(mapping)}."))
 
 
 @app.route("/foxtrot-calidad/guardar", methods=["POST"])
