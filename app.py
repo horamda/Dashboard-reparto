@@ -17,6 +17,7 @@ clave para subir datos.
 import os
 import json
 import secrets
+import time
 from datetime import date
 from html import escape
 from flask import Flask, request, redirect, url_for, Response, session
@@ -67,7 +68,7 @@ a{{color:#1E3A8A;font-size:13.5px}}hr{{border:0;border-top:1px solid #DCE2EA;mar
     <input type=checkbox name=reset value=1 style="width:auto;margin-right:6px">Rehacer la base de cero (borra lo guardado)</label>
   <button class=btn type=submit>Actualizar</button>
 </form>
-<p style="margin-top:18px"><a href="/dashboard">&larr; Volver al dashboard</a> · <a href="/datos">Revisar datos cargados</a> · <a href="/logout">Cerrar sesión</a></p>
+<p style="margin-top:18px"><a href="/dashboard">&larr; Volver al dashboard</a> · <a href="/datos">Revisar datos cargados</a> · <a href="/foxtrot-calidad">Calidad Foxtrot</a> · <a href="/logout">Cerrar sesión</a></p>
 <hr>
 <h1>Importar rechazos</h1>
 <p>Consume el endpoint CSV de rechazos diarios de Dolores y lo guarda en la base.</p>
@@ -151,6 +152,40 @@ TABLES = {
     "rechazos_detalle": {"label": "Detalle rechazos", "key": "key", "load": lambda: pipeline.storage.load_rechazos_detalle(), "cols": ["fecha", "sucursal", "chofer", "sector", "motivo", "pedidos_rechazo", "bultos_rechazo", "hl_rechazo"]},
     "articulos": {"label": "Artículos", "key": "articulo", "load": lambda: pipeline.storage.load_articulos(), "cols": ["articulo", "descripcion", "unidades_por_bulto"]},
     "settings": {"label": "Configuración", "key": "key", "load": lambda: pipeline.storage.load_settings(), "cols": ["key", "valor"]},
+}
+
+FOXTROT_AUDIT_COLUMNS = [
+    "Total Driven Meters",
+    "Total Journey Seconds",
+    "Actual Route Departure Time",
+    "Actual Route Arrival Time",
+    "Driver Marked Route Start Timestamp",
+    "Driver Marked Route End Timestamp",
+    "Planned Foxtrot Driving Meters",
+    "Planned Foxtrot Driving Seconds",
+    "Total Driven Seconds",
+    "Planned Foxtrot Journey Seconds",
+]
+
+FOXTROT_AUTOFILL_RULES = {
+    "Total Driven Meters": ("Planned Foxtrot Driving Meters", 1.10, "number"),
+    "Total Driven Seconds": ("Planned Foxtrot Driving Seconds", 1.10, "number"),
+    "Total Journey Seconds": ("Planned Foxtrot Journey Seconds", 1.10, "number"),
+    "Actual Route Departure Time": ("Driver Marked Route Start Timestamp", 1.0, "timestamp"),
+    "Actual Route Arrival Time": ("Driver Marked Route End Timestamp", 1.0, "timestamp"),
+}
+
+FOXTROT_COLUMN_LABELS = {
+    "Total Driven Meters": "Km real",
+    "Total Journey Seconds": "Jornada real",
+    "Actual Route Departure Time": "Salida real",
+    "Actual Route Arrival Time": "Llegada real",
+    "Driver Marked Route Start Timestamp": "Inicio marcado",
+    "Driver Marked Route End Timestamp": "Fin marcado",
+    "Planned Foxtrot Driving Meters": "Km plan",
+    "Planned Foxtrot Driving Seconds": "Manejo plan",
+    "Total Driven Seconds": "Manejo real",
+    "Planned Foxtrot Journey Seconds": "Jornada plan",
 }
 
 
@@ -244,6 +279,223 @@ def _coerce_field(value, previous):
     return value
 
 
+def _raw_value(rec, col):
+    return (rec.get("raw_foxtrot") or {}).get(col)
+
+
+def _is_blank(value):
+    if value is None:
+        return True
+    text = str(value).strip()
+    return text == "" or text.lower() in ("nan", "none", "null", "nat")
+
+
+def _to_float_or_none(value):
+    if _is_blank(value):
+        return None
+    try:
+        return float(str(value).replace(",", "."))
+    except Exception:
+        return None
+
+
+def _parse_dt(value):
+    if _is_blank(value):
+        return None
+    try:
+        ts = pipeline.pd.to_datetime(value, errors="coerce")
+        if pipeline.pd.isna(ts):
+            return None
+        return ts
+    except Exception:
+        return None
+
+
+def _dispersion(plan, real):
+    plan = _to_float_or_none(plan)
+    real = _to_float_or_none(real)
+    if plan is None or real is None or plan <= 0:
+        return None
+    return round((real - plan) / plan * 100, 1)
+
+
+def _sync_route_from_raw(rec):
+    raw = rec.get("raw_foxtrot") or {}
+    ini = _parse_dt(raw.get("Driver Marked Route Start Timestamp"))
+    fin = _parse_dt(raw.get("Driver Marked Route End Timestamp"))
+    if ini is not None:
+        rec["fecha"] = ini.strftime("%Y-%m-%d")
+        rec["mes"] = ini.strftime("%Y-%m")
+        rec["anio"] = ini.strftime("%Y")
+        rec["inicio_foxtrot"] = ini.strftime("%H:%M")
+    if fin is not None:
+        rec["fin_foxtrot"] = fin.strftime("%H:%M")
+    if ini is not None and fin is not None:
+        horas = (fin - ini).total_seconds() / 3600
+        rec["horas"] = round(horas, 3)
+        rec["usable"] = 0 < horas <= 14
+        rec["alerta"] = horas > pipeline.OBJ["alerta_h"]
+    km_plan = raw.get("Planned Foxtrot Driving Meters")
+    km_real = raw.get("Total Driven Meters")
+    hs_plan = raw.get("Planned Foxtrot Driving Seconds")
+    hs_real = raw.get("Total Driven Seconds")
+    rec["disp_km_plan"] = _to_float_or_none(km_plan)
+    rec["disp_km_real"] = _to_float_or_none(km_real)
+    rec["disp_hs_plan"] = _to_float_or_none(hs_plan)
+    rec["disp_hs_real"] = _to_float_or_none(hs_real)
+    rec["dispkm"] = _dispersion(km_plan, km_real)
+    rec["disphs"] = _dispersion(hs_plan, hs_real)
+    return rec
+
+
+def _format_autofill_number(value, factor):
+    num = _to_float_or_none(value)
+    if num is None:
+        return None
+    out = num * factor
+    return str(int(round(out))) if abs(out - round(out)) < 0.000001 else str(round(out, 3))
+
+
+def _format_autofill_timestamp(value):
+    ts = _parse_dt(value)
+    if ts is None:
+        return None
+    return ts.strftime("%Y-%m-%d %H:%M:%S")
+
+
+def _autofill_foxtrot_missing():
+    started = time.perf_counter()
+    if pipeline.storage.backend_name() == "postgres" and hasattr(pipeline.storage, "fast_autofill_foxtrot_missing"):
+        st = pipeline.storage.fast_autofill_foxtrot_missing()
+        st["segundos"] = time.perf_counter() - started
+        return st
+    base = pipeline.storage.load_all()
+    changed_routes = 0
+    changed_cells = 0
+    by_col = {col: 0 for col in FOXTROT_AUTOFILL_RULES}
+    updates = {}
+    for rid, original in base.items():
+        rec = dict(original)
+        raw = dict(rec.get("raw_foxtrot") or {})
+        route_changed = False
+        for target, (source, factor, kind) in FOXTROT_AUTOFILL_RULES.items():
+            if not _is_blank(raw.get(target)):
+                continue
+            src = raw.get(source)
+            if _is_blank(src):
+                continue
+            value = _format_autofill_number(src, factor) if kind == "number" else _format_autofill_timestamp(src)
+            if value is None:
+                continue
+            raw[target] = value
+            route_changed = True
+            changed_cells += 1
+            by_col[target] += 1
+        if route_changed:
+            rec["raw_foxtrot"] = raw
+            rec["rid"] = rid
+            _sync_route_from_raw(rec)
+            updates[rid] = rec
+            changed_routes += 1
+    if updates:
+        pipeline.storage.upsert_all(updates, count_new=False)
+    elapsed = time.perf_counter() - started
+    return {"rutas": changed_routes, "celdas": changed_cells, "por_columna": by_col, "segundos": elapsed}
+
+
+def _raw_filter_select(col, value):
+    opts = [("", "Todos"), ("empty", "Vacíos"), ("present", "Con dato")]
+    label = FOXTROT_COLUMN_LABELS.get(col, col)
+    return (
+        f'<label title="{escape(col)}">{escape(label)}<select name="raw__{escape(col)}">'
+        + "".join(f'<option value="{v}"{" selected" if value == v else ""}>{label}</option>' for v, label in opts)
+        + "</select></label>"
+    )
+
+
+def _foxtrot_calidad_page(q="", msg="", err=False):
+    base = pipeline.storage.load_all()
+    filters = {col: request.args.get(f"raw__{col}", "") for col in FOXTROT_AUDIT_COLUMNS}
+    rows = list(base.values())
+    if q:
+        rows = [r for r in rows if _record_matches(r, q)]
+    for col, mode in filters.items():
+        if mode == "empty":
+            rows = [r for r in rows if _is_blank(_raw_value(r, col))]
+        elif mode == "present":
+            rows = [r for r in rows if not _is_blank(_raw_value(r, col))]
+    rows = sorted(rows, key=lambda r: (r.get("fecha") or "", r.get("suc") or "", r.get("chofer") or ""))[:300]
+    stats = []
+    total = len(base) or 1
+    for col in FOXTROT_AUDIT_COLUMNS:
+        missing = sum(1 for r in base.values() if _is_blank(_raw_value(r, col)))
+        pct = round(missing / total * 100, 1)
+        severity = "bad" if pct >= 50 else ("warn" if pct > 0 else "ok")
+        stats.append(
+            f'<div class="stat {severity}" title="{escape(col)}"><span>{escape(FOXTROT_COLUMN_LABELS.get(col, col))}</span>'
+            f'<b>{missing}</b><small>{pct}% vacíos</small></div>'
+        )
+    filter_controls = "".join(_raw_filter_select(col, filters[col]) for col in FOXTROT_AUDIT_COLUMNS)
+    body = ""
+    for rec in rows:
+        raw = rec.get("raw_foxtrot") or {}
+        rid = rec.get("rid") or raw.get("Route ID") or ""
+        form_id = "f_" + "".join(ch if ch.isalnum() else "_" for ch in str(rid))
+        inputs = "".join(
+            f'<td><input form="{escape(form_id)}" name="raw__{escape(col)}" value="{escape(_short_value(raw.get(col)))}"></td>'
+            for col in FOXTROT_AUDIT_COLUMNS
+        )
+        body += f"""<tr>
+<td>{escape(rec.get("fecha") or "")}</td><td>{escape(rec.get("suc") or "")}</td><td>{escape(rec.get("chofer") or "")}</td><td class=route-id title="{escape(str(rid))}">{escape(str(rid))}</td>
+{inputs}
+<td><form id="{escape(form_id)}" method=post action="/foxtrot-calidad/guardar"><input type=hidden name=rid value="{escape(str(rid))}"><button class=btn type=submit>Guardar</button></form></td>
+</tr>"""
+    if not body:
+        body = f'<tr><td class=empty colspan="{len(FOXTROT_AUDIT_COLUMNS) + 5}">No hay rutas con esos filtros.</td></tr>'
+    alert = f'<div class="msg{" err" if err else ""}">{escape(msg)}</div>' if msg else ""
+    header_inputs = "".join(f'<th title="{escape(col)}">{escape(FOXTROT_COLUMN_LABELS.get(col, col))}</th>' for col in FOXTROT_AUDIT_COLUMNS)
+    return f"""<!doctype html><html lang=es><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><title>Calidad Foxtrot</title>{DATOS_CSS}
+<style>
+.quality-shell{{display:grid;gap:16px}}
+.stats-grid{{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:16px}}
+.stat{{background:#fff;border:1px solid #DCE2EA;border-left:4px solid #94A3B8;border-radius:9px;padding:10px 11px;min-height:88px}}
+.stat span{{display:block;color:#657085;font-size:11px;font-weight:800;text-transform:uppercase;line-height:1.2;min-height:28px}}
+.stat b{{display:block;font-size:24px;line-height:1;margin-top:6px}}.stat small{{display:block;color:#657085;margin-top:4px}}
+.stat.bad{{border-left-color:#DC2626}}.stat.warn{{border-left-color:#C77D1A}}.stat.ok{{border-left-color:#16A34A}}
+.autofill-box{{background:#FFF7ED;border:1px solid #FDBA74;border-left:5px solid #C77D1A;border-radius:10px;padding:15px 16px;display:flex;justify-content:space-between;gap:16px;align-items:center;flex-wrap:wrap}}
+.autofill-box b{{display:block;margin-bottom:3px;font-size:15px}}.autofill-box p{{margin:0;color:#657085;font-size:13px;max-width:760px}}
+.btn.autofill{{background:#C77D1A}}.btn:disabled{{opacity:.65;cursor:wait}}
+.filter-panel{{background:#fff;border:1px solid #DCE2EA;border-radius:10px;margin-bottom:16px;overflow:hidden}}
+.filter-panel summary{{padding:12px 14px;border:0;list-style:none;display:flex;justify-content:space-between;gap:12px;align-items:center}}
+.filter-panel summary::-webkit-details-marker{{display:none}}.filter-panel summary b{{font-size:13px}}.filter-panel summary span{{color:#657085;font-size:12.5px}}
+.tools.raw{{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));align-items:end;padding:0 14px 14px;margin:0}}
+.tools.raw label{{font-size:11px;font-weight:800;color:#657085;text-transform:uppercase}}.tools.raw select{{width:100%;min-height:38px;border:1px solid #DCE2EA;border-radius:8px;padding:8px;background:#fff}}
+.tools.raw .filter-actions{{display:flex;gap:8px;flex-wrap:wrap;align-items:center}}
+.table-wrap.foxtrot{{max-height:68vh}}.table-wrap.foxtrot table{{font-size:12px}}
+.table-wrap.foxtrot th,.table-wrap.foxtrot td{{padding:7px 8px}}
+.table-wrap.foxtrot th{{white-space:normal;line-height:1.15;min-width:112px}}
+.table-wrap.foxtrot th:nth-child(1),.table-wrap.foxtrot td:nth-child(1){{position:sticky;left:0;background:#fff;z-index:3;min-width:82px}}
+.table-wrap.foxtrot th:nth-child(2),.table-wrap.foxtrot td:nth-child(2){{position:sticky;left:82px;background:#fff;z-index:3;min-width:118px}}
+.table-wrap.foxtrot th:nth-child(3),.table-wrap.foxtrot td:nth-child(3){{position:sticky;left:200px;background:#fff;z-index:3;min-width:170px;box-shadow:1px 0 0 #E7ECF2}}
+.table-wrap.foxtrot thead th:nth-child(-n+3){{background:#F8FAFC;z-index:4}}
+td input{{width:150px;border:1px solid #DCE2EA;border-radius:7px;padding:7px 8px;font-size:12px}}td input:focus{{outline:2px solid #C77D1A;outline-offset:1px}}
+.route-id{{max-width:120px;overflow:hidden;text-overflow:ellipsis;color:#657085}}
+</style></head>
+<body><div class=wrap><div class=top><div><h1>Calidad de columnas Foxtrot</h1><p class=muted>Filtrá campos vacíos/con dato y completá valores faltantes por ruta. Al guardar se recalculan inicio, fin, horas y dispersiones si aplica.</p></div>
+<div class=nav><a class=secondary href="/dashboard">Dashboard</a><a class=secondary href="/datos">Datos</a><a href="/admin">Admin</a></div></div>{alert}
+<div class=quality-shell>
+<div class=stats-grid>{"".join(stats)}</div>
+<div class=autofill-box><div><b>Autocompletar campos vacíos</b><p>Usa planificado x 1,10 y timestamps marcados. No pisa datos existentes.</p></div>
+ <form method=post action="/foxtrot-calidad/autocompletar" onsubmit="if(!confirm('Esto completará solo campos vacíos usando datos planificados o timestamps disponibles. No pisa datos existentes. ¿Continuar?'))return false;this.querySelector('button').textContent='Procesando...';this.querySelector('button').disabled=true;return true">
+  <button class="btn autofill" type=submit>Autocompletar vacíos Foxtrot</button>
+ </form></div>
+<details class=filter-panel open><summary><b>Filtros</b><span>Buscar rutas y elegir campos vacíos o con dato</span></summary>
+<form class="tools raw" method=get action="/foxtrot-calidad"><label>Buscar<input name=q value="{escape(q)}" placeholder="Chofer, fecha, ruta..."></label>{filter_controls}<div class=filter-actions><button class=btn type=submit>Filtrar</button><a class="btn secondary" href="/foxtrot-calidad">Limpiar</a></div></form></details>
+<div class=panel><div class="table-wrap foxtrot"><table><thead><tr><th>Fecha</th><th>Sucursal</th><th>Chofer</th><th>Route ID</th>{header_inputs}<th>Acción</th></tr></thead><tbody>{body}</tbody></table></div></div>
+<p class=muted style="margin-top:12px">Se muestran hasta 300 rutas. Para tiempos usá el formato que viene de Foxtrot o un timestamp reconocible, por ejemplo 2026-01-12 14:36:00.</p>
+</div></div></body></html>"""
+
+
 def _datos_page(table="rutas", q="", msg="", err=False, edit_key=""):
     if table not in TABLES:
         table = "rutas"
@@ -277,7 +529,7 @@ def _datos_page(table="rutas", q="", msg="", err=False, edit_key=""):
         body = f'<tr><td class=empty colspan="{len(spec["cols"]) + 1}">No hay registros para mostrar.</td></tr>'
     return f"""<!doctype html><html lang=es><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><title>Datos cargados</title>{DATOS_CSS}</head>
 <body><div class=wrap><div class=top><div><h1>Datos cargados</h1><p class=muted>Revisión y edición directa de las tablas usadas por el dashboard.</p></div>
-<div class=nav><a class=secondary href="/dashboard">Dashboard</a><a class=secondary href="/admin">Admin</a><a href="/logout">Salir</a></div></div>{alert}
+<div class=nav><a class=secondary href="/dashboard">Dashboard</a><a class=secondary href="/foxtrot-calidad">Calidad Foxtrot</a><a class=secondary href="/admin">Admin</a><a href="/logout">Salir</a></div></div>{alert}
 <div class=tabs>{tabs}</div><form class=tools method=get action="/datos"><input type=hidden name=tabla value="{escape(table)}"><input name=q value="{escape(q)}" placeholder="Buscar en esta tabla"><button class=btn type=submit>Buscar</button><a class="btn secondary" href="/datos?tabla={escape(table)}">Limpiar</a></form>
 <div class=panel><div class=table-wrap><table><thead><tr>{header}</tr></thead><tbody>{body}</tbody></table></div></div>
 <p class=muted style="margin-top:12px">Se muestran hasta 500 registros por búsqueda. Editar JSON incorrecto puede afectar el dashboard.</p>
@@ -337,6 +589,72 @@ def datos():
         ),
         mimetype="text/html",
     )
+
+
+@app.route("/foxtrot")
+@app.route("/foxtrot_calidad")
+@app.route("/calidad-foxtrot")
+@app.route("/foxtrot-calidad/")
+@app.route("/foxtrot-calidad")
+def foxtrot_calidad():
+    blocked = _require_login()
+    if blocked:
+        return blocked
+    return Response(
+        _foxtrot_calidad_page(
+            q=request.args.get("q", ""),
+            msg=request.args.get("msg", ""),
+            err=request.args.get("err") == "1",
+        ),
+        mimetype="text/html",
+    )
+
+
+@app.route("/foxtrot-calidad/guardar", methods=["POST"])
+def foxtrot_calidad_guardar():
+    blocked = _require_login()
+    if blocked:
+        return blocked
+    rid = request.form.get("rid", "")
+    try:
+        base = pipeline.storage.load_all()
+        if rid not in base:
+            raise ValueError("No se encontró la ruta.")
+        rec = dict(base[rid])
+        raw = dict(rec.get("raw_foxtrot") or {})
+        for col in FOXTROT_AUDIT_COLUMNS:
+            form_key = f"raw__{col}"
+            if form_key in request.form:
+                value = request.form.get(form_key, "").strip()
+                raw[col] = value if value else None
+        rec["raw_foxtrot"] = raw
+        rec["rid"] = rid
+        _sync_route_from_raw(rec)
+        pipeline.storage.save_record("rutas", rid, rec)
+    except Exception as e:
+        return redirect(url_for("foxtrot_calidad", msg=f"Error guardando: {e}", err=1))
+    return redirect(url_for("foxtrot_calidad", msg="Ruta actualizada."))
+
+
+@app.route("/foxtrot-calidad/autocompletar", methods=["POST"])
+def foxtrot_calidad_autocompletar():
+    blocked = _require_login()
+    if blocked:
+        return blocked
+    try:
+        st = _autofill_foxtrot_missing()
+        detalle = ", ".join(f"{col}: {n}" for col, n in st["por_columna"].items() if n)
+        rate = st["celdas"] / st["segundos"] if st["segundos"] > 0 else 0
+        msg = (
+            f"Autocompletado listo en {st['segundos']:.1f} segundos. "
+            f"Rutas modificadas: {st['rutas']}. Celdas completadas: {st['celdas']}. "
+            f"Velocidad: {rate:.1f} celdas/seg."
+        )
+        if detalle:
+            msg += " " + detalle
+    except Exception as e:
+        return redirect(url_for("foxtrot_calidad", msg=f"Error autocompletando: {e}", err=1))
+    return redirect(url_for("foxtrot_calidad", msg=msg))
 
 
 @app.route("/datos/guardar", methods=["POST"])

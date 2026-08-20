@@ -252,7 +252,7 @@ if BACKEND == "postgres":
             after = _count(cur)
         return after - before
 
-    def upsert_all(recs):
+    def upsert_all(recs, count_new=True):
         """Inserta rutas nuevas y actualiza las existentes. Devuelve cuántas nuevas se agregaron."""
         if not recs:
             return 0
@@ -260,14 +260,14 @@ if BACKEND == "postgres":
         updates = ", ".join(f"{c} = EXCLUDED.{c}" for c in cols if c != "rid")
         rows = [_route_row(rid, rec) for rid, rec in recs.items()]
         with _conn() as cn, cn.cursor() as cur:
-            before = _count(cur)
+            before = _count(cur) if count_new else 0
             _extras.execute_values(
                 cur,
                 f"INSERT INTO rutas_dashboard ({', '.join(cols)}) VALUES %s "
                 f"ON CONFLICT (rid) DO UPDATE SET {updates};",
                 rows,
             )
-            after = _count(cur)
+            after = _count(cur) if count_new else 0
         return after - before
 
     def _count(cur):
@@ -387,8 +387,10 @@ if BACKEND == "postgres":
         return rec
 
     def save_record(table, key, rec):
+        if table == "rutas":
+            upsert_all({key: rec})
+            return rec
         specs = {
-            "rutas": ("rutas_dashboard", "rid"),
             "attempts": ("attempts_dashboard", "attempt_key"),
             "clientes": ("clientes_dashboard", "cliente"),
             "rechazos": ("rechazos_dashboard", "key"),
@@ -406,6 +408,51 @@ if BACKEND == "postgres":
                 (key, _extras.Json(rec)),
             )
         return rec
+
+    def fast_autofill_foxtrot_missing():
+        def blank_expr(path):
+            return f"(NULLIF(BTRIM(COALESCE(rec #>> '{{raw_foxtrot,{path}}}', '')), '') IS NULL OR LOWER(BTRIM(COALESCE(rec #>> '{{raw_foxtrot,{path}}}', ''))) IN ('nan','none','null','nat'))"
+
+        rules = [
+            ("Total Driven Meters", "Planned Foxtrot Driving Meters", "number", "fox_total_driven_meters"),
+            ("Total Driven Seconds", "Planned Foxtrot Driving Seconds", "number", "fox_total_driven_seconds"),
+            ("Total Journey Seconds", "Planned Foxtrot Journey Seconds", "number", "fox_total_journey_seconds"),
+            ("Actual Route Departure Time", "Driver Marked Route Start Timestamp", "timestamp", "fox_actual_route_departure_time"),
+            ("Actual Route Arrival Time", "Driver Marked Route End Timestamp", "timestamp", "fox_actual_route_arrival_time"),
+        ]
+        by_col = {}
+        changed_routes = set()
+        with _conn() as cn, cn.cursor() as cur:
+            for target, source, kind, raw_sql_col in rules:
+                if kind == "number":
+                    value_sql = (
+                        "ROUND(((rec #>> '{raw_foxtrot," + source + "}')::numeric * 1.10))::bigint::text"
+                    )
+                    source_ok = f"NULLIF(BTRIM(COALESCE(rec #>> '{{raw_foxtrot,{source}}}', '')), '') IS NOT NULL"
+                else:
+                    value_sql = f"(rec #>> '{{raw_foxtrot,{source}}}')"
+                    source_ok = f"NULLIF(BTRIM(COALESCE(rec #>> '{{raw_foxtrot,{source}}}', '')), '') IS NOT NULL"
+                where = f"rec IS NOT NULL AND {blank_expr(target)} AND {source_ok}"
+                cur.execute(
+                    f"""
+                    WITH target_rows AS (
+                        SELECT rid, {value_sql} AS new_value
+                        FROM rutas_dashboard
+                        WHERE {where}
+                    )
+                    UPDATE rutas_dashboard r
+                    SET rec = jsonb_set(COALESCE(r.rec, '{{}}'::jsonb), '{{raw_foxtrot,{target}}}', to_jsonb(t.new_value), true),
+                        {raw_sql_col} = t.new_value
+                    FROM target_rows t
+                    WHERE r.rid = t.rid
+                    RETURNING r.rid;
+                    """
+                )
+                ids = [row[0] for row in cur.fetchall()]
+                by_col[target] = len(ids)
+                changed_routes.update(ids)
+
+        return {"rutas": len(changed_routes), "celdas": sum(by_col.values()), "por_columna": by_col}
 
     def delete_record(table, key):
         specs = {
@@ -452,7 +499,7 @@ else:
         _dump(base)
         return added
 
-    def upsert_all(recs):
+    def upsert_all(recs, count_new=True):
         base = load_all()
         added = 0
         for rid, rec in recs.items():
