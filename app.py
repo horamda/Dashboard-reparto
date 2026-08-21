@@ -635,7 +635,7 @@ def _fichaya_lookup_ref(foxtrot_name, mapping=None, empleados=None):
     return {"legajo": "", "nombre": foxtrot_name or ""}
 
 
-def _fichaya_report_rows(desde="2026-08-01", hasta=None, suc="", chofer=""):
+def _fichaya_report_rows(desde="2026-08-01", hasta=None, suc="", chofer="", force_live=False):
     hasta = hasta or date.today().strftime("%Y-%m-%d")
     base = list(pipeline.storage.load_all().values())
     rows = [
@@ -653,12 +653,12 @@ def _fichaya_report_rows(desde="2026-08-01", hasta=None, suc="", chofer=""):
     if rows:
         try:
             fechas = [r.get("fecha") for r in rows if r.get("fecha")]
-            fichadas = pipeline.cargar_fichadas(min(fechas), max(fechas)) if fechas else {}
+            fichadas = pipeline.cargar_fichadas(min(fechas), max(fechas), force_live=force_live) if fechas else {}
             fichaya_live_ok = bool(fichadas)
             if not fichaya_live_ok:
-                warning = "No se recibieron fichadas desde FichaYA en vivo. Revisar credenciales, disponibilidad del servicio o si el rango tiene marcas cargadas."
+                warning = "No se recibieron fichadas desde FichaYA ni desde el cache local. Revisar credenciales, disponibilidad del servicio o si el rango tiene marcas cargadas."
         except Exception as exc:
-            warning = f"No se pudo consultar FichaYA en vivo ({exc}). El reporte requiere conexión activa a FichaYA para calcular TML/TI."
+            warning = f"No se pudo consultar FichaYA ni recuperar fichadas guardadas ({exc})."
 
     mapping = _fichaya_name_map()
     empleados = _fichaya_empleados()
@@ -713,11 +713,14 @@ def _fichaya_report_page():
     hasta = request.args.get("hasta") or date.today().strftime("%Y-%m-%d")
     suc = request.args.get("suc") or ""
     chofer = request.args.get("chofer") or ""
+    force_live = request.args.get("actualizar") == "1"
     all_rows = [r for r in pipeline.storage.load_all().values() if r.get("usable") and (r.get("fecha") or "") >= "2026-08-01"]
     sucs = sorted({r.get("suc") for r in all_rows if r.get("suc")})
     choferes = sorted({r.get("chofer") for r in all_rows if r.get("chofer")})
-    rows, warning = _fichaya_report_rows(desde, hasta, suc, chofer)
+    rows, warning = _fichaya_report_rows(desde, hasta, suc, chofer, force_live=force_live)
+    cache = pipeline.fichaya_cache_info()
     csv_qs = urlencode({"desde": desde, "hasta": hasta, "suc": suc, "chofer": chofer})
+    refresh_qs = urlencode({"desde": desde, "hasta": hasta, "suc": suc, "chofer": chofer, "actualizar": "1"})
     opts_suc = '<option value="">Todas</option>' + ''.join(f'<option value="{escape(x)}"{" selected" if x == suc else ""}>{escape(x)}</option>' for x in sucs)
     opts_cho = '<option value="">Todos</option>' + ''.join(f'<option value="{escape(x)}"{" selected" if x == chofer else ""}>{escape(x)}</option>' for x in choferes)
     body = "".join(
@@ -738,10 +741,10 @@ def _fichaya_report_page():
 <label>Hasta <input type=date name=hasta value="{escape(hasta)}"></label>
 <label>Sucursal <select name=suc>{opts_suc}</select></label>
 <label>Chofer <select name=chofer>{opts_cho}</select></label>
-<button class=btn type=submit>Filtrar</button><a class="btn secondary" href="/reporte-fichaya-foxtrot">Limpiar</a><a class="btn secondary" href="/asociar-fichaya">Asociar nombres</a><a class=btn href="/reporte-fichaya-foxtrot.csv?{csv_qs}">Descargar CSV</a>
+<button class=btn type=submit>Filtrar</button><a class=btn href="/reporte-fichaya-foxtrot?{refresh_qs}">Actualizar desde FichaYA</a><a class="btn secondary" href="/reporte-fichaya-foxtrot">Limpiar</a><a class="btn secondary" href="/asociar-fichaya">Asociar nombres</a><a class=btn href="/reporte-fichaya-foxtrot.csv?{csv_qs}">Descargar CSV</a>
 </form>
 <div class=panel><div class=table-wrap><table><thead><tr><th>Fecha</th><th>Sucursal</th><th>Empleado Foxtrot</th><th>Legajo FichaYA</th><th>Empleado FichaYA</th><th>Fichada ingreso</th><th>Inicio Foxtrot</th><th>TML</th><th>Finalización Foxtrot</th><th>Fichada salida</th><th>TI</th><th>Estado</th><th>Route ID</th></tr></thead><tbody>{body}</tbody></table></div></div>
-<p class=muted style="margin-top:12px">Filas: {len(rows)}. Si faltan credenciales FichaYA o marcas del empleado, las fichadas quedan vacías.</p>
+<p class=muted style="margin-top:12px">Filas: {len(rows)}. Fichadas guardadas: {cache['total']} registros{f" · rango {cache['desde']} a {cache['hasta']}" if cache['desde'] else ""}{f" · actualizado {cache['actualizado']}" if cache['actualizado'] else ""}.</p>
 </div></body></html>"""
 
 
@@ -886,6 +889,7 @@ def reporte_fichaya_foxtrot_csv():
         request.args.get("hasta") or date.today().strftime("%Y-%m-%d"),
         request.args.get("suc") or "",
         request.args.get("chofer") or "",
+        force_live=request.args.get("actualizar") == "1",
     )
     buf = StringIO()
     fields = ["fecha", "sucursal", "empleado", "legajo_fichaya", "empleado_fichaya", "fichada_ingreso", "inicio_foxtrot", "tml", "finalizacion_foxtrot", "fichada_salida", "ti", "estado", "route_id"]

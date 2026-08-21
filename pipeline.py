@@ -259,6 +259,7 @@ def _indexar_fichadas_csv(raw):
         item = idx.setdefault(key, {"ingresos": [], "egresos": []})
         codigo = _norm_id(row.get("CODIGO") or row.get("legajo"))
         if codigo:
+            item["legajo"] = codigo
             idx[(fecha.strftime("%Y-%m-%d"), "LEGAJO:" + codigo)] = item
         if mov in ("ENTRADA", "INGRESO"):
             item["ingresos"].append(hora)
@@ -270,13 +271,93 @@ def _indexar_fichadas_csv(raw):
     return idx
 
 
-def cargar_fichadas(desde, hasta):
+def _fichada_item_to_cache(fecha, nombre, item):
+    return {
+        "fecha": fecha,
+        "nombre": nombre,
+        "legajo": item.get("legajo") or "",
+        "ingreso": item["ingreso"].strftime("%H:%M:%S") if item.get("ingreso") else "",
+        "egreso": item["egreso"].strftime("%H:%M:%S") if item.get("egreso") else "",
+        "ingresos": [h.strftime("%H:%M:%S") for h in item.get("ingresos", [])],
+        "egresos": [h.strftime("%H:%M:%S") for h in item.get("egresos", [])],
+    }
+
+
+def _cache_record_to_item(rec):
+    item = {
+        "legajo": _norm_id(rec.get("legajo")),
+        "ingresos": [_parse_hora_fichaya(h) for h in rec.get("ingresos", []) if _parse_hora_fichaya(h)],
+        "egresos": [_parse_hora_fichaya(h) for h in rec.get("egresos", []) if _parse_hora_fichaya(h)],
+    }
+    item["ingreso"] = _parse_hora_fichaya(rec.get("ingreso")) or (min(item["ingresos"]) if item["ingresos"] else None)
+    item["egreso"] = _parse_hora_fichaya(rec.get("egreso")) or (max(item["egresos"]) if item["egresos"] else None)
+    return item
+
+
+def _guardar_fichadas_cache(fichadas):
+    current = storage.load_settings().get("fichaya_marcas_cache") or {}
+    records = current.get("valor") if isinstance(current, dict) else {}
+    records = records if isinstance(records, dict) else {}
+    for key, item in fichadas.items():
+        fecha, nombre = key
+        if nombre.startswith("LEGAJO:"):
+            continue
+        records[f"{fecha}|{nombre}"] = _fichada_item_to_cache(fecha, nombre, item)
+    storage.save_setting("fichaya_marcas_cache", {
+        "valor": records,
+        "actualizado": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+    })
+    return records
+
+
+def cargar_fichadas_cache(desde, hasta):
+    current = storage.load_settings().get("fichaya_marcas_cache") or {}
+    records = current.get("valor") if isinstance(current, dict) else {}
+    records = records if isinstance(records, dict) else {}
+    idx = {}
+    for rec in records.values():
+        fecha = str(rec.get("fecha") or "")
+        nombre = _norm_persona_key(rec.get("nombre"))
+        if not fecha or not nombre or fecha < desde or fecha > hasta:
+            continue
+        item = _cache_record_to_item(rec)
+        idx[(fecha, nombre)] = item
+        if item.get("legajo"):
+            idx[(fecha, "LEGAJO:" + item["legajo"])] = item
+    return idx
+
+
+def fichaya_cache_info():
+    current = storage.load_settings().get("fichaya_marcas_cache") or {}
+    records = current.get("valor") if isinstance(current, dict) else {}
+    records = records if isinstance(records, dict) else {}
+    fechas = sorted({str(r.get("fecha") or "") for r in records.values() if r.get("fecha")})
+    return {
+        "total": len(records),
+        "actualizado": current.get("actualizado") if isinstance(current, dict) else "",
+        "desde": fechas[0] if fechas else "",
+        "hasta": fechas[-1] if fechas else "",
+    }
+
+
+def cargar_fichadas(desde, hasta, force_live=False):
+    if not force_live:
+        cached = cargar_fichadas_cache(desde, hasta)
+        if cached:
+            return cached
     try:
-        return _indexar_fichadas_csv(_fichaya_web_csv(desde, hasta))
+        fichadas = _indexar_fichadas_csv(_fichaya_web_csv(desde, hasta))
+        _guardar_fichadas_cache(fichadas)
+        return fichadas
     except Exception as web_exc:
         try:
-            return _indexar_fichadas_csv(_fichaya_external_csv(desde, hasta))
+            fichadas = _indexar_fichadas_csv(_fichaya_external_csv(desde, hasta))
+            _guardar_fichadas_cache(fichadas)
+            return fichadas
         except Exception as api_exc:
+            cached = cargar_fichadas_cache(desde, hasta)
+            if cached:
+                return cached
             raise RuntimeError(f"web: {web_exc}; api externa: {api_exc}")
 
 
