@@ -25,6 +25,7 @@ from io import StringIO
 from urllib.parse import urlencode
 from flask import Flask, request, redirect, url_for, Response, session
 import pipeline
+from pedidos_blueprint import pedidos_bp
 
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 50 * 1024 * 1024  # 50 MB
@@ -32,6 +33,7 @@ app.secret_key = os.environ.get("SECRET_KEY", os.environ.get("ADMIN_TOKEN") or s
 ADMIN_TOKEN = os.environ.get("ADMIN_TOKEN", "")
 ADMIN_USER = os.environ.get("ADMIN_USER", "admin")
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", ADMIN_TOKEN)
+app.register_blueprint(pedidos_bp)
 
 
 @app.after_request
@@ -71,7 +73,7 @@ a{{color:#1E3A8A;font-size:13.5px}}hr{{border:0;border-top:1px solid #DCE2EA;mar
     <input type=checkbox name=reset value=1 style="width:auto;margin-right:6px">Rehacer la base de cero (borra lo guardado)</label>
   <button class=btn type=submit>Actualizar</button>
 </form>
-<p style="margin-top:18px"><a href="/inicio">Panel principal</a> · <a href="/dashboard">Dashboard</a> · <a href="/datos">Revisar datos cargados</a> · <a href="/foxtrot-calidad">Calidad Foxtrot</a> · <a href="/reporte-fichaya-foxtrot">Reporte FichaYA/Foxtrot</a> · <a href="/logout">Cerrar sesión</a></p>
+<p style="margin-top:18px"><a href="/inicio">Panel principal</a> · <a href="/dashboard">Dashboard</a> · <a href="/datos">Revisar datos cargados</a> · <a href="/foxtrot-calidad">Calidad Foxtrot</a> · <a href="/reporte-fichaya-foxtrot">Reporte FichaYA/Foxtrot</a> · <a href="/pedidos">Ingreso de pedidos</a> · <a href="/logout">Cerrar sesión</a></p>
 <hr>
 <h1>Importar rechazos</h1>
 <p>Consume el endpoint CSV de rechazos diarios de Dolores y lo guarda en la base.</p>
@@ -229,21 +231,32 @@ def _main_page():
     blocked = _require_login()
     if blocked:
         return blocked
-    cards = [
-        ("Dashboard operativo", "Indicadores principales, Team Room, DPO, rechazos, OTIF y calidad.", "/dashboard", "Abrir dashboard"),
-        ("Actualizar datos", "Carga de Route Analytics, visitas Foxtrot, clientes, rechazos y artículos.", "/admin", "Ir a admin"),
-        ("Datos cargados", "Revisión y edición directa de rutas, clientes, rechazos, artículos y configuración.", "/datos", "Revisar datos"),
-        ("Calidad Foxtrot", "Auditoría de columnas vacías y autocompletado de campos Foxtrot.", "/foxtrot-calidad", "Ver calidad"),
-        ("Reporte FichaYA / Foxtrot", "Empleado, fichada de ingreso, inicio Foxtrot, TML, fin Foxtrot, salida y TI.", "/reporte-fichaya-foxtrot", "Abrir reporte"),
-        ("Asociar nombres", "Mapa entre nombres de choferes Foxtrot y nombres de empleados FichaYA.", "/asociar-fichaya", "Asociar"),
+    groups = [
+        ("Operaci?n", [
+            ("Dashboard operativo", "Indicadores principales, Team Room, DPO, rechazos, OTIF y calidad.", "/dashboard", "Abrir"),
+            ("Ingreso de pedidos", "Importaci?n y an?lisis por franja horaria, corte, canal, vendedor y bultos estimados.", "/pedidos", "Abrir"),
+            ("Reporte FichaYA / Foxtrot", "Empleado, fichada de ingreso, inicio Foxtrot, TML, fin Foxtrot, salida y TI.", "/reporte-fichaya-foxtrot", "Abrir"),
+        ]),
+        ("Datos y calidad", [
+            ("Calidad Foxtrot", "Auditor?a de columnas vac?as y autocompletado de campos Foxtrot.", "/foxtrot-calidad", "Ver"),
+            ("Datos cargados", "Revisi?n y edici?n directa de rutas, clientes, rechazos, art?culos y configuraci?n.", "/datos", "Revisar"),
+            ("Asociar nombres", "Mapa entre nombres de choferes Foxtrot y empleados FichaYA.", "/asociar-fichaya", "Asociar"),
+        ]),
+        ("Administraci?n", [
+            ("Actualizar datos", "Carga de Route Analytics, visitas Foxtrot, clientes, rechazos y art?culos.", "/admin", "Ir a admin"),
+        ]),
     ]
-    items = "".join(
-        f"""<a class=hub-card href="{escape(url)}"><span>{escape(title)}</span><p>{escape(desc)}</p><b>{escape(cta)}</b></a>"""
-        for title, desc, url, cta in cards
-    )
-    return f"""<!doctype html><html lang=es><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><title>Panel principal</title>
-<style>*{{box-sizing:border-box}}body{{font-family:system-ui,Segoe UI,Arial,sans-serif;background:#EEF1F5;color:#15233B;margin:0;line-height:1.45;-webkit-font-smoothing:antialiased}}.wrap{{width:min(100% - 28px,1180px);margin:28px auto 44px}}.top{{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;margin-bottom:22px}}h1{{font-size:28px;line-height:1.1;margin:0 0 6px}}.muted{{color:#657085;font-size:14px;margin:0}}.nav{{display:flex;gap:8px;flex-wrap:wrap}}.nav a{{background:#fff;color:#15233B;border:1px solid #DCE2EA;text-decoration:none;border-radius:8px;padding:10px 13px;font-size:13.5px;font-weight:650}}.grid{{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px}}.hub-card{{display:block;background:#fff;border:1px solid #DCE2EA;border-left:5px solid #C77D1A;border-radius:10px;padding:18px 18px 16px;text-decoration:none;color:#15233B;min-height:154px;box-shadow:0 8px 22px rgba(21,35,59,.045)}}.hub-card:hover{{border-color:#C77D1A;box-shadow:0 10px 24px rgba(21,35,59,.08);transform:translateY(-1px)}}.hub-card span{{display:block;font-size:17px;font-weight:800;margin-bottom:7px}}.hub-card p{{color:#657085;font-size:13.5px;margin:0 0 18px}}.hub-card b{{display:inline-block;background:#15233B;color:#fff;border-radius:8px;padding:9px 12px;font-size:13px}}@media(max-width:720px){{.top{{display:block}}.nav{{margin-top:12px}}h1{{font-size:24px}}.wrap{{width:min(100% - 18px,1180px);margin-top:18px}}}}</style></head>
-<body><div class=wrap><div class=top><div><h1>Panel principal</h1><p class=muted>Accesos del sistema de reparto, Foxtrot y FichaYA.</p></div><div class=nav><a href="/logout">Cerrar sesión</a></div></div><div class=grid>{items}</div></div></body></html>"""
+    sections = []
+    for group, cards in groups:
+        items = "".join(
+            f'''<a class=hub-card href="{escape(url)}"><span>{escape(title)}</span><p>{escape(desc)}</p><b>{escape(cta)}</b></a>'''
+            for title, desc, url, cta in cards
+        )
+        sections.append(f'''<section><h2>{escape(group)}</h2><div class=grid>{items}</div></section>''')
+    content = "".join(sections)
+    return f'''<!doctype html><html lang=es><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><title>Panel principal</title>
+<style>*{{box-sizing:border-box}}body{{font-family:system-ui,Segoe UI,Arial,sans-serif;background:#EEF1F5;color:#15233B;margin:0;line-height:1.45;-webkit-font-smoothing:antialiased}}.wrap{{width:min(100% - 28px,1180px);margin:28px auto 44px}}.top{{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;margin-bottom:22px}}h1{{font-size:28px;line-height:1.1;margin:0 0 6px}}h2{{font-size:13px;text-transform:uppercase;letter-spacing:.45px;color:#657085;margin:24px 0 10px}}.muted{{color:#657085;font-size:14px;margin:0}}.nav{{display:flex;gap:8px;flex-wrap:wrap}}.nav a{{background:#fff;color:#15233B;border:1px solid #DCE2EA;text-decoration:none;border-radius:8px;padding:10px 13px;font-size:13.5px;font-weight:650}}.grid{{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px}}.hub-card{{display:flex;flex-direction:column;background:#fff;border:1px solid #DCE2EA;border-left:5px solid #C77D1A;border-radius:10px;padding:18px 18px 16px;text-decoration:none;color:#15233B;min-height:150px;box-shadow:0 8px 22px rgba(21,35,59,.045)}}.hub-card:hover{{border-color:#C77D1A;box-shadow:0 10px 24px rgba(21,35,59,.08);transform:translateY(-1px)}}.hub-card span{{display:block;font-size:17px;font-weight:800;margin-bottom:7px}}.hub-card p{{color:#657085;font-size:13.5px;margin:0 0 18px;flex:1}}.hub-card b{{display:inline-block;align-self:flex-start;background:#15233B;color:#fff;border-radius:8px;padding:9px 12px;font-size:13px}}@media(max-width:720px){{.top{{display:block}}.nav{{margin-top:12px}}h1{{font-size:24px}}.wrap{{width:min(100% - 18px,1180px);margin-top:18px}}}}</style></head>
+<body><div class=wrap><div class=top><div><h1>Panel principal</h1><p class=muted>Del Palacio S.A. - m?dulos de reparto, Foxtrot, FichaYA y pedidos.</p></div><div class=nav><a href="/dashboard">Dashboard</a><a href="/pedidos">Pedidos</a><a href="/logout">Cerrar sesi?n</a></div></div>{content}</div></body></html>'''
 
 
 def _short_value(value):
@@ -506,7 +519,7 @@ td input{{width:150px;border:1px solid #DCE2EA;border-radius:7px;padding:7px 8px
 .route-id{{max-width:120px;overflow:hidden;text-overflow:ellipsis;color:#657085}}
 </style></head>
 <body><div class=wrap><div class=top><div><h1>Calidad de columnas Foxtrot</h1><p class=muted>Filtrá campos vacíos/con dato y completá valores faltantes por ruta. Al guardar se recalculan inicio, fin, horas y dispersiones si aplica.</p></div>
-<div class=nav><a class=secondary href="/dashboard">Dashboard</a><a class=secondary href="/datos">Datos</a><a href="/admin">Admin</a></div></div>{alert}
+<div class=nav><a class=secondary href="/inicio">Inicio</a><a class=secondary href="/dashboard">Dashboard</a><a class=secondary href="/pedidos">Pedidos</a><a class=secondary href="/datos">Datos</a><a href="/admin">Admin</a></div></div>{alert}
 <div class=quality-shell>
 <div class=stats-grid>{"".join(stats)}</div>
 <div class=autofill-box><div><b>Autocompletar campos vacíos</b><p>Usa planificado x 1,10 y timestamps marcados. No pisa datos existentes.</p></div>
@@ -553,7 +566,7 @@ def _datos_page(table="rutas", q="", msg="", err=False, edit_key=""):
         body = f'<tr><td class=empty colspan="{len(spec["cols"]) + 1}">No hay registros para mostrar.</td></tr>'
     return f"""<!doctype html><html lang=es><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><title>Datos cargados</title>{DATOS_CSS}</head>
 <body><div class=wrap><div class=top><div><h1>Datos cargados</h1><p class=muted>Revisión y edición directa de las tablas usadas por el dashboard.</p></div>
-<div class=nav><a class=secondary href="/dashboard">Dashboard</a><a class=secondary href="/foxtrot-calidad">Calidad Foxtrot</a><a class=secondary href="/reporte-fichaya-foxtrot">Reporte FichaYA/Foxtrot</a><a class=secondary href="/admin">Admin</a><a href="/logout">Salir</a></div></div>{alert}
+<div class=nav><a class=secondary href="/inicio">Inicio</a><a class=secondary href="/dashboard">Dashboard</a><a class=secondary href="/pedidos">Pedidos</a><a class=secondary href="/foxtrot-calidad">Calidad Foxtrot</a><a class=secondary href="/reporte-fichaya-foxtrot">Reporte FichaYA/Foxtrot</a><a class=secondary href="/admin">Admin</a><a href="/logout">Salir</a></div></div>{alert}
 <div class=tabs>{tabs}</div><form class=tools method=get action="/datos"><input type=hidden name=tabla value="{escape(table)}"><input name=q value="{escape(q)}" placeholder="Buscar en esta tabla"><button class=btn type=submit>Buscar</button><a class="btn secondary" href="/datos?tabla={escape(table)}">Limpiar</a></form>
 <div class=panel><div class=table-wrap><table><thead><tr>{header}</tr></thead><tbody>{body}</tbody></table></div></div>
 <p class=muted style="margin-top:12px">Se muestran hasta 500 registros por búsqueda. Editar JSON incorrecto puede afectar el dashboard.</p>
@@ -735,7 +748,7 @@ def _fichaya_report_page():
     return f"""<!doctype html><html lang=es><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><title>Reporte FichaYA Foxtrot</title>{DATOS_CSS}
 <style>.tools select,.tools input{{min-height:40px;border:1px solid #DCE2EA;border-radius:8px;padding:9px 10px;background:#fff}}.r{{font-weight:750}}.ok{{color:#166534}}.bad{{color:#991B1B}}</style></head>
 <body><div class=wrap><div class=top><div><h1>Reporte FichaYA + Foxtrot</h1><p class=muted>Desde agosto 2026. TML = inicio Foxtrot - fichada ingreso. TI = fichada salida - finalización Foxtrot.</p></div>
-<div class=nav><a class=secondary href="/dashboard">Dashboard</a><a class=secondary href="/datos">Datos</a><a href="/admin">Admin</a></div></div>{alert}
+<div class=nav><a class=secondary href="/inicio">Inicio</a><a class=secondary href="/dashboard">Dashboard</a><a class=secondary href="/pedidos">Pedidos</a><a class=secondary href="/datos">Datos</a><a href="/admin">Admin</a></div></div>{alert}
 <form class=tools method=get action="/reporte-fichaya-foxtrot">
 <label>Desde <input type=date name=desde value="{escape(desde)}"></label>
 <label>Hasta <input type=date name=hasta value="{escape(hasta)}"></label>
@@ -785,7 +798,7 @@ def _fichaya_mapping_page(msg="", err=False):
     return f"""<!doctype html><html lang=es><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><title>Asociar nombres FichaYA</title>{DATOS_CSS}
 <style>td select{{width:100%;min-width:300px;border:1px solid #DCE2EA;border-radius:8px;padding:8px 10px;background:#fff}}td small{{display:block;color:#657085;margin-top:4px}}.panel{{max-width:960px}}.upload{{max-width:960px;background:#fff;border:1px solid #DCE2EA;border-radius:10px;padding:14px;margin-bottom:16px}}</style></head>
 <body><div class=wrap><div class=top><div><h1>Asociar nombres Foxtrot / FichaYA</h1><p class=muted>Relacioná cada chofer de Foxtrot contra el legajo de FichaYA. El reporte busca fichadas por legajo primero.</p></div>
-<div class=nav><a class=secondary href="/reporte-fichaya-foxtrot">Reporte</a><a class=secondary href="/dashboard">Dashboard</a><a href="/admin">Admin</a></div></div>{alert}
+<div class=nav><a class=secondary href="/inicio">Inicio</a><a class=secondary href="/reporte-fichaya-foxtrot">Reporte</a><a class=secondary href="/dashboard">Dashboard</a><a class=secondary href="/pedidos">Pedidos</a><a href="/admin">Admin</a></div></div>{alert}
 <form class=upload method=post action="/asociar-fichaya/importar" enctype="multipart/form-data"><b>Importar empleados FichaYA</b><p class=muted>Subí el Excel exportado desde FichaYA para cargar legajos y nombres.</p><input type=file name=empleados accept=".xlsx,.xls" required> <button class=btn type=submit>Importar empleados</button></form>
 <form method=post action="/asociar-fichaya/guardar">{datalist}<div class=panel><div class=table-wrap><table><thead><tr><th>Nombre Foxtrot</th><th>Legajo / empleado FichaYA</th></tr></thead><tbody>{body}</tbody></table></div></div>
 <button class=btn type=submit style="margin-top:16px">Guardar asociaciones</button></form>

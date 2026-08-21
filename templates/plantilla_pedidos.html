@@ -1,0 +1,853 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ingreso de pedidos - Del Palacio S.A.</title>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+  :root { --brand:#0d6efd; --ink:#1f2937; --muted:#6b7280; }
+  body { background:#f4f6f9; color:var(--ink); }
+  .app-shell { max-width:1320px; margin:0 auto; }
+  .navbar-brand { font-weight:700; letter-spacing:.2px; white-space:nowrap; }
+  .navbar .container-fluid { gap:14px; }
+  .navbar-nav { gap:10px; }
+  .navbar-nav .nav-link { white-space:nowrap; }
+  .upload-form { margin-left:auto; }
+  .upload-form input[type=file] { max-width:360px; }
+  .kpi { border:0; border-radius:8px; box-shadow:0 1px 3px rgba(16,24,40,.08); }
+  .kpi[title] { cursor:help; }
+  .kpi .card-body { text-align:center; min-height:78px; display:flex; flex-direction:column; justify-content:center; padding:.65rem .5rem!important; }
+  .kpi .val { font-size:clamp(1.25rem,1.8vw,1.55rem); font-weight:700; line-height:1.05; white-space:nowrap; }
+  .kpi .lbl { font-size:.68rem; color:var(--muted); text-transform:uppercase; letter-spacing:.35px; line-height:1.25; margin-top:4px; }
+  #kpis { display:grid!important; grid-template-columns:repeat(5,minmax(0,1fr)); gap:10px; }
+  .daily-card .card-body { padding:14px 16px 16px!important; }
+  .daily-head { border-bottom:1px solid #eef2f6; padding-bottom:10px; margin-bottom:12px; }
+  .daily-layout { display:grid; grid-template-columns:minmax(420px,.95fr) minmax(360px,1.05fr); gap:18px; align-items:stretch; }
+  .daily-section-title { font-size:.72rem; text-transform:uppercase; letter-spacing:.4px; color:#64748b; margin-bottom:6px; }
+  .daily-report { max-height:330px; overflow:auto; border:1px solid #e5ebf2; border-radius:8px; }
+  .daily-report table { margin:0; font-size:.8rem; min-width:560px; }
+  .daily-report th { position:sticky; top:0; background:#f8fafc; z-index:1; font-size:.68rem; text-transform:uppercase; letter-spacing:.35px; color:#64748b; }
+  .daily-report td, .daily-report th { white-space:nowrap; vertical-align:middle; padding:.45rem .7rem; }
+  .daily-report .num { text-align:right; font-variant-numeric:tabular-nums; }
+  .daily-chart { height:330px; border:1px solid #e5ebf2; border-radius:8px; padding:10px 12px 8px; }
+  .ai-panel { border-left:3px solid #0d6efd; background:#f8fbff; }
+  .ai-panel .ai-text { white-space:pre-wrap; font-size:.88rem; line-height:1.45; }
+  .card { border:0; border-radius:8px; box-shadow:0 1px 3px rgba(16,24,40,.08); }
+  .card h6 { font-weight:700; font-size:.95rem; margin:0; }
+  .page-head { gap:12px; }
+  .page-title h5 { font-size:1.05rem; }
+  .filters-layout { display:grid; gap:12px; }
+  .filters .filter-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:10px; align-items:end; }
+  .filters .switch-panel { border-top:1px solid #edf1f5; padding-top:10px; display:grid; grid-template-columns:minmax(420px,1fr) minmax(260px,.7fr) 120px; gap:12px; align-items:start; }
+  .filters .switch-group { display:flex; flex-wrap:wrap; gap:8px; }
+  .filters .switch-group-title { font-size:.68rem; text-transform:uppercase; letter-spacing:.45px; color:var(--muted); margin-bottom:6px; }
+  .filters .filter-action { align-self:end; }
+  .filters .form-label { font-size:.72rem; text-transform:uppercase; letter-spacing:.4px; color:var(--muted); margin-bottom:2px; }
+  .filters .form-control, .filters .form-select { min-height:34px; }
+  .switch-pill { position:relative; display:inline-flex; align-items:center; min-height:32px; }
+  .switch-pill input { position:absolute; opacity:0; pointer-events:none; }
+  .switch-pill span { display:inline-flex; align-items:center; gap:8px; height:32px; padding:0 10px 0 8px; border:1px solid #d6dee8; border-radius:999px; background:#fff; color:#526173; font-size:.78rem; font-weight:600; cursor:pointer; transition:all .16s ease; white-space:nowrap; }
+  .switch-pill span::before { content:""; width:28px; height:16px; border-radius:999px; background:#cbd5e1; box-shadow:inset 0 0 0 1px rgba(15,23,42,.08); transition:all .16s ease; }
+  .switch-pill span::after { content:""; position:absolute; left:11px; width:12px; height:12px; border-radius:50%; background:#fff; box-shadow:0 1px 2px rgba(15,23,42,.25); transition:transform .16s ease; }
+  .switch-pill input:checked + span { border-color:#86efac; background:#f0fdf4; color:#166534; }
+  .switch-pill input:checked + span::before { background:#22c55e; }
+  .switch-pill input:checked + span::after { transform:translateX(12px); }
+  .chart-wrap { position:relative; height:260px; }
+  .chart-wrap.tall { height:320px; }
+  /* Heatmap */
+  .hm { display:grid; gap:2px; font-size:.7rem; }
+  .hm .cell { border-radius:4px; text-align:center; padding:4px 0; color:#fff; }
+  .hm .hlabel, .hm .dlabel { color:var(--muted); background:transparent!important; }
+  .hm .hlabel { text-align:center; }
+  .hm .dlabel { text-align:right; padding-right:6px; font-weight:600; }
+  .metric-toggle .btn { --bs-btn-padding-y:.25rem; }
+  .badge-soft { background:#eef2ff; color:#4338ca; font-weight:600; }
+  @media (max-width: 1200px) {
+    .upload-form { width:100%; margin-left:0; }
+    .upload-form input[type=file] { flex:1 1 260px; }
+    #kpis { grid-template-columns:repeat(4,minmax(0,1fr)); }
+    .filters .filter-grid { grid-template-columns:repeat(3,minmax(0,1fr)); }
+  }
+  @media (max-width: 992px) {
+    #kpis { grid-template-columns:repeat(3,minmax(0,1fr)); }
+    .filters .filter-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+    .filters .switch-panel { grid-template-columns:1fr; }
+    .filters .filter-action { width:100%; }
+  }
+  @media (max-width: 768px) {
+    .navbar .container-fluid { align-items:flex-start; gap:8px; }
+    .navbar-nav { flex-direction:row; flex-wrap:wrap; gap:4px 10px; }
+    .navbar-nav .nav-link { padding:2px 0; }
+    .upload-form { width:100%; flex-wrap:wrap; }
+    .upload-form input[type=file] { flex:1 1 220px; }
+    .metric-toggle { width:100%; overflow-x:auto; }
+    .metric-toggle .btn { flex:1 0 auto; }
+    .filters .filter-grid { grid-template-columns:1fr; }
+    .daily-layout { grid-template-columns:1fr; }
+    .daily-report table { min-width:520px; }
+    .daily-chart { height:300px; }
+    .chart-wrap, .chart-wrap.tall { height:300px; }
+    #kpis { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  }
+</style>
+</head>
+<body>
+
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+  <div class="container-fluid">
+    <span class="navbar-brand">Del Palacio S.A. · Reparto</span>
+    <div class="navbar-nav me-auto">
+      <a class="nav-link" href="/inicio">Inicio</a>
+      <a class="nav-link" href="/dashboard">Tiempos</a>
+      <a class="nav-link active" href="/pedidos">Pedidos</a>
+      <a class="nav-link" href="/reporte-fichaya-foxtrot">FichaYA</a>
+      <a class="nav-link" href="/foxtrot-calidad">Calidad</a>
+      <a class="nav-link" href="/datos">Datos</a>
+      <a class="nav-link" href="/admin">Admin</a>
+    </div>
+    <form class="upload-form d-flex align-items-center gap-2" action="/pedidos/upload" method="post" enctype="multipart/form-data">
+      <input class="form-control form-control-sm" type="file" name="archivo" accept=".xlsx" required>
+      <button class="btn btn-sm btn-primary" type="submit">Importar export</button>
+    </form>
+  </div>
+</nav>
+
+<div class="container-fluid py-3 px-lg-4 app-shell">
+
+  {% with msgs = get_flashed_messages(with_categories=true) %}
+    {% for cat, msg in msgs %}
+      <div class="alert alert-{{ cat }} py-2">{{ msg }}</div>
+    {% endfor %}
+  {% endwith %}
+
+  <div class="page-head d-flex flex-wrap align-items-center justify-content-between mb-2">
+    <div class="page-title">
+      <h5 class="mb-0">Ingreso de pedidos por franja horaria</h5>
+      <small class="text-muted">
+        Base: <b>{{ resumen.total }}</b> pedidos
+        {% if resumen.desde %}· {{ resumen.desde }} → {{ resumen.hasta }}{% endif %}
+        · <span id="visibles" class="badge badge-soft">—</span> en pantalla
+      </small>
+    </div>
+    <div class="metric-toggle btn-group btn-group-sm" role="group">
+      <input type="radio" class="btn-check" name="metric" id="mCant" value="cant" checked>
+      <label class="btn btn-outline-primary" for="mCant">Cantidad</label>
+      <input type="radio" class="btn-check" name="metric" id="mTot" value="total">
+      <label class="btn btn-outline-primary" for="mTot">$ Total</label>
+      <input type="radio" class="btn-check" name="metric" id="mBul" value="bultos">
+      <label class="btn btn-outline-primary" for="mBul" title="Estimado: $ total / $36.000">Bultos est.</label>
+    </div>
+  </div>
+
+  <!-- Filtros -->
+  <div class="card mb-3">
+    <div class="card-body filters py-2">
+      <div class="filters-layout">
+        <div class="filter-grid">
+          <div>
+            <label class="form-label">Desde ingreso</label>
+            <input id="fFechaDesde" class="form-control form-control-sm" type="date">
+          </div>
+          <div>
+            <label class="form-label">Hasta ingreso</label>
+            <input id="fFechaHasta" class="form-control form-control-sm" type="date">
+          </div>
+          <div>
+            <label class="form-label">Sucursal</label>
+            <select id="fSucursal" class="form-select form-select-sm"><option value="">Todas</option></select>
+          </div>
+          <div>
+            <label class="form-label">Localidad</label>
+            <select id="fLocalidad" class="form-select form-select-sm"><option value="">Todas</option></select>
+          </div>
+          <div>
+            <label class="form-label">Vendedor</label>
+            <select id="fVendedor" class="form-select form-select-sm"><option value="">Todos</option></select>
+          </div>
+          <div>
+            <label class="form-label">Canal</label>
+            <select id="fCanal" class="form-select form-select-sm"><option value="">Todos</option></select>
+          </div>
+          <div>
+            <label class="form-label">Corte</label>
+            <select id="fCorte" class="form-select form-select-sm">
+              <option value="">Todos</option>
+              <option value="dentro">Dentro de corte</option>
+              <option value="fuera">Fuera de corte</option>
+            </select>
+          </div>
+          <div>
+            <label class="form-label">Dia</label>
+            <select id="fDia" class="form-select form-select-sm"><option value="">Todos</option></select>
+          </div>
+        </div>
+        <div class="switch-panel">
+          <div>
+            <div class="switch-group-title">Comprobantes</div>
+            <div id="fCats" class="switch-group"></div>
+          </div>
+          <div>
+            <div class="switch-group-title">Opciones</div>
+            <div class="switch-group">
+              <label class="switch-pill">
+                <input type="checkbox" id="fAnulados">
+                <span>Anulados</span>
+              </label>
+              <label class="switch-pill">
+                <input type="checkbox" id="fEgresoPosterior">
+                <span>Egreso posterior</span>
+              </label>
+            </div>
+          </div>
+          <div class="filter-action">
+            <button id="btnReset" class="btn btn-sm btn-outline-secondary w-100">Limpiar</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- KPIs -->
+  <div class="mb-3" id="kpis"></div>
+
+  <div class="card daily-card mb-3">
+    <div class="card-body">
+      <div class="daily-head d-flex flex-wrap align-items-center justify-content-between gap-2">
+        <div>
+          <h6>Reporte diario 14:00 a 14:30</h6>
+          <small class="text-muted">Pedidos ingresados en la ventana previa al corte.</small>
+        </div>
+        <div class="d-flex flex-wrap align-items-center gap-2">
+          <small class="text-muted">Respeta filtros activos y metrica seleccionada.</small>
+          <button id="btnAiAnalisis" class="btn btn-sm btn-primary" type="button">Analizar con IA</button>
+        </div>
+      </div>
+      <div class="daily-layout">
+        <div>
+          <div class="daily-section-title">Detalle por fecha</div>
+          <div id="reporte1430" class="daily-report"></div>
+        </div>
+        <div>
+          <div class="daily-section-title">Evolucion diaria</div>
+          <div class="daily-chart"><canvas id="chReporte1430"></canvas></div>
+        </div>
+      </div>
+      <div id="aiAnalisisBox" class="ai-panel rounded mt-2 p-2 d-none">
+        <div class="d-flex align-items-center justify-content-between gap-2 mb-1">
+          <strong class="small">Análisis IA</strong>
+          <span id="aiAnalisisEstado" class="text-muted small"></span>
+        </div>
+        <div id="aiAnalisisTexto" class="ai-text"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Fila 1: hora del día + heatmap -->
+  <div class="row g-3">
+    <div class="col-lg-7">
+      <div class="card h-100"><div class="card-body">
+        <h6 class="mb-2">Ingreso por hora del día</h6>
+        <div class="chart-wrap"><canvas id="chHora"></canvas></div>
+      </div></div>
+    </div>
+    <div class="col-lg-5">
+      <div class="card h-100"><div class="card-body">
+        <h6 class="mb-2">Hora × día de la semana</h6>
+        <div id="heatmap" class="hm mt-1"></div>
+        <div class="text-muted small mt-2">Intensidad = volumen según la métrica elegida.</div>
+      </div></div>
+    </div>
+  </div>
+
+  <!-- Fila 2: franja + curva de corte -->
+  <div class="row g-3 mt-0">
+    <div class="col-lg-5">
+      <div class="card h-100"><div class="card-body">
+        <h6 class="mb-2">Por franja horaria</h6><div class="text-muted small mb-2">Hasta las 11 por hora; de 11 a 15 cada 15 minutos.</div>
+        <div class="chart-wrap"><canvas id="chFranja"></canvas></div>
+      </div></div>
+    </div>
+    <div class="col-lg-7">
+      <div class="card h-100"><div class="card-body">
+        <h6 class="mb-2">Curva de ingreso acumulado (hora de corte)</h6>
+        <div class="chart-wrap"><canvas id="chAcum"></canvas></div>
+        <div class="text-muted small mt-1">A qué hora ya entró cada % del volumen del período filtrado.</div>
+      </div></div>
+    </div>
+  </div>
+
+  <!-- Fila 3: localidad + vendedor + canal -->
+  <div class="row g-3 mt-0">
+    <div class="col-lg-4">
+      <div class="card h-100"><div class="card-body">
+        <h6 class="mb-2">Por localidad</h6>
+        <div class="chart-wrap tall"><canvas id="chLocalidad"></canvas></div>
+      </div></div>
+    </div>
+    <div class="col-lg-4">
+      <div class="card h-100"><div class="card-body">
+        <h6 class="mb-2">Por vendedor</h6>
+        <div class="chart-wrap tall"><canvas id="chVendedor"></canvas></div>
+      </div></div>
+    </div>
+    <div class="col-lg-4">
+      <div class="card h-100"><div class="card-body">
+        <h6 class="mb-2">Por canal de ingreso</h6>
+        <div class="chart-wrap tall"><canvas id="chCanal"></canvas></div>
+      </div></div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const DIAS = {{ dias|tojson }};
+const FRANJAS = {{ franjas|tojson }};
+const CATS = ["VENTA","PRESUPUESTO","NC","DEVOLUCION","REMITO","OTRO"];
+let RAW = [];
+const charts = {};
+
+const fmtInt = n => (n||0).toLocaleString('es-AR');
+const fmtMoney = n => '$' + Math.round(n||0).toLocaleString('es-AR');
+const fmtBultos = n => (n||0).toLocaleString('es-AR', {maximumFractionDigits:1});
+const VALOR_BULTO_ESTIMADO = 36000;
+const PALETTE = ['#0d6efd','#6610f2','#20c997','#fd7e14','#dc3545','#0dcaf0','#6f42c1','#198754','#ffc107','#495057'];
+const escapeAttr = s => String(s).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+
+function currentMetric(){ return document.querySelector('input[name=metric]:checked').value; }
+function bultosEstimados(r){ return (r.total||0) / VALOR_BULTO_ESTIMADO; }
+function metricVal(r, m){
+  if(m==='total') return r.total||0;
+  if(m==='bultos') return bultosEstimados(r);
+  return 1;
+}
+function metricFmt(v){
+  const metric = currentMetric();
+  if(metric==='total') return fmtMoney(v);
+  if(metric==='bultos') return fmtBultos(v);
+  return fmtInt(v);
+}
+function chartLabelFmt(v){
+  const metric = currentMetric();
+  if(metric==='total') return '$' + Math.round((v||0)/1000).toLocaleString('es-AR') + 'k';
+  if(metric==='bultos') return fmtBultos(v);
+  return fmtInt(v);
+}
+function pedidoDate(r){ return r.fecha_alta ? new Date(r.fecha_alta) : null; }
+function isoDate(d){
+  if(!d || isNaN(d)) return '';
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+function ingresoFecha(r){
+  return r.fecha || isoDate(pedidoDate(r));
+}
+function egresoPosteriorIngreso(r){
+  if(!r.fecha_entrega) return false;
+  return String(r.fecha_entrega).slice(0,10) > ingresoFecha(r);
+}
+function esFueraDeCorte(r){
+  const d = pedidoDate(r);
+  const h = d && !isNaN(d) ? d.getHours() : Number(r.hora||0);
+  const m = d && !isNaN(d) ? d.getMinutes() : Number(r.minuto||0);
+  return h > 14 || (h === 14 && m >= 30);
+}
+function esEntre14y1430(r){
+  const d = pedidoDate(r);
+  const h = d && !isNaN(d) ? d.getHours() : Number(r.hora||0);
+  const m = d && !isNaN(d) ? d.getMinutes() : Number(r.minuto||0);
+  return h === 14 && m < 30;
+}
+function pedidoFranja(r){
+  const d = pedidoDate(r);
+  const h = d && !isNaN(d) ? d.getHours() : Number(r.hora||0);
+  const m = d && !isNaN(d) ? d.getMinutes() : Number(r.minuto||0);
+  if(h < 7) return 'Antes 07';
+  if(h < 11) return String(h).padStart(2,'0')+'-'+String(h+1).padStart(2,'0');
+  if(h < 15){
+    const sm = Math.floor(m/15)*15;
+    let eh = h, em = sm + 15;
+    if(em === 60){ eh += 1; em = 0; }
+    return String(h).padStart(2,'0')+':'+String(sm).padStart(2,'0')+'-'+String(eh).padStart(2,'0')+':'+String(em).padStart(2,'0');
+  }
+  return '15+';
+}
+
+// ---- carga inicial ----
+fetch('/pedidos/data').then(r=>r.json()).then(data=>{
+  RAW = data;
+  buildFilterOptions();
+  render();
+});
+
+function buildFilterOptions(){
+  const uniq = (k)=>[...new Set(RAW.map(r=>r[k]).filter(v=>v!==null&&v!==undefined))].sort();
+  fill('fSucursal', uniq('sucursal'));
+  fill('fLocalidad', uniq('localidad'));
+  fill('fVendedor', uniq('vendedor'));
+  fill('fCanal', uniq('origen'));
+  const dsel = document.getElementById('fDia');
+  DIAS.forEach((d,i)=>dsel.insertAdjacentHTML('beforeend',`<option value="${i}">${d}</option>`));
+  const cbox = document.getElementById('fCats');
+  CATS.forEach(c=>{
+    const checked = c==='VENTA' ? 'checked' : '';
+    cbox.insertAdjacentHTML('beforeend',
+      `<label class="switch-pill">
+         <input class="catchk" type="checkbox" value="${c}" id="cat_${c}" ${checked}>
+         <span>${c}</span>
+       </label>`);
+  });
+  document.querySelectorAll('select, .catchk, #fAnulados, #fEgresoPosterior, #fFechaDesde, #fFechaHasta, input[name=metric]')
+    .forEach(el=>el.addEventListener('change', render));
+  document.getElementById('btnReset').addEventListener('click', (e)=>{e.preventDefault();resetFilters();});
+  document.getElementById('btnAiAnalisis').addEventListener('click', analizarConIA);
+}
+function fill(id, arr){
+  const sel = document.getElementById(id);
+  arr.forEach(v=>sel.insertAdjacentHTML('beforeend',`<option value="${v}">${v}</option>`));
+}
+function resetFilters(){
+  ['fFechaDesde','fFechaHasta','fSucursal','fLocalidad','fVendedor','fCanal','fCorte','fDia'].forEach(id=>document.getElementById(id).value='');
+  document.querySelectorAll('.catchk').forEach(c=>c.checked=(c.value==='VENTA'));
+  document.getElementById('fAnulados').checked=false;
+  document.getElementById('fEgresoPosterior').checked=false;
+  render();
+}
+
+function activeCats(){ return [...document.querySelectorAll('.catchk:checked')].map(c=>c.value); }
+
+function filtered(){
+  const fechaDesde=val('fFechaDesde'), fechaHasta=val('fFechaHasta');
+  const suc=val('fSucursal'), loc=val('fLocalidad'), ven=val('fVendedor'), can=val('fCanal'), corte=val('fCorte'), dia=val('fDia');
+  const cats=activeCats(), incAnul=document.getElementById('fAnulados').checked;
+  const soloEgresoPosterior=document.getElementById('fEgresoPosterior').checked;
+  return RAW.filter(r=>{
+    const fechaIngreso = ingresoFecha(r);
+    if(fechaDesde && fechaIngreso < fechaDesde) return false;
+    if(fechaHasta && fechaIngreso > fechaHasta) return false;
+    if(suc && r.sucursal!==suc) return false;
+    if(loc && r.localidad!==loc) return false;
+    if(ven && r.vendedor!==ven) return false;
+    if(can && r.origen!==can) return false;
+    if(corte==='fuera' && !esFueraDeCorte(r)) return false;
+    if(corte==='dentro' && esFueraDeCorte(r)) return false;
+    if(dia!=='' && String(r.dia_semana)!==dia) return false;
+    if(cats.length && !cats.includes(r.categoria)) return false;
+    if(!incAnul && r.anulado) return false;
+    if(soloEgresoPosterior && !egresoPosteriorIngreso(r)) return false;
+    return true;
+  });
+}
+const val = id => document.getElementById(id).value;
+
+// ---- agregaciones ----
+function sumBy(rows, keyFn){
+  const m = new Map(); const metric=currentMetric();
+  rows.forEach(r=>{ const k=keyFn(r); m.set(k,(m.get(k)||0)+metricVal(r,metric)); });
+  return m;
+}
+
+function render(){
+  const rows = filtered();
+  document.getElementById('visibles').textContent = fmtInt(rows.length);
+  renderKPIs(rows);
+  renderReporte1430(rows);
+  renderHora(rows);
+  renderHeatmap(rows);
+  renderFranja(rows);
+  renderAcum(rows);
+  renderCat(rows,'chLocalidad','localidad',10,true);
+  renderCat(rows,'chVendedor','vendedor',10,true);
+  renderCanal(rows);
+}
+
+function renderKPIs(rows){
+  const metric=currentMetric();
+  const nPed = rows.length;
+  const tot = rows.reduce((a,r)=>a+(r.total||0),0);
+  const ticket = nPed? tot/nPed : 0;
+  const bultosTot = rows.reduce((a,r)=>a+bultosEstimados(r),0);
+  // hora pico según métrica
+  const byH = sumBy(rows, r=>r.hora);
+  let pico='—', picoV=-1;
+  byH.forEach((v,h)=>{ if(v>picoV){picoV=v; pico=String(h).padStart(2,'0')+':00';} });
+  // % antes de 14
+  const antes14 = rows.filter(r=>r.hora<14);
+  const entre14y1430 = rows.filter(esEntre14y1430);
+  const despues1430 = rows.filter(esFueraDeCorte);
+  const postCorteEgresoPosterior = despues1430.filter(egresoPosteriorIngreso);
+  const base = rows.reduce((a,r)=>a+metricVal(r,metric),0);
+  const val14 = antes14.reduce((a,r)=>a+metricVal(r,metric),0);
+  const pct14 = base? Math.round(val14/base*100) : 0;
+  const valEntre14y1430 = entre14y1430.reduce((a,r)=>a+metricVal(r,metric),0);
+  const valDespues1430 = despues1430.reduce((a,r)=>a+metricVal(r,metric),0);
+  const pctFueraCorte = nPed? Math.round(despues1430.length/nPed*100) : 0;
+  const valPostCorteEgresoPosterior = postCorteEgresoPosterior.reduce((a,r)=>a+metricVal(r,metric),0);
+
+  const cards = [
+    {lbl:'Pedidos', val:fmtInt(nPed), tip:'Cantidad de pedidos que cumplen todos los filtros activos.'},
+    {lbl:'$ Total', val:fmtMoney(tot), tip:'Suma del importe total de los pedidos filtrados.'},
+    {lbl:'Bultos est.', val:fmtBultos(bultosTot), tip:'Estimación de bultos: importe total dividido por $36.000.'},
+    {lbl:'Ticket prom.', val:fmtMoney(ticket), tip:'Importe promedio por pedido filtrado: $ Total dividido Pedidos.'},
+    {lbl:'Hora pico', val:pico, tip:'Hora con mayor volumen según la métrica seleccionada.'},
+    {lbl:'14:00 a 14:30', val:metricFmt(valEntre14y1430), tip:'Pedidos ingresados entre 14:00 y 14:29, medidos con la métrica seleccionada.'},
+    {lbl:'Fuera de corte', val:metricFmt(valDespues1430), tip:'Pedidos ingresados desde las 14:30 en adelante, medidos con la métrica seleccionada.'},
+    {lbl:'Fuera corte %', val:pctFueraCorte+'%', tip:'Porcentaje de pedidos fuera de corte sobre el total de pedidos filtrados.'},
+    {lbl:'Post corte + egreso', val:metricFmt(valPostCorteEgresoPosterior), tip:'Pedidos fuera de corte cuya fecha de entrega es posterior a la fecha de ingreso.'},
+    {lbl:'Antes de 14h', val:pct14+'%', tip:'Porcentaje de la métrica seleccionada ingresado antes de las 14:00.'},
+  ];
+  document.getElementById('kpis').innerHTML = cards.map(c=>
+    `<div class="card kpi" title="${escapeAttr(c.tip)}"><div class="card-body py-2">
+       <div class="val">${c.val}</div><div class="lbl">${c.lbl}</div>
+     </div></div>`).join('');
+}
+
+function renderReporte1430(rows){
+  const metric = currentMetric();
+  const target = rows.filter(esEntre14y1430);
+  const byDate = new Map();
+  target.forEach(r=>{
+    const fecha = ingresoFecha(r) || 'Sin fecha';
+    if(!byDate.has(fecha)){
+      byDate.set(fecha, {fecha, pedidos:0, total:0, bultos:0, metrica:0});
+    }
+    const item = byDate.get(fecha);
+    item.pedidos += 1;
+    item.total += r.total || 0;
+    item.bultos += bultosEstimados(r);
+    item.metrica += metricVal(r, metric);
+  });
+  const data = [...byDate.values()].sort((a,b)=>a.fecha.localeCompare(b.fecha));
+  const total = data.reduce((acc,r)=>({
+    pedidos: acc.pedidos + r.pedidos,
+    total: acc.total + r.total,
+    bultos: acc.bultos + r.bultos,
+    metrica: acc.metrica + r.metrica
+  }), {pedidos:0,total:0,bultos:0,metrica:0});
+  const metricLabel = metric==='total' ? '$ Total' : (metric==='bultos' ? 'Bultos est.' : 'Cantidad');
+  const showMetricCol = metric === 'cant';
+  const el = document.getElementById('reporte1430');
+  if(!data.length){
+    el.innerHTML = '<div class="text-muted small py-2">Sin pedidos entre 14:00 y 14:30 para los filtros activos.</div>';
+    renderReporte1430Chart([]);
+    return;
+  }
+  const rowsHtml = data.map(r=>`
+    <tr>
+      <td>${r.fecha}</td>
+      <td class="num">${fmtInt(r.pedidos)}</td>
+      <td class="num">${fmtMoney(r.total)}</td>
+      <td class="num">${fmtBultos(r.bultos)}</td>
+      ${showMetricCol ? `<td class="num">${fmtInt(r.metrica)}</td>` : ''}
+    </tr>`).join('');
+  el.innerHTML = `
+    <table class="table table-sm table-hover align-middle">
+      <thead>
+        <tr>
+          <th>Fecha ingreso</th>
+          <th class="num">Pedidos</th>
+          <th class="num">$ Total</th>
+          <th class="num">Bultos est.</th>
+          ${showMetricCol ? `<th class="num">${metricLabel}</th>` : ''}
+        </tr>
+      </thead>
+      <tbody>${rowsHtml}</tbody>
+      <tfoot>
+        <tr class="fw-semibold">
+          <td>Total</td>
+          <td class="num">${fmtInt(total.pedidos)}</td>
+          <td class="num">${fmtMoney(total.total)}</td>
+          <td class="num">${fmtBultos(total.bultos)}</td>
+          ${showMetricCol ? `<td class="num">${fmtInt(total.metrica)}</td>` : ''}
+        </tr>
+      </tfoot>
+    </table>`;
+  renderReporte1430Chart(data);
+}
+
+function renderReporte1430Chart(data){
+  const metric = currentMetric();
+  const labels = data.map(r=>r.fecha.slice(5));
+  const values = data.map(r=> metric==='total' ? r.total : (metric==='bultos' ? r.bultos : r.pedidos));
+  const options = barOpts();
+  baseChart('chReporte1430', {
+    type:'bar',
+    data:{
+      labels,
+      datasets:[{data:values, backgroundColor:'#fd7e14', borderRadius:4}]
+    },
+    options
+  });
+}
+
+function topBy(rows, key, limit){
+  const metric = currentMetric();
+  const m = new Map();
+  rows.forEach(r=>{
+    const k = r[key] || 'Sin dato';
+    if(!m.has(k)) m.set(k, {nombre:k, pedidos:0, total:0, bultos:0, metrica:0});
+    const item = m.get(k);
+    item.pedidos += 1;
+    item.total += r.total || 0;
+    item.bultos += bultosEstimados(r);
+    item.metrica += metricVal(r, metric);
+  });
+  return [...m.values()].sort((a,b)=>b.metrica-a.metrica).slice(0, limit);
+}
+
+function buildAiResumen(rows){
+  const metric = currentMetric();
+  const ventana1430 = rows.filter(esEntre14y1430);
+  const fueraCorte = rows.filter(esFueraDeCorte);
+  const postCorteEgreso = fueraCorte.filter(egresoPosteriorIngreso);
+  const totalMetric = rows.reduce((a,r)=>a+metricVal(r,metric),0);
+  const ventanaMetric = ventana1430.reduce((a,r)=>a+metricVal(r,metric),0);
+  const fueraMetric = fueraCorte.reduce((a,r)=>a+metricVal(r,metric),0);
+  const daily = new Map();
+  ventana1430.forEach(r=>{
+    const fecha = ingresoFecha(r) || 'Sin fecha';
+    if(!daily.has(fecha)) daily.set(fecha, {fecha, pedidos:0, total:0, bultos:0, metrica:0});
+    const item = daily.get(fecha);
+    item.pedidos += 1;
+    item.total += r.total || 0;
+    item.bultos += bultosEstimados(r);
+    item.metrica += metricVal(r,metric);
+  });
+  return {
+    empresa: 'Del Palacio S.A.',
+    metrica_activa: metric,
+    valor_bulto_estimado: VALOR_BULTO_ESTIMADO,
+    filtros: {
+      fecha_desde: val('fFechaDesde') || null,
+      fecha_hasta: val('fFechaHasta') || null,
+      sucursal: val('fSucursal') || 'Todas',
+      localidad: val('fLocalidad') || 'Todas',
+      vendedor: val('fVendedor') || 'Todos',
+      canal: val('fCanal') || 'Todos',
+      corte: val('fCorte') || 'Todos',
+      dia: val('fDia') || 'Todos',
+      comprobantes: activeCats(),
+      incluye_anulados: document.getElementById('fAnulados').checked,
+      solo_egreso_posterior: document.getElementById('fEgresoPosterior').checked
+    },
+    totales_filtrados: {
+      pedidos: rows.length,
+      total_pesos: rows.reduce((a,r)=>a+(r.total||0),0),
+      bultos_estimados: rows.reduce((a,r)=>a+bultosEstimados(r),0),
+      metrica_total: totalMetric
+    },
+    ventana_14_00_a_14_30: {
+      pedidos: ventana1430.length,
+      total_pesos: ventana1430.reduce((a,r)=>a+(r.total||0),0),
+      bultos_estimados: ventana1430.reduce((a,r)=>a+bultosEstimados(r),0),
+      metrica_total: ventanaMetric,
+      porcentaje_sobre_total_pedidos: rows.length ? Math.round(ventana1430.length/rows.length*100) : 0,
+      dia_por_dia: [...daily.values()].sort((a,b)=>a.fecha.localeCompare(b.fecha))
+    },
+    fuera_de_corte: {
+      pedidos: fueraCorte.length,
+      total_pesos: fueraCorte.reduce((a,r)=>a+(r.total||0),0),
+      bultos_estimados: fueraCorte.reduce((a,r)=>a+bultosEstimados(r),0),
+      metrica_total: fueraMetric,
+      porcentaje_sobre_total_pedidos: rows.length ? Math.round(fueraCorte.length/rows.length*100) : 0,
+      con_egreso_posterior: postCorteEgreso.length
+    },
+    principales_sucursales: topBy(rows, 'sucursal', 5),
+    principales_canales: topBy(rows, 'origen', 5),
+    principales_vendedores: topBy(rows, 'vendedor', 5)
+  };
+}
+
+async function analizarConIA(){
+  const rows = filtered();
+  const btn = document.getElementById('btnAiAnalisis');
+  const box = document.getElementById('aiAnalisisBox');
+  const estado = document.getElementById('aiAnalisisEstado');
+  const texto = document.getElementById('aiAnalisisTexto');
+  box.classList.remove('d-none');
+  estado.textContent = 'analizando...';
+  texto.textContent = '';
+  btn.disabled = true;
+  try{
+    const resp = await fetch('/pedidos/ai-analisis', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({resumen: buildAiResumen(rows)})
+    });
+    const data = await resp.json();
+    if(!resp.ok || !data.ok) throw new Error(data.error || 'No se pudo generar el análisis.');
+    estado.textContent = 'listo';
+    texto.textContent = data.analisis;
+  }catch(err){
+    estado.textContent = 'error';
+    texto.textContent = err.message;
+  }finally{
+    btn.disabled = false;
+  }
+}
+
+function baseChart(id, cfg){
+  if(typeof Chart==='undefined'){
+    const box=document.getElementById(id)?.closest('.card-body');
+    if(box&&!box.querySelector('.chart-error')) box.insertAdjacentHTML('beforeend','<div class="chart-error text-danger small mt-2">No se pudo cargar la librer?a de gr?ficos. Recarg? la p?gina.</div>');
+    return;
+  }
+  if(charts[id]) charts[id].destroy();
+  charts[id] = new Chart(document.getElementById(id), cfg);
+}
+
+const valueLabelsPlugin = {
+  id: 'valueLabels',
+  afterDatasetsDraw(chart, args, pluginOptions){
+    const opts = pluginOptions || {};
+    if(opts.display === false) return;
+    const {ctx, chartArea} = chart;
+    ctx.save();
+    ctx.font = opts.font || '600 10px system-ui, -apple-system, Segoe UI, sans-serif';
+    ctx.fillStyle = opts.color || '#1f2937';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    chart.data.datasets.forEach((dataset, datasetIndex)=>{
+      const meta = chart.getDatasetMeta(datasetIndex);
+      if(meta.hidden) return;
+      meta.data.forEach((el, i)=>{
+        const raw = Number(dataset.data[i] || 0);
+        if(!raw) return;
+        const label = opts.percent ? raw + '%' : chartLabelFmt(raw);
+        const pos = el.tooltipPosition();
+        let x = pos.x;
+        let y = pos.y;
+        if(chart.config.type === 'bar'){
+          if(chart.options.indexAxis === 'y'){
+            x = Math.min(pos.x + 16, chartArea.right - 10);
+            ctx.textAlign = 'left';
+          } else {
+            y = Math.max(pos.y - 9, chartArea.top + 8);
+            ctx.textAlign = 'center';
+          }
+        } else if(chart.config.type === 'line'){
+          y = Math.max(pos.y - 10, chartArea.top + 8);
+        } else if(chart.config.type === 'doughnut'){
+          ctx.fillStyle = '#fff';
+        }
+        ctx.fillText(label, x, y);
+        ctx.fillStyle = opts.color || '#1f2937';
+      });
+    });
+    ctx.restore();
+  }
+};
+if(typeof Chart !== 'undefined'){
+  Chart.register(valueLabelsPlugin);
+}
+
+function renderHora(rows){
+  const m = sumBy(rows, r=>r.hora);
+  const labels = [...Array(24).keys()];
+  const data = labels.map(h=>m.get(h)||0);
+  baseChart('chHora', {
+    type:'bar',
+    data:{labels:labels.map(h=>String(h).padStart(2,'0')),
+      datasets:[{data, backgroundColor:'#0d6efd', borderRadius:4}]},
+    options:barOpts()
+  });
+}
+
+function renderFranja(rows){
+  const m = sumBy(rows, r=>pedidoFranja(r));
+  const data = FRANJAS.map(f=>m.get(f)||0);
+  baseChart('chFranja', {
+    type:'bar',
+    data:{labels:FRANJAS, datasets:[{data, backgroundColor:'#20c997', borderRadius:4}]},
+    options:barOpts()
+  });
+}
+
+function renderAcum(rows){
+  const m = sumBy(rows, r=>r.hora);
+  const labels=[...Array(24).keys()];
+  let run=0; const total=[...m.values()].reduce((a,b)=>a+b,0)||1;
+  const data = labels.map(h=>{ run+=(m.get(h)||0); return Math.round(run/total*100); });
+  baseChart('chAcum', {
+    type:'line',
+    data:{labels:labels.map(h=>String(h).padStart(2,'0')),
+      datasets:[{data, borderColor:'#6610f2', backgroundColor:'rgba(102,16,242,.08)',
+        fill:true, tension:.25, pointRadius:0}]},
+    options:{responsive:true,maintainAspectRatio:false,
+      layout:{padding:{top:18,right:12}},
+      scales:{y:{max:100,ticks:{callback:v=>v+'%'}}},
+      plugins:{legend:{display:false},
+        valueLabels:{percent:true},
+        tooltip:{callbacks:{label:c=>c.parsed.y+'% acumulado'}}}}
+  });
+}
+
+function renderCat(rows, id, key, topN, horizontal){
+  const m = sumBy(rows, r=>r[key]||'—');
+  let arr=[...m.entries()].sort((a,b)=>b[1]-a[1]);
+  if(topN && arr.length>topN){
+    const rest=arr.slice(topN).reduce((a,[,v])=>a+v,0);
+    arr=arr.slice(0,topN); if(rest>0) arr.push(['Otros',rest]);
+  }
+  baseChart(id, {
+    type:'bar',
+    data:{labels:arr.map(a=>a[0]),
+      datasets:[{data:arr.map(a=>a[1]),
+        backgroundColor:arr.map((_,i)=>PALETTE[i%PALETTE.length]), borderRadius:4}]},
+    options:barOpts(horizontal)
+  });
+}
+
+function renderCanal(rows){
+  const m = sumBy(rows, r=>r.origen||'—');
+  const arr=[...m.entries()].sort((a,b)=>b[1]-a[1]);
+  baseChart('chCanal', {
+    type:'doughnut',
+    data:{labels:arr.map(a=>a[0]),
+      datasets:[{data:arr.map(a=>a[1]),
+        backgroundColor:arr.map((_,i)=>PALETTE[i%PALETTE.length])}]},
+    options:{responsive:true,maintainAspectRatio:false,
+      layout:{padding:{top:8,right:8,left:8,bottom:8}},
+      plugins:{legend:{position:'bottom'},
+        tooltip:{callbacks:{label:c=>`${c.label}: ${metricFmt(c.parsed)}`}}}}
+  });
+}
+
+function barOpts(horizontal){
+  return {responsive:true,maintainAspectRatio:false,
+    indexAxis: horizontal?'y':'x',
+    layout:{padding:{top:18,right:horizontal?36:8}},
+    scales:{x:{grid:{display:!horizontal}}, y:{grid:{display:horizontal},
+      ticks:{callback:function(v){ return horizontal? this.getLabelForValue(v)
+        : (currentMetric()==='total'? '$'+(v/1000)+'k' : (currentMetric()==='bultos'?fmtBultos(v):v)); }}}},
+    plugins:{legend:{display:false},
+      tooltip:{callbacks:{label:c=>metricFmt(horizontal?c.parsed.x:c.parsed.y)}}}};
+}
+
+// ---- heatmap hora × día ----
+function renderHeatmap(rows){
+  const metric=currentMetric();
+  const grid={}; let max=0;
+  rows.forEach(r=>{ const k=r.dia_semana+'_'+r.hora;
+    grid[k]=(grid[k]||0)+metricVal(r,metric); if(grid[k]>max)max=grid[k]; });
+  const horas=[...Array(24).keys()].filter(h=>h>=6&&h<=22); // rango operativo
+  const el=document.getElementById('heatmap');
+  el.style.gridTemplateColumns=`40px repeat(${horas.length},1fr)`;
+  let html='<div class="dlabel"></div>';
+  horas.forEach(h=>html+=`<div class="hlabel">${h}</div>`);
+  for(let d=0; d<7; d++){
+    if(d===6) continue; // sin domingo (semana operativa lun-sáb)
+    html+=`<div class="dlabel">${DIAS[d]}</div>`;
+    horas.forEach(h=>{
+      const v=grid[d+'_'+h]||0;
+      const a = max? (0.12 + 0.88*v/max) : 0.12;
+      const bg = v? `rgba(13,110,253,${a.toFixed(2)})` : 'rgba(13,110,253,0.05)';
+      html+=`<div class="cell" style="background:${bg}" title="${DIAS[d]} ${h}:00 — ${metricFmt(v)}">${v?(metric==='total'?'':metricFmt(v)):''}</div>`;
+    });
+  }
+  el.innerHTML=html;
+}
+</script>
+</body>
+</html>
