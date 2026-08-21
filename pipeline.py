@@ -12,14 +12,21 @@ import os, json, hashlib, re
 import unicodedata
 from datetime import date, datetime
 from io import StringIO
+from http.cookiejar import CookieJar
 from urllib.error import HTTPError
 from urllib.parse import urlencode
-from urllib.request import Request, urlopen
+from urllib.request import HTTPCookieProcessor, Request, build_opener, urlopen
 import numpy as np
 import pandas as pd
 from openpyxl import load_workbook
 
 import storage
+
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except Exception:
+    pass
 
 # ---------------- Parámetros ajustables ----------------
 TI_CENTRO  = 35
@@ -39,6 +46,8 @@ RECHAZOS_SUCURSALES_IMPORT = os.environ.get("RECHAZOS_API_SUCURSAL", "TODAS")
 FICHAYA_API_BASE_URL = os.environ.get("FICHAYA_API_BASE_URL", "https://control-asistencia.up.railway.app").rstrip("/")
 FICHAYA_API_USERNAME = os.environ.get("FICHAYA_API_USERNAME") or os.environ.get("EXTERNAL_API_USERNAME")
 FICHAYA_API_PASSWORD = os.environ.get("FICHAYA_API_PASSWORD") or os.environ.get("EXTERNAL_API_PASSWORD")
+FICHAYA_WEB_USERNAME = os.environ.get("FICHAYA_WEB_USERNAME") or FICHAYA_API_USERNAME
+FICHAYA_WEB_PASSWORD = os.environ.get("FICHAYA_WEB_PASSWORD") or FICHAYA_API_PASSWORD
 FICHAYA_TML_TI_DESDE = os.environ.get("FICHAYA_TML_TI_DESDE", "2026-08-01")
 SATISFACCION_CSV_URL = os.environ.get(
     "SATISFACCION_CSV_URL",
@@ -169,10 +178,60 @@ def _fichaya_token():
         return json.loads(res.read().decode("utf-8")).get("access_token")
 
 
-def cargar_fichadas(desde, hasta):
+def _csrf_from_html(html):
+    m = re.search(r'name=["\']csrf_token["\']\s+value=["\']([^"\']+)["\']', html or "")
+    return m.group(1) if m else ""
+
+
+def _fichaya_web_csv(desde, hasta):
+    if not FICHAYA_WEB_USERNAME or not FICHAYA_WEB_PASSWORD:
+        raise RuntimeError("faltan FICHAYA_WEB_USERNAME/FICHAYA_WEB_PASSWORD")
+    opener = build_opener(HTTPCookieProcessor(CookieJar()))
+    login_url = FICHAYA_API_BASE_URL + "/login"
+    with opener.open(Request(login_url, headers={"Accept": "text/html"}), timeout=30) as res:
+        login_html = res.read().decode("utf-8", errors="replace")
+    csrf = _csrf_from_html(login_html)
+    if not csrf:
+        raise RuntimeError("no se pudo obtener CSRF del login web FichaYA")
+    body = urlencode({
+        "username": FICHAYA_WEB_USERNAME,
+        "password": FICHAYA_WEB_PASSWORD,
+        "csrf_token": csrf,
+    }).encode("utf-8")
+    req = Request(
+        login_url,
+        data=body,
+        headers={
+            "Content-Type": "application/x-www-form-urlencoded",
+            "Accept": "text/html",
+            "Origin": FICHAYA_API_BASE_URL,
+            "Referer": login_url,
+        },
+        method="POST",
+    )
+    with opener.open(req, timeout=30) as res:
+        final_url = getattr(res, "url", "")
+        body_preview = res.read(500).decode("utf-8", errors="replace")
+    if "/login" in final_url:
+        raise RuntimeError("login web FichaYA invalido")
+    params = urlencode({
+        "fecha_desde": desde,
+        "fecha_hasta": hasta,
+        "tipo_marca": "jornada",
+    })
+    req = Request(FICHAYA_API_BASE_URL + "/asistencias/marcas.csv?" + params, headers={"Accept": "text/csv"})
+    with opener.open(req, timeout=60) as res:
+        ctype = res.headers.get("Content-Type", "")
+        raw = res.read().decode("utf-8-sig", errors="replace")
+    if "text/csv" not in ctype:
+        raise RuntimeError("FichaYA web no devolvio CSV de marcas")
+    return raw
+
+
+def _fichaya_external_csv(desde, hasta):
     token = _fichaya_token()
     if not token:
-        return {}
+        raise RuntimeError("faltan credenciales de API externa FichaYA")
     params = urlencode({
         "fecha_desde": desde,
         "fecha_hasta": hasta,
@@ -183,19 +242,22 @@ def cargar_fichadas(desde, hasta):
     url = FICHAYA_API_BASE_URL + "/api/v1/external/reportes/asistencia.csv?" + params
     req = Request(url, headers={"Authorization": f"Bearer {token}", "Accept": "text/csv"})
     with urlopen(req, timeout=60) as res:
-        raw = res.read().decode("utf-8-sig")
+        return res.read().decode("utf-8-sig", errors="replace")
+
+
+def _indexar_fichadas_csv(raw):
     df = pd.read_csv(StringIO(raw))
     idx = {}
     for _, row in df.fillna("").iterrows():
-        fecha = _parse_fecha_fichaya(row.get("FECHA"))
-        hora = _parse_hora_fichaya(row.get("HORA"))
-        nombre = _norm_persona_key(row.get("NOMBRE"))
+        fecha = _parse_fecha_fichaya(row.get("FECHA") or row.get("fecha"))
+        hora = _parse_hora_fichaya(row.get("HORA") or row.get("hora"))
+        nombre = _norm_persona_key(row.get("NOMBRE") or row.get("empleado"))
         if not fecha or not hora or not nombre:
             continue
-        mov = _norm_persona_key(row.get("TIPO MOV"))
+        mov = _norm_persona_key(row.get("TIPO MOV") or row.get("accion"))
         key = (fecha.strftime("%Y-%m-%d"), nombre)
         item = idx.setdefault(key, {"ingresos": [], "egresos": []})
-        codigo = _norm_id(row.get("CODIGO"))
+        codigo = _norm_id(row.get("CODIGO") or row.get("legajo"))
         if codigo:
             idx[(fecha.strftime("%Y-%m-%d"), "LEGAJO:" + codigo)] = item
         if mov in ("ENTRADA", "INGRESO"):
@@ -206,6 +268,16 @@ def cargar_fichadas(desde, hasta):
         item["ingreso"] = min(item["ingresos"]) if item["ingresos"] else None
         item["egreso"] = max(item["egresos"]) if item["egresos"] else None
     return idx
+
+
+def cargar_fichadas(desde, hasta):
+    try:
+        return _indexar_fichadas_csv(_fichaya_web_csv(desde, hasta))
+    except Exception as web_exc:
+        try:
+            return _indexar_fichadas_csv(_fichaya_external_csv(desde, hasta))
+        except Exception as api_exc:
+            raise RuntimeError(f"web: {web_exc}; api externa: {api_exc}")
 
 
 def _minutos_entre(a, b):
