@@ -22,6 +22,7 @@ sirve los registros ya normalizados desde Postgres.
 import io
 import json
 import os
+import re
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 from flask import Blueprint, render_template, request, jsonify, redirect, url_for, flash, session
@@ -105,7 +106,10 @@ def require_dashboard_login():
 @pedidos_bp.route("/pedidos")
 @pedidos_bp.route("/pedidos/")
 def pedidos_home():
-    resumen = store.stats()
+    try:
+        resumen = store.stats()
+    except Exception:
+        resumen = {"total": 0, "desde": None, "hasta": None, "error": "No se pudo consultar pedidos en este momento."}
     franjas = FRANJAS
     return render_template("plantilla_pedidos.html",
                            resumen=resumen, franjas=franjas, dias=DIAS)
@@ -113,7 +117,14 @@ def pedidos_home():
 
 @pedidos_bp.route("/pedidos/data")
 def pedidos_data():
-    return jsonify(store.fetch_all())
+    try:
+        return jsonify(store.fetch_all())
+    except Exception as exc:
+        resp = jsonify([])
+        resp.status_code = 503
+        msg = re.sub(r"\s+", " ", str(exc)).strip()[:300]
+        resp.headers["X-Data-Error"] = f"No se pudo consultar pedidos: {msg}"
+        return resp
 
 
 @pedidos_bp.route("/pedidos/ai-analisis", methods=["POST"])

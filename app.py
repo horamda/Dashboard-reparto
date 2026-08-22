@@ -18,6 +18,7 @@ import os
 import csv
 import json
 import secrets
+import threading
 import time
 from datetime import date
 from html import escape
@@ -26,6 +27,7 @@ from urllib.parse import urlencode
 from flask import Flask, request, redirect, url_for, Response, session
 import pipeline
 from pedidos_blueprint import pedidos_bp
+import storage_pedidos
 
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 50 * 1024 * 1024  # 50 MB
@@ -34,6 +36,23 @@ ADMIN_TOKEN = os.environ.get("ADMIN_TOKEN", "")
 ADMIN_USER = os.environ.get("ADMIN_USER", "admin")
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", ADMIN_TOKEN)
 app.register_blueprint(pedidos_bp)
+
+
+def _prewarm_caches():
+    jobs = (
+        ("pedidos stats", storage_pedidos.stats),
+        ("pedidos data", storage_pedidos.fetch_all),
+        ("rutas foxtrot", pipeline.storage.load_all),
+    )
+    for _name, fn in jobs:
+        try:
+            fn()
+        except Exception:
+            pass
+
+
+if os.environ.get("DISABLE_CACHE_PREWARM") != "1":
+    threading.Thread(target=_prewarm_caches, daemon=True).start()
 
 
 @app.after_request
@@ -232,18 +251,18 @@ def _main_page():
     if blocked:
         return blocked
     groups = [
-        ("Operaci?n", [
+        ("Operación", [
             ("Dashboard operativo", "Indicadores principales, Team Room, DPO, rechazos, OTIF y calidad.", "/dashboard", "Abrir"),
-            ("Ingreso de pedidos", "Importaci?n y an?lisis por franja horaria, corte, canal, vendedor y bultos estimados.", "/pedidos", "Abrir"),
+            ("Ingreso de pedidos", "Importación y análisis por franja horaria, corte, canal, vendedor y bultos estimados.", "/pedidos", "Abrir"),
             ("Reporte FichaYA / Foxtrot", "Empleado, fichada de ingreso, inicio Foxtrot, TML, fin Foxtrot, salida y TI.", "/reporte-fichaya-foxtrot", "Abrir"),
         ]),
         ("Datos y calidad", [
-            ("Calidad Foxtrot", "Auditor?a de columnas vac?as y autocompletado de campos Foxtrot.", "/foxtrot-calidad", "Ver"),
-            ("Datos cargados", "Revisi?n y edici?n directa de rutas, clientes, rechazos, art?culos y configuraci?n.", "/datos", "Revisar"),
+            ("Calidad Foxtrot", "Auditoría de columnas vacías y autocompletado de campos Foxtrot.", "/foxtrot-calidad", "Ver"),
+            ("Datos cargados", "Revisión y edición directa de rutas, clientes, rechazos, artículos y configuración.", "/datos", "Revisar"),
             ("Asociar nombres", "Mapa entre nombres de choferes Foxtrot y empleados FichaYA.", "/asociar-fichaya", "Asociar"),
         ]),
-        ("Administraci?n", [
-            ("Actualizar datos", "Carga de Route Analytics, visitas Foxtrot, clientes, rechazos y art?culos.", "/admin", "Ir a admin"),
+        ("Administración", [
+            ("Actualizar datos", "Carga de Route Analytics, visitas Foxtrot, clientes, rechazos y artículos.", "/admin", "Ir a admin"),
         ]),
     ]
     sections = []
@@ -255,8 +274,8 @@ def _main_page():
         sections.append(f'''<section><h2>{escape(group)}</h2><div class=grid>{items}</div></section>''')
     content = "".join(sections)
     return f'''<!doctype html><html lang=es><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><title>Panel principal</title>
-<style>*{{box-sizing:border-box}}body{{font-family:system-ui,Segoe UI,Arial,sans-serif;background:#EEF1F5;color:#15233B;margin:0;line-height:1.45;-webkit-font-smoothing:antialiased}}.wrap{{width:min(100% - 28px,1180px);margin:28px auto 44px}}.top{{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;margin-bottom:22px}}h1{{font-size:28px;line-height:1.1;margin:0 0 6px}}h2{{font-size:13px;text-transform:uppercase;letter-spacing:.45px;color:#657085;margin:24px 0 10px}}.muted{{color:#657085;font-size:14px;margin:0}}.nav{{display:flex;gap:8px;flex-wrap:wrap}}.nav a{{background:#fff;color:#15233B;border:1px solid #DCE2EA;text-decoration:none;border-radius:8px;padding:10px 13px;font-size:13.5px;font-weight:650}}.grid{{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px}}.hub-card{{display:flex;flex-direction:column;background:#fff;border:1px solid #DCE2EA;border-left:5px solid #C77D1A;border-radius:10px;padding:18px 18px 16px;text-decoration:none;color:#15233B;min-height:150px;box-shadow:0 8px 22px rgba(21,35,59,.045)}}.hub-card:hover{{border-color:#C77D1A;box-shadow:0 10px 24px rgba(21,35,59,.08);transform:translateY(-1px)}}.hub-card span{{display:block;font-size:17px;font-weight:800;margin-bottom:7px}}.hub-card p{{color:#657085;font-size:13.5px;margin:0 0 18px;flex:1}}.hub-card b{{display:inline-block;align-self:flex-start;background:#15233B;color:#fff;border-radius:8px;padding:9px 12px;font-size:13px}}@media(max-width:720px){{.top{{display:block}}.nav{{margin-top:12px}}h1{{font-size:24px}}.wrap{{width:min(100% - 18px,1180px);margin-top:18px}}}}</style></head>
-<body><div class=wrap><div class=top><div><h1>Panel principal</h1><p class=muted>Del Palacio S.A. - m?dulos de reparto, Foxtrot, FichaYA y pedidos.</p></div><div class=nav><a href="/dashboard">Dashboard</a><a href="/pedidos">Pedidos</a><a href="/logout">Cerrar sesi?n</a></div></div>{content}</div></body></html>'''
+<style>*{{box-sizing:border-box}}body{{font-family:"Segoe UI",system-ui,Arial,sans-serif;background:#EEF1F5;color:#15233B;margin:0;line-height:1.5;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}}.wrap{{width:min(100% - 28px,1180px);margin:28px auto 44px}}.top{{display:flex;justify-content:space-between;gap:18px;align-items:flex-start;margin-bottom:22px}}h1{{font-size:27px;line-height:1.15;margin:0 0 7px;font-weight:800;letter-spacing:0}}h2{{font-size:12px;text-transform:uppercase;letter-spacing:.7px;color:#657085;margin:24px 0 10px}}.muted{{color:#657085;font-size:14px;margin:0;max-width:680px}}.nav{{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}}.nav a{{background:#fff;color:#15233B;border:1px solid #DCE2EA;text-decoration:none;border-radius:8px;padding:10px 13px;font-size:13px;font-weight:700;white-space:nowrap}}.grid{{display:grid;grid-template-columns:repeat(auto-fit,minmax(285px,1fr));gap:14px}}.hub-card{{display:flex;flex-direction:column;background:#fff;border:1px solid #DCE2EA;border-left:5px solid #C77D1A;border-radius:9px;padding:19px 18px 16px;text-decoration:none;color:#15233B;min-height:132px;box-shadow:0 8px 22px rgba(21,35,59,.045)}}.hub-card:hover{{border-color:#C77D1A;box-shadow:0 10px 24px rgba(21,35,59,.08);transform:translateY(-1px)}}.hub-card span{{display:block;font-size:16px;line-height:1.25;font-weight:800;margin-bottom:8px;letter-spacing:0}}.hub-card p{{color:#657085;font-size:13.5px;line-height:1.45;margin:0 0 18px;flex:1}}.hub-card b{{display:inline-block;align-self:flex-start;background:#15233B;color:#fff;border-radius:7px;padding:8px 12px;font-size:12.5px;line-height:1.2}}@media(max-width:720px){{.top{{display:block}}.nav{{margin-top:14px;justify-content:flex-start}}h1{{font-size:24px}}.wrap{{width:min(100% - 18px,1180px);margin-top:18px}}.grid{{grid-template-columns:1fr}}}}</style></head>
+<body><div class=wrap><div class=top><div><h1>Panel principal</h1><p class=muted>Del Palacio S.A. - módulos de reparto, Foxtrot, FichaYA y pedidos.</p></div><div class=nav><a href="/dashboard">Dashboard</a><a href="/pedidos">Pedidos</a><a href="/logout">Cerrar sesión</a></div></div>{content}</div></body></html>'''
 
 
 def _short_value(value):

@@ -13,6 +13,7 @@ no exista todavía; las ya cargadas nunca se modifican (semántica ON CONFLICT D
 import os
 import json
 import re
+import time
 from urllib.parse import quote
 
 
@@ -67,6 +68,33 @@ ARTICULOS_JSON_PATH = os.path.join(DATA_DIR, "articulos_dashboard.json")
 ATTEMPTS_JSON_PATH = os.path.join(DATA_DIR, "attempts_dashboard.json")
 
 BACKEND = "postgres" if DATABASE_URL else "json"
+CACHE_TTL_SECONDS = float(os.environ.get("STORAGE_CACHE_TTL_SECONDS", "60"))
+_CACHE = {}
+
+
+def clear_cache(prefix=None):
+    if prefix is None:
+        _CACHE.clear()
+        return
+    for key in list(_CACHE):
+        if key.startswith(prefix):
+            _CACHE.pop(key, None)
+
+
+def _cache_get(key):
+    item = _CACHE.get(key)
+    if not item:
+        return None
+    expires_at, value = item
+    if expires_at < time.time():
+        _CACHE.pop(key, None)
+        return None
+    return json.loads(json.dumps(value, ensure_ascii=False))
+
+
+def _cache_set(key, value):
+    _CACHE[key] = (time.time() + CACHE_TTL_SECONDS, json.loads(json.dumps(value, ensure_ascii=False)))
+    return json.loads(json.dumps(value, ensure_ascii=False))
 
 
 ROUTE_RAW_COLUMNS = [
@@ -144,7 +172,7 @@ if BACKEND == "postgres":
 
     def _conn():
         # Railway entrega postgres://...  psycopg2 lo acepta tal cual.
-        timeout = int(os.environ.get("PGCONNECT_TIMEOUT", "8"))
+        timeout = int(os.environ.get("PGCONNECT_TIMEOUT", "4"))
         return psycopg2.connect(DATABASE_URL, connect_timeout=timeout)
 
     def init():
@@ -215,9 +243,12 @@ if BACKEND == "postgres":
             """)
 
     def load_all():
+        cached = _cache_get("routes:all")
+        if cached is not None:
+            return cached
         with _conn() as cn, cn.cursor() as cur:
             cur.execute("SELECT rid, rec FROM rutas_dashboard;")
-            return {rid: rec for rid, rec in cur.fetchall()}
+            return _cache_set("routes:all", {rid: rec for rid, rec in cur.fetchall()})
 
     def _route_row(rid, rec):
         raw = rec.get("raw_foxtrot") or {}
@@ -251,6 +282,7 @@ if BACKEND == "postgres":
                 rows,
             )
             after = _count(cur)
+        clear_cache("routes:")
         return after - before
 
     def upsert_all(recs, count_new=True):
@@ -269,6 +301,7 @@ if BACKEND == "postgres":
                 rows,
             )
             after = _count(cur) if count_new else 0
+        clear_cache("routes:")
         return after - before
 
     def _count(cur):
@@ -291,22 +324,30 @@ if BACKEND == "postgres":
                 f"ON CONFLICT (attempt_key) DO UPDATE SET {updates};",
                 rows,
             )
+        clear_cache("attempts:")
         return len(recs)
 
     def load_attempts():
+        cached = _cache_get("attempts:all")
+        if cached is not None:
+            return cached
         with _conn() as cn, cn.cursor() as cur:
             cur.execute("SELECT attempt_key, rec FROM attempts_dashboard;")
-            return {key: rec for key, rec in cur.fetchall()}
+            return _cache_set("attempts:all", {key: rec for key, rec in cur.fetchall()})
 
     def reset():
         with _conn() as cn, cn.cursor() as cur:
             cur.execute("TRUNCATE rutas_dashboard;")
             cur.execute("TRUNCATE attempts_dashboard;")
+        clear_cache()
 
     def load_clientes():
+        cached = _cache_get("clientes:all")
+        if cached is not None:
+            return cached
         with _conn() as cn, cn.cursor() as cur:
             cur.execute("SELECT cliente, rec FROM clientes_dashboard;")
-            return {cliente: rec for cliente, rec in cur.fetchall()}
+            return _cache_set("clientes:all", {cliente: rec for cliente, rec in cur.fetchall()})
 
     def replace_clientes(recs):
         with _conn() as cn, cn.cursor() as cur:
@@ -318,17 +359,24 @@ if BACKEND == "postgres":
                     "INSERT INTO clientes_dashboard (cliente, rec) VALUES %s;",
                     rows,
                 )
+        clear_cache("clientes:")
         return len(recs)
 
     def load_rechazos():
+        cached = _cache_get("rechazos:all")
+        if cached is not None:
+            return cached
         with _conn() as cn, cn.cursor() as cur:
             cur.execute("SELECT key, rec FROM rechazos_dashboard;")
-            return {key: rec for key, rec in cur.fetchall()}
+            return _cache_set("rechazos:all", {key: rec for key, rec in cur.fetchall()})
 
     def load_rechazos_detalle():
+        cached = _cache_get("rechazos_detalle:all")
+        if cached is not None:
+            return cached
         with _conn() as cn, cn.cursor() as cur:
             cur.execute("SELECT key, rec FROM rechazos_detalle_dashboard;")
-            return {key: rec for key, rec in cur.fetchall()}
+            return _cache_set("rechazos_detalle:all", {key: rec for key, rec in cur.fetchall()})
 
     def upsert_rechazos(recs):
         if not recs:
@@ -341,6 +389,7 @@ if BACKEND == "postgres":
                 "ON CONFLICT (key) DO UPDATE SET rec = EXCLUDED.rec;",
                 rows,
             )
+        clear_cache("rechazos:")
         return len(recs)
 
     def upsert_rechazos_detalle(recs):
@@ -354,12 +403,16 @@ if BACKEND == "postgres":
                 "ON CONFLICT (key) DO UPDATE SET rec = EXCLUDED.rec;",
                 rows,
             )
+        clear_cache("rechazos_detalle:")
         return len(recs)
 
     def load_articulos():
+        cached = _cache_get("articulos:all")
+        if cached is not None:
+            return cached
         with _conn() as cn, cn.cursor() as cur:
             cur.execute("SELECT articulo, rec FROM articulos_dashboard;")
-            return {articulo: rec for articulo, rec in cur.fetchall()}
+            return _cache_set("articulos:all", {articulo: rec for articulo, rec in cur.fetchall()})
 
     def replace_articulos(recs):
         with _conn() as cn, cn.cursor() as cur:
@@ -371,12 +424,16 @@ if BACKEND == "postgres":
                     "INSERT INTO articulos_dashboard (articulo, rec) VALUES %s;",
                     rows,
                 )
+        clear_cache("articulos:")
         return len(recs)
 
     def load_settings():
+        cached = _cache_get("settings:all")
+        if cached is not None:
+            return cached
         with _conn() as cn, cn.cursor() as cur:
             cur.execute("SELECT key, rec FROM settings_dashboard;")
-            return {key: rec for key, rec in cur.fetchall()}
+            return _cache_set("settings:all", {key: rec for key, rec in cur.fetchall()})
 
     def save_setting(key, rec):
         with _conn() as cn, cn.cursor() as cur:
@@ -385,6 +442,7 @@ if BACKEND == "postgres":
                 "ON CONFLICT (key) DO UPDATE SET rec = EXCLUDED.rec;",
                 (key, _extras.Json(rec)),
             )
+        clear_cache("settings:")
         return rec
 
     def save_record(table, key, rec):
@@ -408,6 +466,7 @@ if BACKEND == "postgres":
                 "ON CONFLICT ({}) DO UPDATE SET rec = EXCLUDED.rec;".format(key_col),
                 (key, _extras.Json(rec)),
             )
+        clear_cache()
         return rec
 
     def fast_autofill_foxtrot_missing():
@@ -453,6 +512,7 @@ if BACKEND == "postgres":
                 by_col[target] = len(ids)
                 changed_routes.update(ids)
 
+        clear_cache("routes:")
         return {"rutas": len(changed_routes), "celdas": sum(by_col.values()), "por_columna": by_col}
 
     def delete_record(table, key):
@@ -470,6 +530,7 @@ if BACKEND == "postgres":
         table_name, key_col = specs[table]
         with _conn() as cn, cn.cursor() as cur:
             cur.execute(f"DELETE FROM {table_name} WHERE {key_col} = %s;", (key,))
+        clear_cache()
         return True
 
 

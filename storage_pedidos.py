@@ -3,10 +3,34 @@
 
 import json
 import os
+import time
 
 import storage
 
 UPSERT_MODE = "nothing"
+_INIT_DONE = False
+_CACHE = {}
+_CACHE_TTL = float(os.environ.get("PEDIDOS_CACHE_TTL_SECONDS", "60"))
+
+
+def clear_cache():
+    _CACHE.clear()
+
+
+def _cache_get(key):
+    item = _CACHE.get(key)
+    if not item:
+        return None
+    expires_at, value = item
+    if expires_at < time.time():
+        _CACHE.pop(key, None)
+        return None
+    return json.loads(json.dumps(value, ensure_ascii=False))
+
+
+def _cache_set(key, value):
+    _CACHE[key] = (time.time() + _CACHE_TTL, json.loads(json.dumps(value, ensure_ascii=False)))
+    return json.loads(json.dumps(value, ensure_ascii=False))
 
 
 def _json_path():
@@ -14,11 +38,15 @@ def _json_path():
 
 
 def init_db():
+    global _INIT_DONE
+    if _INIT_DONE:
+        return
     if storage.backend_name() != "postgres":
         os.makedirs(storage.DATA_DIR, exist_ok=True)
         if not os.path.exists(_json_path()):
             with open(_json_path(), "w", encoding="utf-8") as fh:
                 json.dump({"pedidos": {}}, fh, ensure_ascii=False)
+        _INIT_DONE = True
         return
     with storage._conn() as conn, conn.cursor() as cur:
         cur.execute("""
@@ -28,6 +56,7 @@ def init_db():
                 updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
             );
         """)
+    _INIT_DONE = True
 
 
 def _load_json():
@@ -61,6 +90,7 @@ def upsert_records(records):
             base[key] = rec
             affected += 1
         _dump_json(base)
+        clear_cache()
         return affected
 
     if UPSERT_MODE == "nothing":
@@ -75,28 +105,36 @@ def upsert_records(records):
     values = [(r["nro_pedido"], storage._extras.Json(r)) for r in records]
     with storage._conn() as conn, conn.cursor() as cur:
         storage._extras.execute_values(cur, sql, values, page_size=500)
-        return cur.rowcount
+        affected = cur.rowcount
+    clear_cache()
+    return affected
 
 
 def fetch_all():
-    init_db()
+    cached = _cache_get("all")
+    if cached is not None:
+        return cached
     if storage.backend_name() != "postgres":
-        return sorted(_load_json().values(), key=lambda r: r.get("fecha_alta") or "")
+        init_db()
+        return _cache_set("all", sorted(_load_json().values(), key=lambda r: r.get("fecha_alta") or ""))
     with storage._conn() as conn, conn.cursor() as cur:
         cur.execute("SELECT rec FROM pedidos_dashboard ORDER BY rec->>'fecha_alta';")
-        return [row[0] for row in cur.fetchall()]
+        return _cache_set("all", [row[0] for row in cur.fetchall()])
 
 
 def stats():
-    init_db()
+    cached = _cache_get("stats")
+    if cached is not None:
+        return cached
     if storage.backend_name() != "postgres":
+        init_db()
         rows = list(_load_json().values())
         fechas = sorted(r.get("fecha") for r in rows if r.get("fecha"))
-        return {"total": len(rows), "desde": fechas[0] if fechas else None, "hasta": fechas[-1] if fechas else None}
+        return _cache_set("stats", {"total": len(rows), "desde": fechas[0] if fechas else None, "hasta": fechas[-1] if fechas else None})
     with storage._conn() as conn, conn.cursor() as cur:
         cur.execute("""
             SELECT COUNT(*), MIN(rec->>'fecha'), MAX(rec->>'fecha')
             FROM pedidos_dashboard;
         """)
         n, dmin, dmax = cur.fetchone()
-        return {"total": n or 0, "desde": dmin, "hasta": dmax}
+        return _cache_set("stats", {"total": n or 0, "desde": dmin, "hasta": dmax})
