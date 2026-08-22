@@ -173,7 +173,12 @@ if BACKEND == "postgres":
     def _conn():
         # Railway entrega postgres://...  psycopg2 lo acepta tal cual.
         timeout = int(os.environ.get("PGCONNECT_TIMEOUT", "4"))
-        return psycopg2.connect(DATABASE_URL, connect_timeout=timeout)
+        statement_timeout = int(float(os.environ.get("PGSTATEMENT_TIMEOUT_SECONDS", "8")) * 1000)
+        return psycopg2.connect(
+            DATABASE_URL,
+            connect_timeout=timeout,
+            options=f"-c statement_timeout={statement_timeout}",
+        )
 
     def init():
         with _conn() as cn, cn.cursor() as cur:

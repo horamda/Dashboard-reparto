@@ -216,11 +216,15 @@ FOXTROT_COLUMN_LABELS = {
 def _admin_page(msg="", err=False):
     token_field = ""
     m = f'<div class="msg{" err" if err else ""}">{msg}</div>' if msg else ""
+    try:
+        dqi_objetivo = pipeline.dqi_objetivo_bultos_mes()
+    except Exception:
+        dqi_objetivo = ""
     return ADMIN_HTML.format(
         msg=m,
         token_field=token_field,
         hasta_default=date.today().strftime("%Y-%m-%d"),
-        dqi_objetivo=pipeline.dqi_objetivo_bultos_mes(),
+        dqi_objetivo=dqi_objetivo,
     )
 
 
@@ -240,10 +244,21 @@ def _require_login():
     return None
 
 
+def _data_unavailable_page(title, exc):
+    msg = " ".join(str(exc).split())[:500]
+    return f'''<!doctype html><html lang=es><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><title>{escape(title)}</title>
+<style>*{{box-sizing:border-box}}body{{font-family:"Segoe UI",system-ui,Arial,sans-serif;background:#EEF1F5;color:#15233B;margin:0;line-height:1.45}}.wrap{{width:min(100% - 28px,920px);margin:32px auto}}.top{{display:flex;justify-content:space-between;gap:14px;align-items:flex-start;margin-bottom:20px}}.nav{{display:flex;gap:8px;flex-wrap:wrap}}.nav a,.btn{{background:#15233B;color:#fff;text-decoration:none;border:0;border-radius:8px;padding:10px 13px;font-size:13px;font-weight:750}}.nav a.secondary,.btn.secondary{{background:#fff;color:#15233B;border:1px solid #DCE2EA}}.panel{{background:#fff;border:1px solid #DCE2EA;border-left:5px solid #C77D1A;border-radius:10px;padding:20px;box-shadow:0 8px 22px rgba(21,35,59,.045)}}h1{{font-size:24px;margin:0 0 6px}}p{{margin:0 0 12px;color:#657085}}code{{display:block;white-space:normal;background:#F8FAFC;border:1px solid #E5EBF2;border-radius:8px;padding:10px;color:#334155;font-size:12px}}</style></head>
+<body><div class=wrap><div class=top><div><h1>{escape(title)}</h1><p>No se pudieron cargar los datos en este momento.</p></div><div class=nav><a class=secondary href="/inicio">Inicio</a><a class=secondary href="/pedidos">Pedidos</a><a href="{escape(request.path)}">Reintentar</a></div></div>
+<div class=panel><p>La página existe y el acceso funciona, pero la consulta a la base de datos no respondió a tiempo.</p><code>{escape(msg)}</code></div></div></body></html>'''
+
+
 def _dashboard_response():
-    if not pipeline.hay_datos():
-        return Response(LANDING, mimetype="text/html")
-    return Response(pipeline.render_dashboard(), mimetype="text/html")
+    try:
+        if not pipeline.hay_datos():
+            return Response(LANDING, mimetype="text/html")
+        return Response(pipeline.render_dashboard(), mimetype="text/html")
+    except Exception as exc:
+        return Response(_data_unavailable_page("Dashboard operativo", exc), mimetype="text/html", status=503)
 
 
 def _main_page():
@@ -875,16 +890,19 @@ def datos():
     blocked = _require_login()
     if blocked:
         return blocked
-    return Response(
-        _datos_page(
-            table=request.args.get("tabla", "rutas"),
-            q=request.args.get("q", ""),
-            msg=request.args.get("msg", ""),
-            err=request.args.get("err") == "1",
-            edit_key=request.args.get("editar", ""),
-        ),
-        mimetype="text/html",
-    )
+    try:
+        return Response(
+            _datos_page(
+                table=request.args.get("tabla", "rutas"),
+                q=request.args.get("q", ""),
+                msg=request.args.get("msg", ""),
+                err=request.args.get("err") == "1",
+                edit_key=request.args.get("editar", ""),
+            ),
+            mimetype="text/html",
+        )
+    except Exception as exc:
+        return Response(_data_unavailable_page("Datos cargados", exc), mimetype="text/html", status=503)
 
 
 @app.route("/foxtrot")
@@ -896,19 +914,25 @@ def foxtrot_calidad():
     blocked = _require_login()
     if blocked:
         return blocked
-    return Response(
-        _foxtrot_calidad_page(
-            q=request.args.get("q", ""),
-            msg=request.args.get("msg", ""),
-            err=request.args.get("err") == "1",
-        ),
-        mimetype="text/html",
-    )
+    try:
+        return Response(
+            _foxtrot_calidad_page(
+                q=request.args.get("q", ""),
+                msg=request.args.get("msg", ""),
+                err=request.args.get("err") == "1",
+            ),
+            mimetype="text/html",
+        )
+    except Exception as exc:
+        return Response(_data_unavailable_page("Calidad Foxtrot", exc), mimetype="text/html", status=503)
 
 
 @app.route("/reporte-fichaya-foxtrot")
 def reporte_fichaya_foxtrot():
-    return _fichaya_report_page()
+    try:
+        return _fichaya_report_page()
+    except Exception as exc:
+        return Response(_data_unavailable_page("Reporte FichaYA / Foxtrot", exc), mimetype="text/html", status=503)
 
 
 @app.route("/reporte-fichaya-foxtrot.csv")
@@ -937,10 +961,16 @@ def reporte_fichaya_foxtrot_csv():
 
 @app.route("/asociar-fichaya")
 def asociar_fichaya():
-    return _fichaya_mapping_page(
-        msg=request.args.get("msg", ""),
-        err=request.args.get("err") == "1",
-    )
+    blocked = _require_login()
+    if blocked:
+        return blocked
+    try:
+        return _fichaya_mapping_page(
+            msg=request.args.get("msg", ""),
+            err=request.args.get("err") == "1",
+        )
+    except Exception as exc:
+        return Response(_data_unavailable_page("Asociar nombres", exc), mimetype="text/html", status=503)
 
 
 @app.route("/asociar-fichaya/importar", methods=["POST"])
