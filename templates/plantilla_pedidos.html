@@ -31,7 +31,7 @@
   .daily-report th { position:sticky; top:0; background:#f8fafc; z-index:1; font-size:.68rem; text-transform:uppercase; letter-spacing:.35px; color:#64748b; }
   .daily-report td, .daily-report th { white-space:nowrap; vertical-align:middle; padding:.45rem .7rem; }
   .daily-report .num { text-align:right; font-variant-numeric:tabular-nums; }
-  .daily-chart { height:330px; border:1px solid #e5ebf2; border-radius:8px; padding:10px 12px 8px; }
+  .daily-chart { position:relative; height:330px; border:1px solid #e5ebf2; border-radius:8px; padding:10px 12px 8px; }
   .ai-panel { border-left:3px solid #0d6efd; background:#f8fbff; }
   .ai-panel .ai-text { white-space:pre-wrap; font-size:.88rem; line-height:1.45; }
   .card { border:0; border-radius:8px; box-shadow:0 1px 3px rgba(16,24,40,.08); }
@@ -64,6 +64,10 @@
   .hm .dlabel { text-align:right; padding-right:6px; font-weight:600; }
   .metric-toggle .btn { --bs-btn-padding-y:.25rem; }
   .badge-soft { background:#eef2ff; color:#4338ca; font-weight:600; }
+  .filter-summary { display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin:0 0 10px; }
+  .filter-summary span { display:inline-flex; align-items:center; min-height:24px; padding:3px 8px; border:1px solid #dbe3ed; border-radius:999px; background:#fff; color:#526173; font-size:.74rem; font-weight:650; }
+  .filter-summary .scope { background:#eef6ff; border-color:#bfdbfe; color:#1e3a8a; }
+  .chart-scope { color:#657085; font-size:.72rem; margin-bottom:6px; min-height:16px; }
   @media (max-width: 1200px) {
     .upload-form { width:100%; margin-left:0; }
     .upload-form input[type=file] { flex:1 1 260px; }
@@ -140,6 +144,7 @@
       <label class="btn btn-outline-primary" for="mBul" title="Estimado: $ total / $36.000">Bultos est.</label>
     </div>
   </div>
+  <div id="filterSummary" class="filter-summary"></div>
 
   <!-- Filtros -->
   <div class="card mb-3">
@@ -177,6 +182,10 @@
               <option value="dentro">Dentro de corte</option>
               <option value="fuera">Fuera de corte</option>
             </select>
+          </div>
+          <div>
+            <label class="form-label">Franja horaria</label>
+            <select id="fFranja" class="form-select form-select-sm"><option value="">Todas</option></select>
           </div>
           <div>
             <label class="form-label">Dia</label>
@@ -283,18 +292,21 @@
     <div class="col-lg-4">
       <div class="card h-100"><div class="card-body">
         <h6 class="mb-2">Por localidad</h6>
+        <div id="scopeLocalidad" class="chart-scope"></div>
         <div class="chart-wrap tall"><canvas id="chLocalidad"></canvas></div>
       </div></div>
     </div>
     <div class="col-lg-4">
       <div class="card h-100"><div class="card-body">
         <h6 class="mb-2">Por vendedor</h6>
+        <div id="scopeVendedor" class="chart-scope"></div>
         <div class="chart-wrap tall"><canvas id="chVendedor"></canvas></div>
       </div></div>
     </div>
     <div class="col-lg-4">
       <div class="card h-100"><div class="card-body">
         <h6 class="mb-2">Por canal de ingreso</h6>
+        <div id="scopeCanal" class="chart-scope"></div>
         <div class="chart-wrap tall"><canvas id="chCanal"></canvas></div>
       </div></div>
     </div>
@@ -311,7 +323,7 @@ const charts = {};
 
 const fmtInt = n => (n||0).toLocaleString('es-AR');
 const fmtMoney = n => '$' + Math.round(n||0).toLocaleString('es-AR');
-const fmtBultos = n => (n||0).toLocaleString('es-AR', {maximumFractionDigits:1});
+const fmtBultos = n => Math.round(n||0).toLocaleString('es-AR');
 const VALOR_BULTO_ESTIMADO = 36000;
 const PALETTE = ['#0d6efd','#6610f2','#20c997','#fd7e14','#dc3545','#0dcaf0','#6f42c1','#198754','#ffc107','#495057'];
 const escapeAttr = s => String(s).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
@@ -387,6 +399,7 @@ function buildFilterOptions(){
   fill('fLocalidad', uniq('localidad'));
   fill('fVendedor', uniq('vendedor'));
   fill('fCanal', uniq('origen'));
+  fill('fFranja', FRANJAS);
   const dsel = document.getElementById('fDia');
   DIAS.forEach((d,i)=>dsel.insertAdjacentHTML('beforeend',`<option value="${i}">${d}</option>`));
   const cbox = document.getElementById('fCats');
@@ -408,7 +421,7 @@ function fill(id, arr){
   arr.forEach(v=>sel.insertAdjacentHTML('beforeend',`<option value="${v}">${v}</option>`));
 }
 function resetFilters(){
-  ['fFechaDesde','fFechaHasta','fSucursal','fLocalidad','fVendedor','fCanal','fCorte','fDia'].forEach(id=>document.getElementById(id).value='');
+  ['fFechaDesde','fFechaHasta','fSucursal','fLocalidad','fVendedor','fCanal','fCorte','fFranja','fDia'].forEach(id=>document.getElementById(id).value='');
   document.querySelectorAll('.catchk').forEach(c=>c.checked=(c.value==='VENTA'));
   document.getElementById('fAnulados').checked=false;
   document.getElementById('fEgresoPosterior').checked=false;
@@ -419,7 +432,7 @@ function activeCats(){ return [...document.querySelectorAll('.catchk:checked')].
 
 function filtered(){
   const fechaDesde=val('fFechaDesde'), fechaHasta=val('fFechaHasta');
-  const suc=val('fSucursal'), loc=val('fLocalidad'), ven=val('fVendedor'), can=val('fCanal'), corte=val('fCorte'), dia=val('fDia');
+  const suc=val('fSucursal'), loc=val('fLocalidad'), ven=val('fVendedor'), can=val('fCanal'), corte=val('fCorte'), franja=val('fFranja'), dia=val('fDia');
   const cats=activeCats(), incAnul=document.getElementById('fAnulados').checked;
   const soloEgresoPosterior=document.getElementById('fEgresoPosterior').checked;
   return RAW.filter(r=>{
@@ -432,6 +445,7 @@ function filtered(){
     if(can && r.origen!==can) return false;
     if(corte==='fuera' && !esFueraDeCorte(r)) return false;
     if(corte==='dentro' && esFueraDeCorte(r)) return false;
+    if(franja && pedidoFranja(r)!==franja) return false;
     if(dia!=='' && String(r.dia_semana)!==dia) return false;
     if(cats.length && !cats.includes(r.categoria)) return false;
     if(!incAnul && r.anulado) return false;
@@ -440,6 +454,28 @@ function filtered(){
   });
 }
 const val = id => document.getElementById(id).value;
+
+function selectedLabel(id){
+  const el = document.getElementById(id);
+  if(!el) return '';
+  return el.options ? el.options[el.selectedIndex]?.textContent || '' : el.value;
+}
+
+function renderFilterSummary(rows){
+  const chips = [`<span class="scope">${fmtInt(rows.length)} pedidos visibles</span>`];
+  const metricName = document.querySelector('input[name=metric]:checked + label')?.textContent || currentMetric();
+  chips.push(`<span>Métrica: ${metricName}</span>`);
+  if(val('fFechaDesde')) chips.push(`<span>Desde: ${val('fFechaDesde')}</span>`);
+  if(val('fFechaHasta')) chips.push(`<span>Hasta: ${val('fFechaHasta')}</span>`);
+  [['fSucursal','Sucursal'],['fLocalidad','Localidad'],['fVendedor','Vendedor'],['fCanal','Canal'],['fCorte','Corte'],['fFranja','Franja'],['fDia','Día']].forEach(([id,label])=>{
+    if(val(id)) chips.push(`<span>${label}: ${selectedLabel(id)}</span>`);
+  });
+  const cats = activeCats();
+  if(cats.length && cats.length < CATS.length) chips.push(`<span>Comprobantes: ${cats.join(', ')}</span>`);
+  if(document.getElementById('fAnulados').checked) chips.push('<span>Incluye anulados</span>');
+  if(document.getElementById('fEgresoPosterior').checked) chips.push('<span>Solo egreso posterior</span>');
+  document.getElementById('filterSummary').innerHTML = chips.join('');
+}
 
 // ---- agregaciones ----
 function sumBy(rows, keyFn){
@@ -451,6 +487,8 @@ function sumBy(rows, keyFn){
 function render(){
   const rows = filtered();
   document.getElementById('visibles').textContent = fmtInt(rows.length);
+  renderFilterSummary(rows);
+  renderChartScopes(rows);
   renderKPIs(rows);
   renderReporte1430(rows);
   renderHora(rows);
@@ -626,6 +664,7 @@ function buildAiResumen(rows){
       vendedor: val('fVendedor') || 'Todos',
       canal: val('fCanal') || 'Todos',
       corte: val('fCorte') || 'Todos',
+      franja: val('fFranja') || 'Todas',
       dia: val('fDia') || 'Todos',
       comprobantes: activeCats(),
       incluye_anulados: document.getElementById('fAnulados').checked,
@@ -693,8 +732,22 @@ function baseChart(id, cfg){
     if(box&&!box.querySelector('.chart-error')) box.insertAdjacentHTML('beforeend','<div class="chart-error text-danger small mt-2">No se pudo cargar la librer?a de gr?ficos. Recarg? la p?gina.</div>');
     return;
   }
+  const canvas = document.getElementById(id);
+  const box = canvas?.parentElement;
+  box?.querySelector('.chart-empty')?.remove();
   if(charts[id]) charts[id].destroy();
-  charts[id] = new Chart(document.getElementById(id), cfg);
+  const hasData = (cfg.data?.datasets || []).some(ds => (ds.data || []).some(v => Number(v || 0) !== 0));
+  if(!hasData && box){
+    box.insertAdjacentHTML('beforeend','<div class="chart-empty text-muted small position-absolute top-50 start-50 translate-middle text-center">Sin datos para los filtros activos</div>');
+  }
+  charts[id] = new Chart(canvas, cfg);
+}
+
+function renderChartScopes(rows){
+  const text = `${fmtInt(rows.length)} pedidos filtrados · ${document.querySelector('input[name=metric]:checked + label')?.textContent || currentMetric()}`;
+  document.getElementById('scopeLocalidad').textContent = text + ' · click filtra localidad';
+  document.getElementById('scopeVendedor').textContent = text + ' · click filtra vendedor';
+  document.getElementById('scopeCanal').textContent = text + ' · click filtra canal';
 }
 
 const valueLabelsPlugin = {
@@ -760,7 +813,14 @@ function renderFranja(rows){
   baseChart('chFranja', {
     type:'bar',
     data:{labels:FRANJAS, datasets:[{data, backgroundColor:'#20c997', borderRadius:4}]},
-    options:barOpts()
+    options:{
+      ...barOpts(),
+      onClick:(evt, elements, chart)=>{
+        if(!elements.length) return;
+        document.getElementById('fFranja').value = chart.data.labels[elements[0].index];
+        render();
+      }
+    }
   });
 }
 
@@ -790,12 +850,22 @@ function renderCat(rows, id, key, topN, horizontal){
     const rest=arr.slice(topN).reduce((a,[,v])=>a+v,0);
     arr=arr.slice(0,topN); if(rest>0) arr.push(['Otros',rest]);
   }
+  const filterId = key === 'localidad' ? 'fLocalidad' : (key === 'vendedor' ? 'fVendedor' : null);
   baseChart(id, {
     type:'bar',
     data:{labels:arr.map(a=>a[0]),
       datasets:[{data:arr.map(a=>a[1]),
         backgroundColor:arr.map((_,i)=>PALETTE[i%PALETTE.length]), borderRadius:4}]},
-    options:barOpts(horizontal)
+    options:{
+      ...barOpts(horizontal),
+      onClick:(evt, elements, chart)=>{
+        if(!filterId || !elements.length) return;
+        const label = chart.data.labels[elements[0].index];
+        if(label === 'Otros') return;
+        document.getElementById(filterId).value = label;
+        render();
+      }
+    }
   });
 }
 
@@ -809,6 +879,12 @@ function renderCanal(rows){
         backgroundColor:arr.map((_,i)=>PALETTE[i%PALETTE.length])}]},
     options:{responsive:true,maintainAspectRatio:false,
       layout:{padding:{top:8,right:8,left:8,bottom:8}},
+      onClick:(evt, elements, chart)=>{
+        if(!elements.length) return;
+        const label = chart.data.labels[elements[0].index];
+        document.getElementById('fCanal').value = label;
+        render();
+      },
       plugins:{legend:{position:'bottom'},
         tooltip:{callbacks:{label:c=>`${c.label}: ${metricFmt(c.parsed)}`}}}}
   });

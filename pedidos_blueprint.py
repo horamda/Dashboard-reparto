@@ -103,6 +103,7 @@ def require_dashboard_login():
 
 
 @pedidos_bp.route("/pedidos")
+@pedidos_bp.route("/pedidos/")
 def pedidos_home():
     resumen = store.stats()
     franjas = FRANJAS

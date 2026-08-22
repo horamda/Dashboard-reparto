@@ -68,7 +68,12 @@ DPO_GKPI_URLS = [
     ("Sucursal Dolores", "Dolores", "2", os.environ.get("DPO_GKPI_DOL_EXTRA_URL", "https://docs.google.com/spreadsheets/d/e/2PACX-1vTRrt57z-QDSRmDblvUV6AHs_Q1og0qgW0Ec-fp1L0QjLr8R_346nhHEkKsndqka-wQUdKSc2-3PizX/pub?gid=680588527&single=true&output=csv")),
 ]
 
-storage.init()
+STORAGE_INIT_ERROR = None
+try:
+    if storage.backend_name() == "json" or os.environ.get("RUN_DB_MIGRATIONS_ON_START") == "1":
+        storage.init()
+except Exception as exc:
+    STORAGE_INIT_ERROR = exc
 
 
 def _today():
