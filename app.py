@@ -693,7 +693,7 @@ def _fichaya_report_rows(desde="2026-08-01", hasta=None, suc="", chofer="", forc
         rows = [r for r in rows if (r.get("suc") or "") == suc]
     if chofer:
         rows = [r for r in rows if pipeline._norm_persona_key(r.get("chofer")) == pipeline._norm_persona_key(chofer)]
-    rows = sorted(rows, key=lambda r: (r.get("fecha") or "", r.get("suc") or "", r.get("chofer") or "", r.get("inicio_foxtrot") or ""))
+    rows = sorted(rows, key=lambda r: (r.get("fecha") or "", r.get("suc") or "", r.get("chofer") or "", r.get("inicio_foxtrot") or ""), reverse=True)
 
     fichadas, warning = {}, ""
     fichaya_live_ok = False
@@ -739,7 +739,7 @@ def _fichaya_report_rows(desde="2026-08-01", hasta=None, suc="", chofer="", forc
             "sucursal": rec.get("suc") or "",
             "empleado": nombre,
             "legajo_fichaya": legajo_fichaya,
-            "empleado_fichaya": nombre_fichaya if nombre_fichaya != nombre else "",
+            "empleado_fichaya": nombre_fichaya,
             "fichada_ingreso": _time_to_label(ingreso),
             "inicio_foxtrot": rec.get("inicio_foxtrot") or "",
             "tml": tml if tml_ok else "",
@@ -766,6 +766,8 @@ def _fichaya_report_page():
     choferes = sorted({r.get("chofer") for r in all_rows if r.get("chofer")})
     rows, warning = _fichaya_report_rows(desde, hasta, suc, chofer, force_live=force_live)
     cache = pipeline.fichaya_cache_info()
+    fechas_reporte = sorted({r["fecha"] for r in rows if r.get("fecha")})
+    rango_reporte = f" · rutas mostradas {fechas_reporte[0]} a {fechas_reporte[-1]}" if fechas_reporte else ""
     csv_qs = urlencode({"desde": desde, "hasta": hasta, "suc": suc, "chofer": chofer})
     refresh_qs = urlencode({"desde": desde, "hasta": hasta, "suc": suc, "chofer": chofer, "actualizar": "1"})
     opts_suc = '<option value="">Todas</option>' + ''.join(f'<option value="{escape(x)}"{" selected" if x == suc else ""}>{escape(x)}</option>' for x in sucs)
@@ -791,7 +793,7 @@ def _fichaya_report_page():
 <button class=btn type=submit>Filtrar</button><a class=btn href="/reporte-fichaya-foxtrot?{refresh_qs}">Actualizar desde FichaYA</a><a class="btn secondary" href="/reporte-fichaya-foxtrot">Limpiar</a><a class="btn secondary" href="/asociar-fichaya">Asociar nombres</a><a class=btn href="/reporte-fichaya-foxtrot.csv?{csv_qs}">Descargar CSV</a>
 </form>
 <div class=panel><div class=table-wrap><table><thead><tr><th>Fecha</th><th>Sucursal</th><th>Empleado Foxtrot</th><th>Legajo FichaYA</th><th>Empleado FichaYA</th><th>Fichada ingreso</th><th>Inicio Foxtrot</th><th>TML</th><th>Finalización Foxtrot</th><th>Fichada salida</th><th>TI</th><th>Estado</th><th>Route ID</th></tr></thead><tbody>{body}</tbody></table></div></div>
-<p class=muted style="margin-top:12px">Filas: {len(rows)}. Fichadas guardadas: {cache['total']} registros{f" · rango {cache['desde']} a {cache['hasta']}" if cache['desde'] else ""}{f" · actualizado {cache['actualizado']}" if cache['actualizado'] else ""}.</p>
+<p class=muted style="margin-top:12px">Filas: {len(rows)}{rango_reporte}. Fichadas guardadas: {cache['total']} registros{f" · rango {cache['desde']} a {cache['hasta']}" if cache['desde'] else ""}{f" · actualizado {cache['actualizado']}" if cache['actualizado'] else ""}.</p>
 </div></body></html>"""
 
 
