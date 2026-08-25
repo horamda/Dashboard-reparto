@@ -19,7 +19,6 @@ navegador con Chart.js, así los filtros responden al instante. El server solo
 sirve los registros ya normalizados desde Postgres.
 """
 
-import io
 import json
 import os
 import re
@@ -118,7 +117,7 @@ def pedidos_home():
 @pedidos_bp.route("/pedidos/data")
 def pedidos_data():
     try:
-        return jsonify(store.fetch_all())
+        return jsonify(store.fetch_dashboard())
     except Exception as exc:
         resp = jsonify([])
         resp.status_code = 503
@@ -147,8 +146,8 @@ def pedidos_upload():
         flash("No se seleccionó ningún archivo.", "warning")
         return redirect(url_for("pedidos.pedidos_home"))
     try:
-        data = io.BytesIO(f.read())
-        records, meta = parse_pedidos(data)
+        f.stream.seek(0)
+        records, meta = parse_pedidos(f.stream)
         insertadas = store.upsert_records(records)
         duplicadas = max(meta["leidas"] - insertadas, 0)
         flash(f"Importado: {meta['leidas']} filas leídas, "

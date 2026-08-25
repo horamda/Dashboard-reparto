@@ -16,33 +16,65 @@ clave para subir datos.
 
 import os
 import csv
+import gzip
 import json
+import math
 import secrets
 import threading
 import time
+from collections import OrderedDict
 from datetime import date
 from html import escape
 from io import StringIO
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urlsplit
 from flask import Flask, request, redirect, url_for, Response, session
 import pipeline
+from logistics_cost_service import LogisticsCostService
 from pedidos_blueprint import pedidos_bp
 import storage_pedidos
 
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 50 * 1024 * 1024  # 50 MB
-app.secret_key = os.environ.get("SECRET_KEY", os.environ.get("ADMIN_TOKEN") or secrets.token_hex(32))
 ADMIN_TOKEN = os.environ.get("ADMIN_TOKEN", "")
 ADMIN_USER = os.environ.get("ADMIN_USER", "admin")
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", ADMIN_TOKEN)
+app.secret_key = os.environ.get("SECRET_KEY") or ADMIN_TOKEN or ADMIN_PASSWORD or secrets.token_hex(32)
+app.config.update(
+    SESSION_COOKIE_HTTPONLY=True,
+    SESSION_COOKIE_SAMESITE="Lax",
+    SESSION_COOKIE_SECURE=bool(os.environ.get("RAILWAY_ENVIRONMENT") or os.environ.get("SESSION_COOKIE_SECURE") == "1"),
+)
 app.register_blueprint(pedidos_bp)
+
+_GZIP_CACHE = OrderedDict()
+_GZIP_CACHE_LOCK = threading.RLock()
+_GZIP_CACHE_MAX_ITEMS = max(1, int(os.environ.get("GZIP_CACHE_MAX_ITEMS", "4")))
+_GZIP_CACHE_MIN_BYTES = max(1024, int(os.environ.get("GZIP_CACHE_MIN_BYTES", "262144")))
+
+
+def _gzip_payload(payload, etag=""):
+    if len(payload) < _GZIP_CACHE_MIN_BYTES or not etag:
+        return gzip.compress(payload, compresslevel=4)
+    with _GZIP_CACHE_LOCK:
+        cached = _GZIP_CACHE.get(etag)
+        if cached is not None:
+            _GZIP_CACHE.move_to_end(etag)
+            return cached
+    compressed = gzip.compress(payload, compresslevel=4)
+    with _GZIP_CACHE_LOCK:
+        _GZIP_CACHE[etag] = compressed
+        _GZIP_CACHE.move_to_end(etag)
+        while len(_GZIP_CACHE) > _GZIP_CACHE_MAX_ITEMS:
+            _GZIP_CACHE.popitem(last=False)
+    return compressed
 
 
 def _prewarm_caches():
     jobs = (
         ("pedidos stats", storage_pedidos.stats),
-        ("pedidos data", storage_pedidos.fetch_all),
+        ("pedidos data", storage_pedidos.fetch_dashboard),
         ("rutas foxtrot", pipeline.storage.load_all),
+        ("dashboard operativo", pipeline.render_dashboard),
     )
     for _name, fn in jobs:
         try:
@@ -56,27 +88,78 @@ if os.environ.get("DISABLE_CACHE_PREWARM") != "1":
 
 
 @app.after_request
-def no_cache(response):
-    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
-    response.headers["Pragma"] = "no-cache"
-    response.headers["Expires"] = "0"
+def optimize_response(response):
+    read_only_posts = {"login", "pedidos.pedidos_ai_analisis"}
+    if (
+        request.method not in ("GET", "HEAD")
+        and response.status_code < 400
+        and request.endpoint not in read_only_posts
+    ):
+        pipeline.clear_dashboard_cache()
+        pipeline.storage.clear_cache("health:")
+        pipeline.storage.clear_cache("logistics:")
+        pipeline.storage.clear_cache("counts:")
+
+    compressible = {
+        "text/html", "text/css", "text/javascript", "application/javascript",
+        "application/json", "image/svg+xml",
+    }
+    cacheable_get = (
+        request.method in ("GET", "HEAD")
+        and response.status_code == 200
+        and not response.direct_passthrough
+    )
+    etag = ""
+    if cacheable_get:
+        if not response.headers.get("ETag"):
+            response.add_etag()
+        etag, _is_weak = response.get_etag()
+        if etag:
+            # Gzip and plain responses are semantically equivalent representations.
+            response.set_etag(etag, weak=True)
+        response.headers["Cache-Control"] = "private, no-cache, must-revalidate"
+        response.make_conditional(request)
+        if response.status_code == 304:
+            return response
+
+    can_compress = (
+        request.method != "HEAD"
+        and response.status_code == 200
+        and not response.direct_passthrough
+        and response.mimetype in compressible
+        and "gzip" in request.headers.get("Accept-Encoding", "").lower()
+        and not response.headers.get("Content-Encoding")
+    )
+    if can_compress:
+        payload = response.get_data()
+        if len(payload) >= 1024:
+            response.vary.add("Accept-Encoding")
+            response.set_data(_gzip_payload(payload, etag))
+            response.headers["Content-Encoding"] = "gzip"
+            response.headers["Content-Length"] = str(len(response.get_data()))
+
+    if not cacheable_get:
+        response.headers["Cache-Control"] = "no-store, max-age=0"
     return response
 
 ADMIN_HTML = """<!doctype html><html lang=es><head><meta charset=utf-8>
 <meta name=viewport content="width=device-width,initial-scale=1">
 <title>Actualizar dashboard</title>
-<style>*{{box-sizing:border-box}}body{{font-family:system-ui,Segoe UI,Arial,sans-serif;background:#EEF1F5;color:#15233B;margin:0;line-height:1.45;-webkit-font-smoothing:antialiased}}
+<style>*{{box-sizing:border-box;letter-spacing:0}}body{{font-family:system-ui,Segoe UI,Arial,sans-serif;background:#EEF1F5;color:#15233B;margin:0;line-height:1.45;-webkit-font-smoothing:antialiased}}
 .box{{width:min(100% - 28px,620px);margin:6vh auto;background:#fff;border:1px solid #DCE2EA;border-radius:12px;padding:28px 30px;box-shadow:0 8px 22px rgba(21,35,59,.06)}}
 h1{{font-size:20px;line-height:1.2;margin:0 0 4px}}p{{color:#657085;font-size:13.5px;margin:0 0 18px}}
-label{{display:block;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.4px;color:#657085;margin:16px 0 6px}}
+label{{display:block;font-size:12px;font-weight:600;text-transform:uppercase;color:#657085;margin:16px 0 6px}}
 input[type=file],input[type=password],input[type=date]{{width:100%;min-height:42px;padding:10px 11px;border:1px solid #DCE2EA;border-radius:8px;font-size:14px;background:#fff}}
+input[type=file]{{padding:5px}}input[type=file]::file-selector-button{{min-height:30px;margin-right:10px;border:0;border-radius:6px;padding:6px 10px;background:#E8EDF3;color:#15233B;font-weight:650;cursor:pointer}}
 input:focus{{outline:2px solid #C77D1A;outline-offset:1px}}
 .btn{{margin-top:22px;width:100%;min-height:44px;background:#15233B;color:#fff;border:0;border-radius:9px;padding:12px;font-size:15px;font-weight:650;cursor:pointer}}
 .btn:hover{{background:#26334d}}
+.btn:disabled{{cursor:wait;opacity:.68}}
 .msg{{background:#DCFCE7;border:1px solid #86EFAC;color:#166534;border-radius:9px;padding:10px 12px;font-size:13.5px;margin-bottom:16px}}
 .err{{background:#FEE2E2;border:1px solid #FCA5A5;color:#991B1B}}
-a{{color:#1E3A8A;font-size:13.5px}}hr{{border:0;border-top:1px solid #DCE2EA;margin:24px 0}}@media(max-width:640px){{.box{{width:min(100% - 20px,620px);margin:18px auto;padding:22px 18px}}}}</style></head>
+a{{color:#1E3A8A;font-size:13.5px}}hr{{border:0;border-top:1px solid #DCE2EA;margin:24px 0}}.busy{{display:none;position:fixed;right:18px;bottom:18px;z-index:50;background:#15233B;color:#fff;border-radius:8px;padding:11px 14px;box-shadow:0 10px 28px rgba(21,35,59,.24);font-size:13.5px;font-weight:650}}.busy.show{{display:block}}:focus-visible{{outline:2px solid #C77D1A;outline-offset:2px}}@media(max-width:640px){{.box{{width:min(100% - 20px,620px);margin:18px auto;padding:22px 18px}}.busy{{left:10px;right:10px;bottom:10px;text-align:center}}}}@media(prefers-reduced-motion:reduce){{*{{scroll-behavior:auto!important;transition:none!important}}}}</style></head>
 <body><div class=box>
+<div id=busy class=busy role=status aria-live=polite>Procesando datos...</div>
 <h1>Actualizar dashboard</h1>
 <p>Subí el export nuevo de Route Analytics y el Attempt Analytics. Las rutas existentes se actualizan con las columnas nuevas.</p>
 {msg}
@@ -92,7 +175,7 @@ a{{color:#1E3A8A;font-size:13.5px}}hr{{border:0;border-top:1px solid #DCE2EA;mar
     <input type=checkbox name=reset value=1 style="width:auto;margin-right:6px">Rehacer la base de cero (borra lo guardado)</label>
   <button class=btn type=submit>Actualizar</button>
 </form>
-<p style="margin-top:18px"><a href="/inicio">Panel principal</a> · <a href="/dashboard">Dashboard</a> · <a href="/datos">Revisar datos cargados</a> · <a href="/foxtrot-calidad">Calidad Foxtrot</a> · <a href="/reporte-fichaya-foxtrot">Reporte FichaYA/Foxtrot</a> · <a href="/pedidos">Ingreso de pedidos</a> · <a href="/logout">Cerrar sesión</a></p>
+<p style="margin-top:18px"><a href="/inicio">Panel principal</a> · <a href="/dashboard">Dashboard</a> · <a href="/datos">Revisar datos cargados</a> · <a href="/foxtrot-calidad">Calidad Foxtrot</a> · <a href="/reporte-fichaya-foxtrot">Reporte FichaYA/Foxtrot</a> · <a href="/pedidos">Ingreso de pedidos</a> · <a href="/costos-distribucion">Costos</a> · <a href="/logout">Cerrar sesión</a></p>
 <hr>
 <h1>Importar rechazos</h1>
 <p>Consume el endpoint CSV de rechazos diarios de Dolores y lo guarda en la base.</p>
@@ -114,6 +197,22 @@ a{{color:#1E3A8A;font-size:13.5px}}hr{{border:0;border-top:1px solid #DCE2EA;mar
   <button class=btn type=submit>Importar artículos</button>
 </form>
 <hr>
+<h1>Importar volumen entregado</h1>
+<p>Actualiza visitas existentes mediante Route ID y Customer ID. Admite Bultos, HL, Pallets y Unidades entregadas.</p>
+<form method=post action="/actualizar-volumen-entregas" enctype="multipart/form-data">
+  <label>Archivo de entregas (.csv / .xls / .xlsx)</label>
+  <input type=file name=entregas accept=".csv,.xls,.xlsx" required>
+  <button class=btn type=submit>Importar entregas</button>
+</form>
+<hr>
+<h1>Asignar vehículos</h1>
+<p>Actualiza rutas existentes mediante Route ID y Vehículo, Patente o Unidad.</p>
+<form method=post action="/actualizar-vehiculos-rutas" enctype="multipart/form-data">
+  <label>Archivo de asignación (.csv / .xls / .xlsx)</label>
+  <input type=file name=vehiculos accept=".csv,.xls,.xlsx" required>
+  <button class=btn type=submit>Importar asignaciones</button>
+</form>
+<hr>
 <h1>Configurar DQI</h1>
 <p>Define el objetivo mensual de roturas en bultos para DQI y Team Room.</p>
 <form method=post action="/configurar-dqi">
@@ -121,15 +220,15 @@ a{{color:#1E3A8A;font-size:13.5px}}hr{{border:0;border-top:1px solid #DCE2EA;mar
   <input name=dqi_objetivo value="{dqi_objetivo}" required>
   <button class=btn type=submit>Guardar objetivo</button>
 </form>
-</div></body></html>"""
+</div><script>document.querySelectorAll('form').forEach(form=>form.addEventListener('submit',()=>{{if(!form.checkValidity())return;const button=form.querySelector('button[type="submit"]');if(!button)return;form.setAttribute('aria-busy','true');button.disabled=true;button.textContent='Procesando...';document.getElementById('busy').classList.add('show');}}));</script></body></html>"""
 
 LOGIN_HTML = """<!doctype html><html lang=es><head><meta charset=utf-8>
 <meta name=viewport content="width=device-width,initial-scale=1">
 <title>Ingresar</title>
-<style>*{{box-sizing:border-box}}body{{font-family:system-ui,Segoe UI,Arial,sans-serif;background:#EEF1F5;color:#15233B;margin:0;line-height:1.45;-webkit-font-smoothing:antialiased}}
+<style>*{{box-sizing:border-box;letter-spacing:0}}body{{font-family:system-ui,Segoe UI,Arial,sans-serif;background:#EEF1F5;color:#15233B;margin:0;line-height:1.45;-webkit-font-smoothing:antialiased}}
 .box{{width:min(100% - 28px,420px);margin:12vh auto;background:#fff;border:1px solid #DCE2EA;border-radius:12px;padding:28px 30px;box-shadow:0 8px 22px rgba(21,35,59,.06)}}
 h1{{font-size:20px;line-height:1.2;margin:0 0 4px}}p{{color:#657085;font-size:13.5px;margin:0 0 18px}}
-label{{display:block;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.4px;color:#657085;margin:16px 0 6px}}
+label{{display:block;font-size:12px;font-weight:600;text-transform:uppercase;color:#657085;margin:16px 0 6px}}
 input{{width:100%;min-height:42px;padding:10px 11px;border:1px solid #DCE2EA;border-radius:8px;font-size:14px}}
 input:focus{{outline:2px solid #C77D1A;outline-offset:1px}}
 .btn{{margin-top:22px;width:100%;min-height:44px;background:#15233B;color:#fff;border:0;border-radius:9px;padding:12px;font-size:15px;font-weight:650;cursor:pointer}}
@@ -159,14 +258,14 @@ a{display:inline-block;margin-top:18px;background:#15233B;color:#fff;text-decora
 <p>Subí el primer export para generar el dashboard.</p>
 <a href="/admin">Cargar datos</a></div></body></html>"""
 
-DATOS_CSS = """<style>*{box-sizing:border-box}body{font-family:system-ui,Segoe UI,Arial,sans-serif;background:#EEF1F5;color:#15233B;margin:0;line-height:1.45;-webkit-font-smoothing:antialiased}
+DATOS_CSS = """<style>*{box-sizing:border-box;letter-spacing:0}body{font-family:system-ui,Segoe UI,Arial,sans-serif;background:#EEF1F5;color:#15233B;margin:0;line-height:1.45;-webkit-font-smoothing:antialiased}
 .wrap{width:min(100% - 28px,1280px);margin:24px auto 44px}.top{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;margin-bottom:18px}
 h1{font-size:24px;margin:0 0 4px}.muted{color:#657085;font-size:13.5px;margin:0}.nav{display:flex;gap:8px;flex-wrap:wrap}.nav a,.btn{background:#15233B;color:#fff;text-decoration:none;border:0;border-radius:8px;padding:10px 13px;font-size:13.5px;font-weight:650;cursor:pointer}
 .nav a.secondary,.btn.secondary{background:#fff;color:#15233B;border:1px solid #DCE2EA}.msg{background:#DCFCE7;border:1px solid #86EFAC;color:#166534;border-radius:9px;padding:10px 12px;font-size:13.5px;margin:12px 0}.err{background:#FEE2E2;border-color:#FCA5A5;color:#991B1B}
 .tabs{display:flex;gap:8px;flex-wrap:wrap;margin:18px 0}.tabs a{padding:9px 12px;border-radius:8px;border:1px solid #DCE2EA;background:#fff;color:#15233B;text-decoration:none;font-size:13.5px}.tabs a.on{background:#C77D1A;color:#fff;border-color:#C77D1A}
-.tools{display:flex;gap:10px;flex-wrap:wrap;margin:12px 0 16px}.tools input{min-height:40px;border:1px solid #DCE2EA;border-radius:8px;padding:9px 10px;font-size:14px;min-width:min(100%,320px)}
-.panel{background:#fff;border:1px solid #DCE2EA;border-radius:10px;overflow:hidden}.table-wrap{overflow:auto;max-height:62vh}table{border-collapse:collapse;width:100%;font-size:13px}th,td{border-bottom:1px solid #E7ECF2;padding:9px 10px;text-align:left;vertical-align:top;white-space:nowrap}th{position:sticky;top:0;background:#F8FAFC;z-index:1;font-size:12px;text-transform:uppercase;color:#657085;letter-spacing:.2px}td.trunc{max-width:260px;overflow:hidden;text-overflow:ellipsis}
-details{border-top:1px solid #E7ECF2;padding:12px 14px}summary{cursor:pointer;font-weight:700}.edit{display:grid;gap:10px;margin-top:10px}.edit-grid{display:grid;grid-template-columns:180px minmax(220px,1fr);border:1px solid #E7ECF2;border-radius:8px;overflow:hidden}.field-name{background:#F8FAFC;color:#657085;font-size:12px;font-weight:700;text-transform:uppercase}.field-name,.field-control{border-bottom:1px solid #E7ECF2;padding:9px 10px}.field-control input,.field-control textarea{width:100%;border:1px solid #DCE2EA;border-radius:7px;padding:8px 9px;font-size:13.5px}.field-control textarea{min-height:84px;font:12.5px ui-monospace,SFMono-Regular,Consolas,monospace}.actions{display:flex;gap:8px;flex-wrap:wrap}.danger{background:#991B1B}.empty{padding:22px;color:#657085}@media(max-width:760px){.top{display:block}.nav{margin-top:12px}th,td{padding:8px}.wrap{width:min(100% - 18px,1280px);margin-top:14px}.edit-grid{grid-template-columns:1fr}.field-name{border-bottom:0;padding-bottom:2px}.field-control{padding-top:2px}}</style>"""
+.tools{display:flex;gap:10px;flex-wrap:wrap;margin:12px 0 16px}.tools input{min-height:40px;border:1px solid #DCE2EA;border-radius:8px;padding:9px 10px;font-size:14px;min-width:min(100%,320px)}.pagination{display:flex;justify-content:flex-end;align-items:center;gap:8px;margin-top:12px}.pagination span{color:#657085;font-size:13px;margin-right:auto}
+.panel{background:#fff;border:1px solid #DCE2EA;border-radius:10px;overflow:hidden}.table-wrap{overflow:auto;max-height:62vh}table{border-collapse:collapse;width:100%;font-size:13px}th,td{border-bottom:1px solid #E7ECF2;padding:9px 10px;text-align:left;vertical-align:top;white-space:nowrap}th{position:sticky;top:0;background:#F8FAFC;z-index:1;font-size:12px;text-transform:uppercase;color:#657085}td.trunc{max-width:260px;overflow:hidden;text-overflow:ellipsis}
+details{border-top:1px solid #E7ECF2;padding:12px 14px}summary{cursor:pointer;font-weight:700}.edit{display:grid;gap:10px;margin-top:10px}.edit-grid{display:grid;grid-template-columns:180px minmax(220px,1fr);border:1px solid #E7ECF2;border-radius:8px;overflow:hidden}.field-name{background:#F8FAFC;color:#657085;font-size:12px;font-weight:700;text-transform:uppercase}.field-name,.field-control{border-bottom:1px solid #E7ECF2;padding:9px 10px}.field-control input,.field-control textarea{width:100%;border:1px solid #DCE2EA;border-radius:7px;padding:8px 9px;font-size:13.5px}.field-control textarea{min-height:84px;font:12.5px ui-monospace,SFMono-Regular,Consolas,monospace}.actions{display:flex;gap:8px;flex-wrap:wrap}.danger{background:#991B1B}.empty{padding:22px;color:#657085}:focus-visible{outline:2px solid #C77D1A;outline-offset:2px}@media(max-width:760px){.top{display:block}.nav{margin-top:12px}th,td{padding:8px}.wrap{width:min(100% - 18px,1280px);margin-top:14px}.edit-grid{grid-template-columns:1fr}.field-name{border-bottom:0;padding-bottom:2px}.field-control{padding-top:2px}.pagination{justify-content:space-between}.pagination span{display:none}}@media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;transition:none!important}}</style>"""
 
 TABLES = {
     "rutas": {"label": "Rutas Foxtrot", "key": "rid", "load": lambda: pipeline.storage.load_all(), "cols": ["rid", "fecha", "mes", "suc", "chofer", "usable", "tml", "ti", "tml_ti_origen", "fichaya_ingreso", "fichaya_egreso", "horas"]},
@@ -215,7 +314,7 @@ FOXTROT_COLUMN_LABELS = {
 
 def _admin_page(msg="", err=False):
     token_field = ""
-    m = f'<div class="msg{" err" if err else ""}">{msg}</div>' if msg else ""
+    m = f'<div class="msg{" err" if err else ""}">{escape(str(msg))}</div>' if msg else ""
     try:
         dqi_objetivo = pipeline.dqi_objetivo_bultos_mes()
     except Exception:
@@ -224,18 +323,29 @@ def _admin_page(msg="", err=False):
         msg=m,
         token_field=token_field,
         hasta_default=date.today().strftime("%Y-%m-%d"),
-        dqi_objetivo=dqi_objetivo,
+        dqi_objetivo=escape(str(dqi_objetivo), quote=True),
     )
 
 
 def _login_page(msg="", err=False):
-    m = f'<div class="err">{msg}</div>' if msg else ""
-    next_url = request.args.get("next") or request.form.get("next") or url_for("inicio")
+    m = f'<div class="err">{escape(str(msg))}</div>' if msg else ""
+    next_url = escape(
+        _safe_next_url(request.args.get("next") or request.form.get("next") or url_for("inicio")),
+        quote=True,
+    )
     return LOGIN_HTML.format(msg=m, next_url=next_url)
 
 
 def _is_logged_in():
     return bool(session.get("admin_logged_in"))
+
+
+def _safe_next_url(value):
+    value = str(value or "").strip()
+    parsed = urlsplit(value)
+    if value.startswith("/") and not value.startswith("//") and not parsed.scheme and not parsed.netloc:
+        return value
+    return url_for("inicio")
 
 
 def _require_login():
@@ -245,11 +355,12 @@ def _require_login():
 
 
 def _data_unavailable_page(title, exc):
-    msg = " ".join(str(exc).split())[:500]
+    error_ref = secrets.token_hex(4)
+    app.logger.exception("Error de datos [%s] en %s: %s", error_ref, request.path, exc)
     return f'''<!doctype html><html lang=es><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><title>{escape(title)}</title>
-<style>*{{box-sizing:border-box}}body{{font-family:"Segoe UI",system-ui,Arial,sans-serif;background:#EEF1F5;color:#15233B;margin:0;line-height:1.45}}.wrap{{width:min(100% - 28px,920px);margin:32px auto}}.top{{display:flex;justify-content:space-between;gap:14px;align-items:flex-start;margin-bottom:20px}}.nav{{display:flex;gap:8px;flex-wrap:wrap}}.nav a,.btn{{background:#15233B;color:#fff;text-decoration:none;border:0;border-radius:8px;padding:10px 13px;font-size:13px;font-weight:750}}.nav a.secondary,.btn.secondary{{background:#fff;color:#15233B;border:1px solid #DCE2EA}}.panel{{background:#fff;border:1px solid #DCE2EA;border-left:5px solid #C77D1A;border-radius:10px;padding:20px;box-shadow:0 8px 22px rgba(21,35,59,.045)}}h1{{font-size:24px;margin:0 0 6px}}p{{margin:0 0 12px;color:#657085}}code{{display:block;white-space:normal;background:#F8FAFC;border:1px solid #E5EBF2;border-radius:8px;padding:10px;color:#334155;font-size:12px}}</style></head>
+<style>*{{box-sizing:border-box;letter-spacing:0}}body{{font-family:"Segoe UI",system-ui,Arial,sans-serif;background:#EEF1F5;color:#15233B;margin:0;line-height:1.45}}.wrap{{width:min(100% - 28px,920px);margin:32px auto}}.top{{display:flex;justify-content:space-between;gap:14px;align-items:flex-start;margin-bottom:20px}}.nav{{display:flex;gap:8px;flex-wrap:wrap}}.nav a,.btn{{background:#15233B;color:#fff;text-decoration:none;border:0;border-radius:8px;padding:10px 13px;font-size:13px;font-weight:750}}.nav a.secondary,.btn.secondary{{background:#fff;color:#15233B;border:1px solid #DCE2EA}}.panel{{background:#fff;border:1px solid #DCE2EA;border-left:5px solid #C77D1A;border-radius:10px;padding:20px;box-shadow:0 8px 22px rgba(21,35,59,.045)}}h1{{font-size:24px;margin:0 0 6px}}p{{margin:0 0 12px;color:#657085}}code{{display:block;white-space:normal;background:#F8FAFC;border:1px solid #E5EBF2;border-radius:8px;padding:10px;color:#334155;font-size:12px}}:focus-visible{{outline:2px solid #C77D1A;outline-offset:2px}}@media(max-width:640px){{.wrap{{width:min(100% - 18px,920px);margin-top:18px}}.top{{display:block}}.nav{{margin-top:12px}}.panel{{padding:17px}}}}@media(prefers-reduced-motion:reduce){{*{{scroll-behavior:auto!important;transition:none!important}}}}</style></head>
 <body><div class=wrap><div class=top><div><h1>{escape(title)}</h1><p>No se pudieron cargar los datos en este momento.</p></div><div class=nav><a class=secondary href="/inicio">Inicio</a><a class=secondary href="/pedidos">Pedidos</a><a href="{escape(request.path)}">Reintentar</a></div></div>
-<div class=panel><p>La página existe y el acceso funciona, pero la consulta a la base de datos no respondió a tiempo.</p><code>{escape(msg)}</code></div></div></body></html>'''
+<div class=panel><p>La página existe y el acceso funciona, pero la consulta a la base de datos no respondió.</p><code>Referencia: {error_ref}</code></div></div></body></html>'''
 
 
 def _dashboard_response():
@@ -268,6 +379,8 @@ def _main_page():
     groups = [
         ("Operación", [
             ("Dashboard operativo", "Indicadores principales, Team Room, DPO, rechazos, OTIF y calidad.", "/dashboard", "Abrir"),
+            ("Costos de distribución", "Costo por ruta, kilómetro, entrega y cliente con asignación configurable.", "/costos-distribucion", "Calcular"),
+            ("Dashboard de costos", "Histórico vigente, comparaciones y rankings logísticos.", "/costos-distribucion/dashboard", "Analizar"),
             ("Ingreso de pedidos", "Importación y análisis por franja horaria, corte, canal, vendedor y bultos estimados.", "/pedidos", "Abrir"),
             ("Reporte FichaYA / Foxtrot", "Empleado, fichada de ingreso, inicio Foxtrot, TML, fin Foxtrot, salida y TI.", "/reporte-fichaya-foxtrot", "Abrir"),
         ]),
@@ -289,7 +402,7 @@ def _main_page():
         sections.append(f'''<section><h2>{escape(group)}</h2><div class=grid>{items}</div></section>''')
     content = "".join(sections)
     return f'''<!doctype html><html lang=es><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><title>Panel principal</title>
-<style>*{{box-sizing:border-box}}body{{font-family:"Segoe UI",system-ui,Arial,sans-serif;background:#EEF1F5;color:#15233B;margin:0;line-height:1.5;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}}.wrap{{width:min(100% - 28px,1180px);margin:28px auto 44px}}.top{{display:flex;justify-content:space-between;gap:18px;align-items:flex-start;margin-bottom:22px}}h1{{font-size:27px;line-height:1.15;margin:0 0 7px;font-weight:800;letter-spacing:0}}h2{{font-size:12px;text-transform:uppercase;letter-spacing:.7px;color:#657085;margin:24px 0 10px}}.muted{{color:#657085;font-size:14px;margin:0;max-width:680px}}.nav{{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}}.nav a{{background:#fff;color:#15233B;border:1px solid #DCE2EA;text-decoration:none;border-radius:8px;padding:10px 13px;font-size:13px;font-weight:700;white-space:nowrap}}.grid{{display:grid;grid-template-columns:repeat(auto-fit,minmax(285px,1fr));gap:14px}}.hub-card{{display:flex;flex-direction:column;background:#fff;border:1px solid #DCE2EA;border-left:5px solid #C77D1A;border-radius:9px;padding:19px 18px 16px;text-decoration:none;color:#15233B;min-height:132px;box-shadow:0 8px 22px rgba(21,35,59,.045)}}.hub-card:hover{{border-color:#C77D1A;box-shadow:0 10px 24px rgba(21,35,59,.08);transform:translateY(-1px)}}.hub-card span{{display:block;font-size:16px;line-height:1.25;font-weight:800;margin-bottom:8px;letter-spacing:0}}.hub-card p{{color:#657085;font-size:13.5px;line-height:1.45;margin:0 0 18px;flex:1}}.hub-card b{{display:inline-block;align-self:flex-start;background:#15233B;color:#fff;border-radius:7px;padding:8px 12px;font-size:12.5px;line-height:1.2}}@media(max-width:720px){{.top{{display:block}}.nav{{margin-top:14px;justify-content:flex-start}}h1{{font-size:24px}}.wrap{{width:min(100% - 18px,1180px);margin-top:18px}}.grid{{grid-template-columns:1fr}}}}</style></head>
+<style>*{{box-sizing:border-box;letter-spacing:0}}body{{font-family:"Segoe UI",system-ui,Arial,sans-serif;background:#EEF1F5;color:#15233B;margin:0;line-height:1.5;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}}.wrap{{width:min(100% - 28px,1180px);margin:28px auto 44px}}.top{{display:flex;justify-content:space-between;gap:18px;align-items:flex-start;margin-bottom:22px}}h1{{font-size:27px;line-height:1.15;margin:0 0 7px;font-weight:800}}h2{{font-size:12px;text-transform:uppercase;color:#657085;margin:24px 0 10px}}.muted{{color:#657085;font-size:14px;margin:0;max-width:680px}}.nav{{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}}.nav a{{background:#fff;color:#15233B;border:1px solid #DCE2EA;text-decoration:none;border-radius:8px;padding:10px 13px;font-size:13px;font-weight:700;white-space:nowrap}}.grid{{display:grid;grid-template-columns:repeat(auto-fit,minmax(285px,1fr));gap:14px}}.hub-card{{display:flex;flex-direction:column;background:#fff;border:1px solid #DCE2EA;border-left:5px solid #C77D1A;border-radius:9px;padding:19px 18px 16px;text-decoration:none;color:#15233B;min-height:132px;box-shadow:0 8px 22px rgba(21,35,59,.045)}}.hub-card:hover{{border-color:#C77D1A;box-shadow:0 10px 24px rgba(21,35,59,.08);transform:translateY(-1px)}}.hub-card span{{display:block;font-size:16px;line-height:1.25;font-weight:800;margin-bottom:8px}}.hub-card p{{color:#657085;font-size:13.5px;line-height:1.45;margin:0 0 18px;flex:1}}.hub-card b{{display:inline-block;align-self:flex-start;background:#15233B;color:#fff;border-radius:7px;padding:8px 12px;font-size:12.5px;line-height:1.2}}:focus-visible{{outline:2px solid #C77D1A;outline-offset:2px}}@media(max-width:720px){{.top{{display:block}}.nav{{margin-top:14px;justify-content:flex-start}}h1{{font-size:24px}}.wrap{{width:min(100% - 18px,1180px);margin-top:18px}}.grid{{grid-template-columns:1fr}}}}@media(prefers-reduced-motion:reduce){{*{{scroll-behavior:auto!important;transition:none!important}}}}</style></head>
 <body><div class=wrap><div class=top><div><h1>Panel principal</h1><p class=muted>Del Palacio S.A. - módulos de reparto, Foxtrot, FichaYA y pedidos.</p></div><div class=nav><a href="/dashboard">Dashboard</a><a href="/pedidos">Pedidos</a><a href="/logout">Cerrar sesión</a></div></div>{content}</div></body></html>'''
 
 
@@ -485,21 +598,18 @@ def _raw_filter_select(col, value):
 
 
 def _foxtrot_calidad_page(q="", msg="", err=False):
-    base = pipeline.storage.load_all()
     filters = {col: request.args.get(f"raw__{col}", "") for col in FOXTROT_AUDIT_COLUMNS}
-    rows = list(base.values())
-    if q:
-        rows = [r for r in rows if _record_matches(r, q)]
-    for col, mode in filters.items():
-        if mode == "empty":
-            rows = [r for r in rows if _is_blank(_raw_value(r, col))]
-        elif mode == "present":
-            rows = [r for r in rows if not _is_blank(_raw_value(r, col))]
-    rows = sorted(rows, key=lambda r: (r.get("fecha") or "", r.get("suc") or "", r.get("chofer") or ""))[:300]
+    quality = pipeline.storage.load_foxtrot_quality(
+        FOXTROT_AUDIT_COLUMNS,
+        filters=filters,
+        q=q,
+        limit=300,
+    )
+    rows = quality["rows"]
     stats = []
-    total = len(base) or 1
+    total = quality["total"] or 1
     for col in FOXTROT_AUDIT_COLUMNS:
-        missing = sum(1 for r in base.values() if _is_blank(_raw_value(r, col)))
+        missing = quality["missing"].get(col, 0)
         pct = round(missing / total * 100, 1)
         severity = "bad" if pct >= 50 else ("warn" if pct > 0 else "ok")
         stats.append(
@@ -551,9 +661,10 @@ def _foxtrot_calidad_page(q="", msg="", err=False):
 .table-wrap.foxtrot thead th:nth-child(-n+3){{background:#F8FAFC;z-index:4}}
 td input{{width:150px;border:1px solid #DCE2EA;border-radius:7px;padding:7px 8px;font-size:12px}}td input:focus{{outline:2px solid #C77D1A;outline-offset:1px}}
 .route-id{{max-width:120px;overflow:hidden;text-overflow:ellipsis;color:#657085}}
+@media(max-width:760px){{.table-wrap.foxtrot th:nth-child(2),.table-wrap.foxtrot td:nth-child(2),.table-wrap.foxtrot th:nth-child(3),.table-wrap.foxtrot td:nth-child(3){{position:static;min-width:118px;box-shadow:none}}.table-wrap.foxtrot th:nth-child(1),.table-wrap.foxtrot td:nth-child(1){{left:0;min-width:78px}}.autofill-box form,.autofill-box .btn{{width:100%}}}}
 </style></head>
 <body><div class=wrap><div class=top><div><h1>Calidad de columnas Foxtrot</h1><p class=muted>Filtrá campos vacíos/con dato y completá valores faltantes por ruta. Al guardar se recalculan inicio, fin, horas y dispersiones si aplica.</p></div>
-<div class=nav><a class=secondary href="/inicio">Inicio</a><a class=secondary href="/dashboard">Dashboard</a><a class=secondary href="/pedidos">Pedidos</a><a class=secondary href="/datos">Datos</a><a href="/admin">Admin</a></div></div>{alert}
+<div class=nav><a class=secondary href="/inicio">Inicio</a><a class=secondary href="/dashboard">Dashboard</a><a class=secondary href="/pedidos">Pedidos</a><a class=secondary href="/costos-distribucion/dashboard">Costos</a><a class=secondary href="/datos">Datos</a><a class=secondary href="/admin">Admin</a><a href="/logout">Salir</a></div></div>{alert}
 <div class=quality-shell>
 <div class=stats-grid>{"".join(stats)}</div>
 <div class=autofill-box><div><b>Autocompletar campos vacíos</b><p>Usa planificado x 1,10 y timestamps marcados. No pisa datos existentes.</p></div>
@@ -567,17 +678,16 @@ td input{{width:150px;border:1px solid #DCE2EA;border-radius:7px;padding:7px 8px
 </div></div></body></html>"""
 
 
-def _datos_page(table="rutas", q="", msg="", err=False, edit_key=""):
+def _datos_page(table="rutas", q="", msg="", err=False, edit_key="", page=1):
     if table not in TABLES:
         table = "rutas"
     spec = TABLES[table]
-    base = spec["load"]()
-    rows = sorted(base.items(), key=lambda item: str(item[0]))
-    if q:
-        rows = [(k, v) for k, v in rows if _record_matches(v, q)]
-    rows = rows[:500]
+    page = max(1, int(page or 1))
+    page_size = 100
+    rows = pipeline.storage.list_records(table, q=q, limit=page_size, offset=(page - 1) * page_size)
+    counts = pipeline.storage.count_data_tables()
     tabs = "".join(
-        f'<a class="{"on" if name == table else ""}" href="/datos?tabla={name}">{escape(cfg["label"])} ({len(cfg["load"]())})</a>'
+        f'<a class="{"on" if name == table else ""}" href="/datos?tabla={name}">{escape(cfg["label"])} ({counts.get(name, 0)})</a>'
         for name, cfg in TABLES.items()
     )
     alert = f'<div class="msg{" err" if err else ""}">{escape(msg)}</div>' if msg else ""
@@ -585,25 +695,35 @@ def _datos_page(table="rutas", q="", msg="", err=False, edit_key=""):
     body = ""
     for key, rec in rows:
         cells = "".join(f'<td class="trunc">{escape(_short_value(rec.get(col)))}</td>' for col in spec["cols"])
-        opened = " open" if edit_key == str(key) else ""
-        editor = f"""<details{opened}><summary>Editar {escape(str(key))}</summary>
+        edit_url = "/datos?" + urlencode({"tabla": table, "q": q, "pagina": page, "editar": str(key)})
+        editor = f"""<details open><summary>Editar {escape(str(key))}</summary>
 <form class=edit method=post action="/datos/guardar">
-  <input type=hidden name=tabla value="{escape(table)}"><input type=hidden name=clave value="{escape(str(key))}">
+  <input type=hidden name=tabla value="{escape(table)}"><input type=hidden name=clave value="{escape(str(key))}"><input type=hidden name=pagina value="{page}"><input type=hidden name=q value="{escape(q)}">
   {_edit_fields(rec)}
   <div class=actions><button class=btn type=submit>Guardar</button></div>
 </form></details>"""
         delete_form = f"""<form method=post action="/datos/borrar" onsubmit="return confirm('¿Borrar este registro?')">
-<input type=hidden name=tabla value="{escape(table)}"><input type=hidden name=clave value="{escape(str(key))}">
+<input type=hidden name=tabla value="{escape(table)}"><input type=hidden name=clave value="{escape(str(key))}"><input type=hidden name=pagina value="{page}"><input type=hidden name=q value="{escape(q)}">
 <button class="btn danger" type=submit>Borrar</button></form>"""
-        body += f"<tr>{cells}<td><div class=actions><a class=\"btn secondary\" href=\"/datos?tabla={escape(table)}&editar={escape(str(key))}\">Editar</a>{delete_form}</div></td></tr><tr><td colspan=\"{len(spec['cols']) + 1}\">{editor}</td></tr>"
+        body += f'<tr>{cells}<td><div class=actions><a class="btn secondary" href="{escape(edit_url)}">Editar</a>{delete_form}</div></td></tr>'
+        if edit_key == str(key):
+            body += f'<tr><td colspan="{len(spec["cols"]) + 1}">{editor}</td></tr>'
     if not body:
         body = f'<tr><td class=empty colspan="{len(spec["cols"]) + 1}">No hay registros para mostrar.</td></tr>'
+    query_args = {"tabla": table, "q": q}
+    previous_link = ""
+    next_link = ""
+    if page > 1:
+        previous_link = f'<a class="btn secondary" href="/datos?{urlencode({**query_args, "pagina": page - 1})}">Anterior</a>'
+    if len(rows) == page_size:
+        next_link = f'<a class="btn secondary" href="/datos?{urlencode({**query_args, "pagina": page + 1})}">Siguiente</a>'
+    pagination = f'<div class="pagination"><span>Página {page}</span>{previous_link}{next_link}</div>'
     return f"""<!doctype html><html lang=es><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><title>Datos cargados</title>{DATOS_CSS}</head>
 <body><div class=wrap><div class=top><div><h1>Datos cargados</h1><p class=muted>Revisión y edición directa de las tablas usadas por el dashboard.</p></div>
-<div class=nav><a class=secondary href="/inicio">Inicio</a><a class=secondary href="/dashboard">Dashboard</a><a class=secondary href="/pedidos">Pedidos</a><a class=secondary href="/foxtrot-calidad">Calidad Foxtrot</a><a class=secondary href="/reporte-fichaya-foxtrot">Reporte FichaYA/Foxtrot</a><a class=secondary href="/admin">Admin</a><a href="/logout">Salir</a></div></div>{alert}
+<div class=nav><a class=secondary href="/inicio">Inicio</a><a class=secondary href="/dashboard">Dashboard</a><a class=secondary href="/pedidos">Pedidos</a><a class=secondary href="/costos-distribucion">Costos</a><a class=secondary href="/foxtrot-calidad">Calidad Foxtrot</a><a class=secondary href="/reporte-fichaya-foxtrot">Reporte FichaYA/Foxtrot</a><a class=secondary href="/admin">Admin</a><a href="/logout">Salir</a></div></div>{alert}
 <div class=tabs>{tabs}</div><form class=tools method=get action="/datos"><input type=hidden name=tabla value="{escape(table)}"><input name=q value="{escape(q)}" placeholder="Buscar en esta tabla"><button class=btn type=submit>Buscar</button><a class="btn secondary" href="/datos?tabla={escape(table)}">Limpiar</a></form>
 <div class=panel><div class=table-wrap><table><thead><tr>{header}</tr></thead><tbody>{body}</tbody></table></div></div>
-<p class=muted style="margin-top:12px">Se muestran hasta 500 registros por búsqueda. Editar JSON incorrecto puede afectar el dashboard.</p>
+{pagination}<p class=muted style="margin-top:12px">Se muestran 100 registros por página. Editar JSON incorrecto puede afectar el dashboard.</p>
 </div></body></html>"""
 
 
@@ -620,13 +740,13 @@ def _route_time(value):
 
 
 def _fichaya_name_map():
-    rec = (pipeline.storage.load_settings().get("fichaya_nombre_map") or {})
+    rec = pipeline.storage.load_setting("fichaya_nombre_map") or {}
     raw = rec.get("valor") if isinstance(rec, dict) else rec
     return raw if isinstance(raw, dict) else {}
 
 
 def _fichaya_empleados():
-    rec = (pipeline.storage.load_settings().get("fichaya_empleados") or {})
+    rec = pipeline.storage.load_setting("fichaya_empleados") or {}
     raw = rec.get("valor") if isinstance(rec, dict) else rec
     return raw if isinstance(raw, dict) else {}
 
@@ -635,33 +755,39 @@ def _import_fichaya_empleados(file_obj):
     if hasattr(file_obj, "seek"):
         file_obj.seek(0)
     wb = pipeline.load_workbook(file_obj, read_only=True, data_only=True)
-    ws = wb["Empleados"] if "Empleados" in wb.sheetnames else wb.worksheets[0]
-    rows = list(ws.iter_rows(values_only=True))
-    header_idx = None
-    for i, row in enumerate(rows):
-        vals = [str(v or "").strip().lower() for v in row]
-        if "legajo" in vals and "apellido" in vals and "nombre" in vals:
-            header_idx = i
-            break
-    if header_idx is None:
-        raise ValueError("No encontré columnas legajo, apellido y nombre.")
-    header = [str(v or "").strip().lower() for v in rows[header_idx]]
-    idx = {name: i for i, name in enumerate(header) if name}
-    empleados = {}
-    for row in rows[header_idx + 1:]:
-        legajo = pipeline._norm_id(row[idx["legajo"]] if idx.get("legajo") is not None and idx["legajo"] < len(row) else "")
-        if not legajo or not legajo.isdigit():
-            continue
-        apellido = str(row[idx["apellido"]] if idx.get("apellido") is not None and idx["apellido"] < len(row) and row[idx["apellido"]] is not None else "").strip()
-        nombre = str(row[idx["nombre"]] if idx.get("nombre") is not None and idx["nombre"] < len(row) and row[idx["nombre"]] is not None else "").strip()
-        nombre_completo = " ".join(x for x in [apellido, nombre] if x).strip()
-        empleados[legajo] = {
-            "legajo": legajo,
-            "nombre": nombre_completo,
-            "sucursal": str(row[idx["sucursal_nombre"]] if idx.get("sucursal_nombre") is not None and idx["sucursal_nombre"] < len(row) and row[idx["sucursal_nombre"]] is not None else "").strip(),
-            "puesto": str(row[idx["puesto_nombre"]] if idx.get("puesto_nombre") is not None and idx["puesto_nombre"] < len(row) and row[idx["puesto_nombre"]] is not None else "").strip(),
-            "estado": str(row[idx["estado"]] if idx.get("estado") is not None and idx["estado"] < len(row) and row[idx["estado"]] is not None else "").strip(),
-        }
+    try:
+        ws = wb["Empleados"] if "Empleados" in wb.sheetnames else wb.worksheets[0]
+        rows = ws.iter_rows(values_only=True)
+        header = None
+        for row in rows:
+            values = [str(value or "").strip().lower() for value in row]
+            if "legajo" in values and "apellido" in values and "nombre" in values:
+                header = values
+                break
+        if header is None:
+            raise ValueError("No encontré columnas legajo, apellido y nombre.")
+        idx = {name: index for index, name in enumerate(header) if name}
+
+        def cell(row, name):
+            index = idx.get(name)
+            return row[index] if index is not None and index < len(row) else None
+
+        empleados = {}
+        for row in rows:
+            legajo = pipeline._norm_id(cell(row, "legajo"))
+            if not legajo or not legajo.isdigit():
+                continue
+            apellido = str(cell(row, "apellido") or "").strip()
+            nombre = str(cell(row, "nombre") or "").strip()
+            empleados[legajo] = {
+                "legajo": legajo,
+                "nombre": " ".join(value for value in (apellido, nombre) if value).strip(),
+                "sucursal": str(cell(row, "sucursal_nombre") or "").strip(),
+                "puesto": str(cell(row, "puesto_nombre") or "").strip(),
+                "estado": str(cell(row, "estado") or "").strip(),
+            }
+    finally:
+        wb.close()
     pipeline.storage.save_setting("fichaya_empleados", {"valor": empleados})
     return empleados
 
@@ -684,16 +810,7 @@ def _fichaya_lookup_ref(foxtrot_name, mapping=None, empleados=None):
 
 def _fichaya_report_rows(desde="2026-08-01", hasta=None, suc="", chofer="", force_live=False):
     hasta = hasta or date.today().strftime("%Y-%m-%d")
-    base = list(pipeline.storage.load_all().values())
-    rows = [
-        r for r in base
-        if r.get("usable") and (r.get("fecha") or "") >= desde and (r.get("fecha") or "") <= hasta
-    ]
-    if suc:
-        rows = [r for r in rows if (r.get("suc") or "") == suc]
-    if chofer:
-        rows = [r for r in rows if pipeline._norm_persona_key(r.get("chofer")) == pipeline._norm_persona_key(chofer)]
-    rows = sorted(rows, key=lambda r: (r.get("fecha") or "", r.get("suc") or "", r.get("chofer") or "", r.get("inicio_foxtrot") or ""), reverse=True)
+    rows = pipeline.storage.load_fichaya_routes(desde, hasta, suc=suc, chofer=chofer)
 
     fichadas, warning = {}, ""
     fichaya_live_ok = False
@@ -706,6 +823,9 @@ def _fichaya_report_rows(desde="2026-08-01", hasta=None, suc="", chofer="", forc
                 warning = "No se recibieron fichadas desde FichaYA ni desde el cache local. Revisar credenciales, disponibilidad del servicio o si el rango tiene marcas cargadas."
         except Exception as exc:
             warning = f"No se pudo consultar FichaYA ni recuperar fichadas guardadas ({exc})."
+
+    if not rows:
+        return [], warning
 
     mapping = _fichaya_name_map()
     empleados = _fichaya_empleados()
@@ -758,12 +878,21 @@ def _fichaya_report_page():
         return blocked
     desde = request.args.get("desde") or "2026-08-01"
     hasta = request.args.get("hasta") or date.today().strftime("%Y-%m-%d")
+    try:
+        desde_date = date.fromisoformat(desde)
+        hasta_date = date.fromisoformat(hasta)
+    except ValueError:
+        desde_date = date.fromisoformat("2026-08-01")
+        hasta_date = date.today()
+    if desde_date > hasta_date:
+        desde_date, hasta_date = hasta_date, desde_date
+    desde, hasta = desde_date.isoformat(), hasta_date.isoformat()
     suc = request.args.get("suc") or ""
     chofer = request.args.get("chofer") or ""
     force_live = request.args.get("actualizar") == "1"
-    all_rows = [r for r in pipeline.storage.load_all().values() if r.get("usable") and (r.get("fecha") or "") >= "2026-08-01"]
-    sucs = sorted({r.get("suc") for r in all_rows if r.get("suc")})
-    choferes = sorted({r.get("chofer") for r in all_rows if r.get("chofer")})
+    dimensions = pipeline.storage.load_fichaya_dimensions("2026-08-01")
+    sucs = dimensions["sucursales"]
+    choferes = dimensions["choferes"]
     rows, warning = _fichaya_report_rows(desde, hasta, suc, chofer, force_live=force_live)
     cache = pipeline.fichaya_cache_info()
     fechas_reporte = sorted({r["fecha"] for r in rows if r.get("fecha")})
@@ -782,9 +911,9 @@ def _fichaya_report_page():
     ) or '<tr><td class=empty colspan=13>No hay rutas desde agosto con esos filtros.</td></tr>'
     alert = f'<div class="msg err">{escape(warning)}</div>' if warning else ""
     return f"""<!doctype html><html lang=es><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><title>Reporte FichaYA Foxtrot</title>{DATOS_CSS}
-<style>.tools select,.tools input{{min-height:40px;border:1px solid #DCE2EA;border-radius:8px;padding:9px 10px;background:#fff}}.r{{font-weight:750}}.ok{{color:#166534}}.bad{{color:#991B1B}}</style></head>
+<style>.tools{{align-items:end}}.tools label{{display:grid;gap:4px;color:#657085;font-size:11px;font-weight:750;text-transform:uppercase}}.tools select,.tools input{{width:100%;min-width:0;min-height:40px;border:1px solid #DCE2EA;border-radius:8px;padding:9px 10px;background:#fff;color:#15233B;font-size:13.5px}}.r{{font-weight:750}}.ok{{color:#166534}}.bad{{color:#991B1B}}@media(max-width:760px){{.tools>*{{width:100%}}}}</style></head>
 <body><div class=wrap><div class=top><div><h1>Reporte FichaYA + Foxtrot</h1><p class=muted>Desde agosto 2026. TML = inicio Foxtrot - fichada ingreso. TI = fichada salida - finalización Foxtrot.</p></div>
-<div class=nav><a class=secondary href="/inicio">Inicio</a><a class=secondary href="/dashboard">Dashboard</a><a class=secondary href="/pedidos">Pedidos</a><a class=secondary href="/datos">Datos</a><a href="/admin">Admin</a></div></div>{alert}
+<div class=nav><a class=secondary href="/inicio">Inicio</a><a class=secondary href="/dashboard">Dashboard</a><a class=secondary href="/pedidos">Pedidos</a><a class=secondary href="/costos-distribucion/dashboard">Costos</a><a class=secondary href="/datos">Datos</a><a class=secondary href="/admin">Admin</a><a href="/logout">Salir</a></div></div>{alert}
 <form class=tools method=get action="/reporte-fichaya-foxtrot">
 <label>Desde <input type=date name=desde value="{escape(desde)}"></label>
 <label>Hasta <input type=date name=hasta value="{escape(hasta)}"></label>
@@ -803,24 +932,12 @@ def _fichaya_mapping_page(msg="", err=False):
         return blocked
     mapping = _fichaya_name_map()
     empleados = _fichaya_empleados()
-    rutas = [
-        r for r in pipeline.storage.load_all().values()
-        if r.get("usable") and (r.get("fecha") or "") >= "2026-08-01" and r.get("chofer")
-    ]
-    choferes = sorted({r.get("chofer") for r in rutas})
-    candidates = []
-    try:
-        if rutas:
-            fechas = [r.get("fecha") for r in rutas if r.get("fecha")]
-            fichadas = pipeline.cargar_fichadas(min(fechas), max(fechas))
-            candidates = sorted({name for _, name in fichadas.keys()})
-    except Exception:
-        candidates = []
+    dimensions = pipeline.storage.load_fichaya_dimensions("2026-08-01")
+    choferes = dimensions["choferes"]
     emp_options = "".join(
         f'<option value="{escape(leg)}">{escape(leg)} · {escape(emp.get("nombre", ""))} · {escape(emp.get("sucursal", ""))}</option>'
         for leg, emp in sorted(empleados.items(), key=lambda kv: kv[1].get("nombre", ""))
     )
-    datalist = '<datalist id="fichayaNames">' + ''.join(f'<option value="{escape(x)}"></option>' for x in candidates) + '</datalist>'
     body = ""
     for name in choferes:
         norm = pipeline._norm_persona_key(name)
@@ -832,13 +949,13 @@ def _fichaya_mapping_page(msg="", err=False):
         body = '<tr><td class=empty colspan=2>No hay choferes Foxtrot desde agosto.</td></tr>'
     alert = f'<div class="msg{" err" if err else ""}">{escape(msg)}</div>' if msg else ""
     return f"""<!doctype html><html lang=es><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><title>Asociar nombres FichaYA</title>{DATOS_CSS}
-<style>td select{{width:100%;min-width:300px;border:1px solid #DCE2EA;border-radius:8px;padding:8px 10px;background:#fff}}td small{{display:block;color:#657085;margin-top:4px}}.panel{{max-width:960px}}.upload{{max-width:960px;background:#fff;border:1px solid #DCE2EA;border-radius:10px;padding:14px;margin-bottom:16px}}</style></head>
+<style>td select{{width:100%;min-width:300px;border:1px solid #DCE2EA;border-radius:8px;padding:8px 10px;background:#fff}}td small{{display:block;color:#657085;margin-top:4px}}.panel{{max-width:960px}}.upload{{max-width:960px;background:#fff;border:1px solid #DCE2EA;border-radius:10px;padding:14px;margin-bottom:16px}}.upload input[type=file]{{max-width:100%;margin:10px 8px 0 0}}@media(max-width:760px){{td select{{min-width:240px}}.upload input[type=file],.upload .btn{{width:100%;margin-right:0}}}}</style></head>
 <body><div class=wrap><div class=top><div><h1>Asociar nombres Foxtrot / FichaYA</h1><p class=muted>Relacioná cada chofer de Foxtrot contra el legajo de FichaYA. El reporte busca fichadas por legajo primero.</p></div>
-<div class=nav><a class=secondary href="/inicio">Inicio</a><a class=secondary href="/reporte-fichaya-foxtrot">Reporte</a><a class=secondary href="/dashboard">Dashboard</a><a class=secondary href="/pedidos">Pedidos</a><a href="/admin">Admin</a></div></div>{alert}
+<div class=nav><a class=secondary href="/inicio">Inicio</a><a class=secondary href="/reporte-fichaya-foxtrot">Reporte</a><a class=secondary href="/dashboard">Dashboard</a><a class=secondary href="/pedidos">Pedidos</a><a class=secondary href="/costos-distribucion/dashboard">Costos</a><a class=secondary href="/admin">Admin</a><a href="/logout">Salir</a></div></div>{alert}
 <form class=upload method=post action="/asociar-fichaya/importar" enctype="multipart/form-data"><b>Importar empleados FichaYA</b><p class=muted>Subí el Excel exportado desde FichaYA para cargar legajos y nombres.</p><input type=file name=empleados accept=".xlsx,.xls" required> <button class=btn type=submit>Importar empleados</button></form>
-<form method=post action="/asociar-fichaya/guardar">{datalist}<div class=panel><div class=table-wrap><table><thead><tr><th>Nombre Foxtrot</th><th>Legajo / empleado FichaYA</th></tr></thead><tbody>{body}</tbody></table></div></div>
+<form method=post action="/asociar-fichaya/guardar"><div class=panel><div class=table-wrap><table><thead><tr><th>Nombre Foxtrot</th><th>Legajo / empleado FichaYA</th></tr></thead><tbody>{body}</tbody></table></div></div>
 <button class=btn type=submit style="margin-top:16px">Guardar asociaciones</button></form>
-<p class=muted style="margin-top:12px">Empleados FichaYA cargados: {len(empleados)}. Candidatos por fichadas disponibles: {len(candidates)}. El reporte usa esta asociación al calcular TML/TI.</p>
+<p class=muted style="margin-top:12px">Empleados FichaYA cargados: {len(empleados)}. El reporte usa esta asociación al calcular TML/TI.</p>
 </div></body></html>"""
 
 
@@ -856,11 +973,16 @@ def inicio():
 
 @app.route("/dashboard")
 def dashboard():
+    blocked = _require_login()
+    if blocked:
+        return blocked
     return _dashboard_response()
 
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
+    if request.method == "GET" and _is_logged_in():
+        return redirect(_safe_next_url(request.args.get("next")))
     if request.method == "POST":
         if not ADMIN_PASSWORD:
             return Response(_login_page("Falta configurar ADMIN_PASSWORD en Railway.", err=True), mimetype="text/html", status=500)
@@ -868,7 +990,8 @@ def login():
         password = request.form.get("password", "")
         if secrets.compare_digest(user, ADMIN_USER) and secrets.compare_digest(password, ADMIN_PASSWORD):
             session["admin_logged_in"] = True
-            return redirect(request.form.get("next") or url_for("inicio"))
+            session["admin_user"] = user
+            return redirect(_safe_next_url(request.form.get("next")))
         return Response(_login_page("Usuario o clave incorrectos.", err=True), mimetype="text/html", status=403)
     return Response(_login_page(), mimetype="text/html")
 
@@ -900,6 +1023,7 @@ def datos():
                 msg=request.args.get("msg", ""),
                 err=request.args.get("err") == "1",
                 edit_key=request.args.get("editar", ""),
+                page=request.args.get("pagina", 1),
             ),
             mimetype="text/html",
         )
@@ -1016,10 +1140,10 @@ def foxtrot_calidad_guardar():
         return blocked
     rid = request.form.get("rid", "")
     try:
-        base = pipeline.storage.load_all()
-        if rid not in base:
+        current = pipeline.storage.get_record("rutas", rid)
+        if current is None:
             raise ValueError("No se encontró la ruta.")
-        rec = dict(base[rid])
+        rec = dict(current)
         raw = dict(rec.get("raw_foxtrot") or {})
         for col in FOXTROT_AUDIT_COLUMNS:
             form_key = f"raw__{col}"
@@ -1063,11 +1187,15 @@ def datos_guardar():
         return blocked
     table = request.form.get("tabla", "")
     key = request.form.get("clave", "")
+    page = request.form.get("pagina", "1")
+    q = request.form.get("q", "")
     try:
         if table not in TABLES:
             raise ValueError("Tabla no permitida.")
-        base = TABLES[table]["load"]()
-        rec = dict(base.get(key) or {})
+        current = pipeline.storage.get_record(table, key)
+        if current is None:
+            raise ValueError("El registro ya no existe.")
+        rec = dict(current)
         for name in rec.keys():
             form_key = f"field__{name}"
             if form_key in request.form:
@@ -1078,8 +1206,8 @@ def datos_guardar():
             rec["ventanas"] = pipeline.parse_horario_entrega(rec.get("horario_entrega", ""))
         pipeline.storage.save_record(table, key, rec)
     except Exception as e:
-        return redirect(url_for("datos", tabla=table or "rutas", editar=key, msg=f"Error guardando: {e}", err=1))
-    return redirect(url_for("datos", tabla=table, editar=key, msg="Registro guardado."))
+        return redirect(url_for("datos", tabla=table or "rutas", q=q, pagina=page, editar=key, msg=f"Error guardando: {e}", err=1))
+    return redirect(url_for("datos", tabla=table, q=q, pagina=page, editar=key, msg="Registro guardado."))
 
 
 @app.route("/datos/borrar", methods=["POST"])
@@ -1089,11 +1217,13 @@ def datos_borrar():
         return blocked
     table = request.form.get("tabla", "")
     key = request.form.get("clave", "")
+    page = request.form.get("pagina", "1")
+    q = request.form.get("q", "")
     try:
         pipeline.storage.delete_record(table, key)
     except Exception as e:
-        return redirect(url_for("datos", tabla=table or "rutas", msg=f"Error borrando: {e}", err=1))
-    return redirect(url_for("datos", tabla=table, msg="Registro borrado."))
+        return redirect(url_for("datos", tabla=table or "rutas", q=q, pagina=page, msg=f"Error borrando: {e}", err=1))
+    return redirect(url_for("datos", tabla=table, q=q, pagina=page, msg="Registro borrado."))
 
 
 @app.route("/actualizar", methods=["POST"])
@@ -1149,6 +1279,7 @@ def actualizar_rechazos():
             st = pipeline.importar_rechazos(desde, hasta)
     except Exception as e:
         return Response(_admin_page(f"Error importando rechazos: {e}", err=True), mimetype="text/html", status=400)
+    pipeline.clear_dashboard_cache(include_external=True)
     msg = f"Listo. Rechazos importados: {st['guardados']} días ({st['desde']} a {st['hasta']})."
     if st.get("detalle_guardados"):
         msg += f" Detalle importado: {st['detalle_guardados']} filas."
@@ -1167,7 +1298,544 @@ def actualizar_articulos():
         total = pipeline.actualizar_articulos(archivo.stream)
     except Exception as e:
         return Response(_admin_page(f"Error importando artículos: {e}", err=True), mimetype="text/html", status=400)
+    pipeline.clear_dashboard_cache(include_external=True)
     return Response(_admin_page(f"Listo. Artículos importados: {total}."), mimetype="text/html")
+
+
+@app.route("/actualizar-volumen-entregas", methods=["POST"])
+def actualizar_volumen_entregas():
+    blocked = _require_login()
+    if blocked:
+        return blocked
+    archivo = request.files.get("entregas")
+    if not archivo or not archivo.filename:
+        return Response(_admin_page("Falta el archivo de entregas.", err=True), mimetype="text/html", status=400)
+    try:
+        stats = pipeline.importar_volumen_entregas(archivo.stream, archivo.filename)
+    except Exception as e:
+        return Response(_admin_page(f"Error importando entregas: {e}", err=True), mimetype="text/html", status=400)
+    msg = f"Entregas válidas: {stats['filas_validas']}. Intentos actualizados: {stats['intentos_actualizados']}. Filas inválidas: {stats['filas_invalidas']}."
+    return Response(_admin_page(msg), mimetype="text/html")
+
+
+@app.route("/actualizar-vehiculos-rutas", methods=["POST"])
+def actualizar_vehiculos_rutas():
+    blocked = _require_login()
+    if blocked:
+        return blocked
+    archivo = request.files.get("vehiculos")
+    if not archivo or not archivo.filename:
+        return Response(_admin_page("Falta el archivo de asignación de vehículos.", err=True), mimetype="text/html", status=400)
+    try:
+        stats = pipeline.importar_asignacion_vehiculos(archivo.stream, archivo.filename)
+    except Exception as e:
+        return Response(_admin_page(f"Error importando vehículos: {e}", err=True), mimetype="text/html", status=400)
+    msg = f"Asignaciones válidas: {stats['filas_validas']}. Rutas actualizadas: {stats['rutas_actualizadas']}. Filas inválidas: {stats['filas_invalidas']}."
+    return Response(_admin_page(msg), mimetype="text/html")
+
+
+def _costos_distribucion_page():
+    blocked = _require_login()
+    if blocked:
+        return blocked
+    selected_rid = request.args.get("rid", "").strip()
+    try:
+        setup = pipeline.storage.load_logistics_setup()
+        saved_config = dict(setup.get("config") or {})
+        routes = pipeline.storage.list_recent_routes(250)
+        rates = list(setup.get("rates") or [])
+        if not rates:
+            rate_keys = (
+                "fuel_price_per_liter", "vehicle_liters_per_100km", "vehicle_cost_per_km",
+                "driver_cost_per_hour", "helper_cost_per_hour", "helpers_count", "other_route_cost",
+            )
+            base_rate = {key: float(saved_config.get(key, 0) or 0) for key in rate_keys}
+            base_rate["fuel_type"] = str(saved_config.get("fuel_type") or "Gasoil")
+            pipeline.storage.save_logistics_cost_rate("1900-01-01", base_rate)
+            rates = pipeline.storage.load_logistics_cost_rates()
+        vehicle_rates = list(setup.get("vehicles") or [])
+        if selected_rid and not any(str(rec.get("rid") or "") == selected_rid for rec in routes):
+            selected_route = pipeline.storage.get_route(selected_rid)
+            if selected_route:
+                routes.insert(0, {"rid": selected_rid, **selected_route})
+        depots = dict(setup.get("depots") or {})
+        if not depots:
+            for sucursal, rec in (saved_config.get("depot_by_sucursal") or {}).items():
+                pipeline.storage.save_logistics_depot(sucursal, rec)
+            depots = pipeline.storage.load_logistics_depots()
+        if "depot_by_sucursal" in saved_config:
+            saved_config.pop("depot_by_sucursal", None)
+            pipeline.storage.save_logistics_config(saved_config)
+        config = LogisticsCostService().get_config()
+    except Exception as exc:
+        return Response(_data_unavailable_page("Costos de distribución", exc), mimetype="text/html", status=503)
+    route_options = "".join(
+        f'<option value="{escape(str(r.get("rid") or ""))}" data-suc="{escape(str(r.get("suc") or ""))}"{" selected" if str(r.get("rid") or "") == selected_rid else ""}>'
+        f'{escape(str(r.get("fecha") or "Sin fecha"))} · {escape(str(r.get("suc") or "Sin sucursal"))} · '
+        f'{escape(str(r.get("chofer") or "Sin chofer"))}</option>'
+        for r in routes
+    )
+    depot_branches = sorted(
+        {str(name) for name in depots if name}
+        | {str(route.get("suc") or "") for route in routes if route.get("suc")}
+    )
+    depot_options = "".join(
+        f'<option value="{escape(branch, quote=True)}">{escape(branch)}</option>'
+        for branch in depot_branches
+    ) or '<option value="">Sin sucursales disponibles</option>'
+    config_json = json.dumps(config, ensure_ascii=False).replace("</", "<\\/")
+    depots_json = json.dumps(depots, ensure_ascii=False).replace("</", "<\\/")
+    rates_json = json.dumps(rates, ensure_ascii=False).replace("</", "<\\/")
+    vehicle_rates_json = json.dumps(vehicle_rates, ensure_ascii=False).replace("</", "<\\/")
+    return f'''<!doctype html><html lang=es><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1">
+<title>Costos de distribución</title><link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""><style>
+*{{box-sizing:border-box}}body{{font-family:"Segoe UI",system-ui,Arial,sans-serif;background:#EEF1F5;color:#15233B;margin:0;line-height:1.45}}.wrap{{width:min(100% - 28px,1180px);margin:24px auto 48px}}.top{{display:flex;justify-content:space-between;gap:18px;align-items:flex-start;margin-bottom:20px}}h1{{font-size:25px;margin:0 0 4px}}h2{{font-size:17px;margin:0 0 14px}}.muted{{color:#657085;font-size:13.5px;margin:0}}.nav{{display:flex;gap:8px;flex-wrap:wrap}}.nav a,.btn{{background:#15233B;color:#fff;text-decoration:none;border:0;border-radius:8px;padding:10px 13px;font-size:13.5px;font-weight:650;cursor:pointer}}.nav a.secondary,.btn.secondary{{background:#fff;color:#15233B;border:1px solid #DCE2EA}}.layout{{display:grid;grid-template-columns:minmax(300px,390px) 1fr;gap:16px;align-items:start}}.panel{{background:#fff;border:1px solid #DCE2EA;border-radius:8px;padding:18px}}.field-grid{{display:grid;grid-template-columns:1fr 1fr;gap:12px}}label{{display:block;color:#657085;font-size:11.5px;font-weight:700;text-transform:uppercase;margin-bottom:5px}}input,select{{width:100%;min-height:40px;border:1px solid #CAD3DF;border-radius:7px;padding:8px 9px;background:#fff;color:#15233B;font-size:14px}}input:focus,select:focus{{outline:2px solid #C77D1A;outline-offset:1px}}.full{{grid-column:1/-1}}.actions{{display:flex;gap:8px;margin-top:16px}}.actions .btn{{flex:1}}.msg{{display:none;margin:0 0 14px;padding:10px 12px;border-radius:7px;font-size:13px;background:#DCFCE7;border:1px solid #86EFAC;color:#166534}}.msg.err{{display:block;background:#FEE2E2;border-color:#FCA5A5;color:#991B1B}}.route-meta{{display:flex;gap:12px;flex-wrap:wrap;color:#657085;font-size:12.5px;margin:-6px 0 12px}}.kpis{{display:grid;grid-template-columns:repeat(4,minmax(120px,1fr));gap:0;margin-bottom:14px;border:1px solid #E1E7EE;border-radius:8px;overflow:hidden;background:#FAFBFC}}.kpi{{border:0;border-right:1px solid #E1E7EE;padding:12px;background:transparent}}.kpi:last-child{{border-right:0}}.kpi span{{display:block;color:#657085;font-size:11px;font-weight:700;text-transform:uppercase}}.kpi strong{{display:block;font-size:20px;margin-top:4px}}.map{{height:420px;width:100%;border:1px solid #DCE2EA;border-radius:8px;margin-bottom:14px;background:#E8EDF2}}.number-marker,.depot-marker{{display:grid;place-items:center;width:28px;height:28px;border-radius:50%;background:#15233B;color:#fff;border:2px solid #fff;box-shadow:0 1px 5px rgba(0,0,0,.45);font-weight:800;font-size:12px}}.depot-marker{{width:34px;height:34px;background:#C77D1A;font-size:9px}}.components{{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:16px}}.component{{border-left:3px solid #C77D1A;padding:7px 9px;background:#F8FAFC}}.component span{{display:block;font-size:11px;color:#657085}}.component b{{font-size:14px}}.table-wrap{{overflow:auto;max-height:440px;border:1px solid #E1E7EE;border-radius:8px}}table{{border-collapse:collapse;width:100%;font-size:12.5px}}th,td{{padding:9px 10px;border-bottom:1px solid #E7ECF2;text-align:left;white-space:nowrap}}th{{position:sticky;top:0;background:#F8FAFC;color:#657085;text-transform:uppercase;font-size:11px}}td.num,th.num{{text-align:right}}.empty{{padding:44px 20px;text-align:center;color:#657085}}.warnings{{color:#92400E;background:#FEF3C7;border:1px solid #FCD34D;border-radius:7px;padding:9px 11px;font-size:12.5px;margin-bottom:12px;display:none}}@media(max-width:900px){{.layout{{grid-template-columns:1fr}}.kpis{{grid-template-columns:1fr 1fr}}.kpi:nth-child(2n){{border-right:0}}}}@media(max-width:560px){{.wrap{{width:min(100% - 18px,1180px);margin-top:14px}}.top{{display:block}}.nav{{margin-top:12px}}.field-grid,.kpis,.components{{grid-template-columns:1fr 1fr}}.map{{height:340px}}}}
+</style><style>*{{letter-spacing:0}}.layout{{grid-template-columns:minmax(300px,390px) minmax(0,1fr)}}.panel{{min-width:0}}.actions{{flex-wrap:wrap}}.actions .btn{{min-width:130px}}.btn:disabled{{cursor:wait;opacity:.65}}:focus-visible{{outline:2px solid #C77D1A;outline-offset:2px}}#result>div[style*="display:flex"]{{flex-wrap:wrap}}#customerFilter{{min-width:180px;flex:1}}#customerSort{{flex:1}}@media(max-width:560px){{.field-grid{{grid-template-columns:1fr}}.kpis,.components{{grid-template-columns:1fr 1fr}}.actions .btn{{flex-basis:100%}}#result>div[style*="display:flex"]{{justify-content:flex-start!important}}#customerFilter,#customerSort,#mapMode{{width:100%!important;max-width:none!important}}}}@media(prefers-reduced-motion:reduce){{*{{scroll-behavior:auto!important;transition:none!important}}}}</style></head><body><div class=wrap><div class=top><div><h1>Costos de distribución</h1><p class=muted>Configuración general y cálculo trazable por ruta y cliente.</p></div><div class=nav><a class=secondary href="/inicio">Inicio</a><a class=secondary href="/dashboard">Dashboard</a><a class=secondary href="/pedidos">Pedidos</a><a class=secondary href="/admin">Actualizar datos</a><a href="/logout">Salir</a></div></div>
+<div id=message class=msg></div><div class=layout><section class=panel><h2>Parámetros de costo</h2><p style="margin:-8px 0 12px"><a href="/costos-distribucion/dashboard">Ver dashboard histórico</a></p><form id=configForm><div class=field-grid>
+<div><label for=fuel>Combustible $/litro</label><input id=fuel name=fuel_price_per_liter type=number min=0 step=0.01></div><div><label for=consumption>Consumo litros/100 km</label><input id=consumption name=vehicle_liters_per_100km type=number min=0 step=0.01></div>
+<div><label for=rateDate>Vigente desde</label><input id=rateDate type=date value="{date.today().isoformat()}"></div><div><label for=fuelType>Tipo combustible</label><input id=fuelType value="Gasoil"></div>
+<div><label for=vehicle>Costo vehículo $/km</label><input id=vehicle name=vehicle_cost_per_km type=number min=0 step=0.01></div><div><label for=driver>Chofer $/hora</label><input id=driver name=driver_cost_per_hour type=number min=0 step=0.01></div>
+<div><label for=helper>Ayudante $/hora</label><input id=helper name=helper_cost_per_hour type=number min=0 step=0.01></div><div><label for=helpers>Cantidad ayudantes</label><input id=helpers name=helpers_count type=number min=0 step=1></div>
+<div class=full><label for=other>Otros costos por ruta</label><input id=other name=other_route_cost type=number min=0 step=0.01></div>
+<div><label for=wDistance>Peso distancia</label><input id=wDistance type=number min=0 step=0.01></div><div><label for=wTime>Peso tiempo</label><input id=wTime type=number min=0 step=0.01></div><div><label for=wVolume>Peso volumen</label><input id=wVolume type=number min=0 step=0.01></div>
+<div><label for=volumeCriterion>Criterio de volumen</label><select id=volumeCriterion><option value=bultos>Bultos entregados</option><option value=hl>HL entregados</option><option value=pallets>Pallets entregados</option><option value=unidades>Unidades entregadas</option></select></div><div><label for=greenMax>Rentabilidad verde hasta %</label><input id=greenMax type=number min=0 step=0.1></div><div><label for=yellowMax>Rentabilidad amarilla hasta %</label><input id=yellowMax type=number min=0 step=0.1></div>
+<div class=full><label for=routeSelect>Ruta a calcular</label><select id=routeSelect><option value="">Seleccionar ruta</option>{route_options}</select></div>
+<div class=full><label for=depotSucursal>Sucursal del depósito</label><select id=depotSucursal>{depot_options}</select></div>
+<div class=full><label for=depotName>Nombre del depósito</label><input id=depotName placeholder="Ej. Casa Central"></div><div><label for=depotLat>Latitud depósito</label><input id=depotLat type=number min=-90 max=90 step=0.000001></div><div><label for=depotLon>Longitud depósito</label><input id=depotLon type=number min=-180 max=180 step=0.000001></div>
+</div><div class=actions><button class="btn secondary" type=submit>Guardar base</button><button class="btn secondary" id=saveRateBtn type=button>Guardar vigencia</button></div><div id=ratesList style="margin-top:12px"></div><hr style="border:0;border-top:1px solid #E1E7EE;margin:18px 0"><h2>Perfil por vehículo</h2><div class=field-grid><div class=full><label for=vehicleId>Identificador real</label><input id=vehicleId placeholder="Patente o código de unidad"></div><div><label for=vehicleDate>Vigente desde</label><input id=vehicleDate type=date value="{date.today().isoformat()}"></div><div><label for=vehicleConsumption>Litros/100 km</label><input id=vehicleConsumption type=number min=0 step=.01></div><div class=full><label for=vehicleKmCost>Costo vehículo $/km</label><input id=vehicleKmCost type=number min=0 step=.01></div></div><div class=actions><button class="btn secondary" id=saveVehicleBtn type=button>Guardar perfil</button></div><div id=vehiclesList style="margin-top:12px"></div><hr style="border:0;border-top:1px solid #E1E7EE;margin:18px 0"><div class=actions><button class="btn secondary" id=saveDepotBtn type=button>Guardar depósito</button><button class="btn secondary" id=deleteDepotBtn type=button>Eliminar depósito</button><button class=btn id=calculateBtn type=button>Calcular ruta</button></div></form></section>
+<section class=panel><h2>Resultado de la ruta</h2><div id=warnings class=warnings></div><div id=result><div class=empty>Seleccioná una ruta y ejecutá el cálculo.</div></div><div id=history></div></section></div></div>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script><script>const initialConfig={config_json};let config=initialConfig;let depots={depots_json};let rates={rates_json};let vehicleRates={vehicle_rates_json};let routeMap=null,lastRoute=null,lastCustomers=[];const numericFields=['fuel_price_per_liter','vehicle_liters_per_100km','vehicle_cost_per_km','driver_cost_per_hour','helper_cost_per_hour','helpers_count','other_route_cost'];
+const $=id=>document.getElementById(id);const esc=v=>String(v??'').replace(/[&<>"']/g,ch=>({{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}}[ch]));const money=v=>new Intl.NumberFormat('es-AR',{{style:'currency',currency:'ARS',maximumFractionDigits:2}}).format(Number(v||0));const number=(v,d=1)=>new Intl.NumberFormat('es-AR',{{maximumFractionDigits:d}}).format(Number(v||0));
+function fillConfig(){{numericFields.forEach(k=>document.querySelector(`[name="${{k}}"]`).value=config[k]??0);$('fuelType').value=config.fuel_type??'Gasoil';$('wDistance').value=config.weights?.distance??.4;$('wTime').value=config.weights?.time??.3;$('wVolume').value=config.weights?.volume??.3;$('volumeCriterion').value=config.volume_criterion??'bultos';$('greenMax').value=config.profitability_thresholds?.green_max_pct??3;$('yellowMax').value=config.profitability_thresholds?.yellow_max_pct??6;loadDepot();renderRates();renderVehicleRates();}}
+function routeSucursal(){{const o=$('routeSelect').selectedOptions[0];return o?.dataset?.suc||''}}function selectedDepotSucursal(){{return $('depotSucursal').value||''}}function loadDepot(){{const d=depots[selectedDepotSucursal()]||{{}};$('depotName').value=d.nombre??'';$('depotLat').value=d.latitud??'';$('depotLon').value=d.longitud??'';$('deleteDepotBtn').disabled=!depots[selectedDepotSucursal()]}}function syncDepotFromRoute(){{const sucursal=routeSucursal();if(sucursal&&[...$('depotSucursal').options].some(option=>option.value===sucursal))$('depotSucursal').value=sucursal;loadDepot()}}
+function collectConfig(){{const next={{...config,fuel_type:$('fuelType').value.trim()||'Gasoil',volume_criterion:$('volumeCriterion').value,weights:{{distance:Number($('wDistance').value||0),time:Number($('wTime').value||0),volume:Number($('wVolume').value||0)}},profitability_thresholds:{{green_max_pct:Number($('greenMax').value||0),yellow_max_pct:Number($('yellowMax').value||0)}}}};numericFields.forEach(k=>next[k]=Number(document.querySelector(`[name="${{k}}"]`).value||0));delete next.depot_by_sucursal;return next}}
+function showMessage(text,error=false){{const el=$('message');el.textContent=text;el.className='msg'+(error?' err':'');el.style.display='block'}}async function saveConfig(show=true){{const res=await fetch('/costos-distribucion/config',{{method:'POST',headers:{{'Content-Type':'application/json'}},body:JSON.stringify(collectConfig())}});const data=await res.json();if(!res.ok||!data.ok)throw new Error(data.error||'No se pudo guardar');config=data.config;if(show)showMessage('Parámetros guardados.');}}
+function currentRatePayload(){{const payload=collectConfig();delete payload.weights;delete payload.profitability_thresholds;payload.valid_from=$('rateDate').value;return payload}}function renderRates(){{const target=$('ratesList');target.innerHTML=rates.length?`<label>Vigencias guardadas</label>${{rates.slice(0,6).map(r=>`<div style="display:flex;justify-content:space-between;gap:8px;font-size:12px;padding:6px 0;border-bottom:1px solid #E7ECF2"><span><b>${{esc(r.valid_from)}}</b> · ${{esc(r.fuel_type||'')}} · ${{money(r.fuel_price_per_liter)}}/l</span><button type=button class="btn secondary" style="padding:4px 7px" data-delete-rate="${{esc(r.valid_from)}}">Eliminar</button></div>`).join('')}}`:'';target.querySelectorAll('[data-delete-rate]').forEach(button=>button.addEventListener('click',()=>deleteRate(button.dataset.deleteRate)))}}async function saveRate(){{const res=await fetch('/costos-distribucion/tarifas',{{method:'POST',headers:{{'Content-Type':'application/json'}},body:JSON.stringify(currentRatePayload())}});const data=await res.json();if(!res.ok||!data.ok)throw new Error(data.error||'No se pudo guardar la vigencia');rates=data.rates;renderRates();showMessage('Vigencia de costos guardada.')}}async function deleteRate(validFrom){{if(!confirm(`¿Eliminar la vigencia ${{validFrom}}?`))return;const res=await fetch(`/costos-distribucion/tarifas/${{encodeURIComponent(validFrom)}}`,{{method:'DELETE'}});const data=await res.json();if(!res.ok||!data.ok)throw new Error(data.error||'No se pudo eliminar');rates=data.rates;renderRates()}}
+function renderVehicleRates(){{const target=$('vehiclesList');target.innerHTML=vehicleRates.length?`<label>Perfiles guardados</label>${{vehicleRates.slice(0,8).map((r,index)=>`<div style="display:flex;justify-content:space-between;gap:8px;font-size:12px;padding:6px 0;border-bottom:1px solid #E7ECF2"><span><b>${{esc(r.vehicle)}}</b> · ${{esc(r.valid_from)}} · ${{number(r.vehicle_liters_per_100km,2)}} l/100km</span><button type=button class="btn secondary" style="padding:4px 7px" data-delete-vehicle="${{index}}">Eliminar</button></div>`).join('')}}`:'';target.querySelectorAll('[data-delete-vehicle]').forEach(button=>button.addEventListener('click',()=>{{const record=vehicleRates[Number(button.dataset.deleteVehicle)];if(record)deleteVehicle(record.vehicle,record.valid_from)}}))}}async function saveVehicle(){{const payload={{vehicle:$('vehicleId').value.trim(),valid_from:$('vehicleDate').value,vehicle_liters_per_100km:Number($('vehicleConsumption').value||0),vehicle_cost_per_km:Number($('vehicleKmCost').value||0)}};const res=await fetch('/costos-distribucion/vehiculos',{{method:'POST',headers:{{'Content-Type':'application/json'}},body:JSON.stringify(payload)}});const data=await res.json();if(!res.ok||!data.ok)throw new Error(data.error||'No se pudo guardar el perfil');vehicleRates=data.vehicles;renderVehicleRates();showMessage('Perfil de vehículo guardado.')}}async function deleteVehicle(vehicle,dateValue){{if(!confirm('¿Eliminar este perfil de vehículo?'))return;const res=await fetch(`/costos-distribucion/vehiculos/${{encodeURIComponent(vehicle)}}/${{encodeURIComponent(dateValue)}}`,{{method:'DELETE'}});const data=await res.json();if(!res.ok||!data.ok)throw new Error(data.error||'No se pudo eliminar');vehicleRates=data.vehicles;renderVehicleRates()}}
+async function saveDepot(){{const sucursal=selectedDepotSucursal();if(!sucursal)throw new Error('Seleccioná la sucursal del depósito.');const payload={{sucursal,nombre:$('depotName').value.trim()||sucursal,latitud:Number($('depotLat').value),longitud:Number($('depotLon').value)}};const res=await fetch('/costos-distribucion/depositos',{{method:'POST',headers:{{'Content-Type':'application/json'}},body:JSON.stringify(payload)}});const data=await res.json();if(!res.ok||!data.ok)throw new Error(data.error||'No se pudo guardar el depósito');depots=data.depots;loadDepot();showMessage('Depósito guardado.')}}
+function renderSegmentTable(route){{const segments=route.routing_segments||[];if(!segments.length)return'';const rows=segments.map((seg,index)=>{{const from=index===0?'Depósito':`Cliente ${{esc(segments[index-1].destination_ref||index)}}`;const to=seg.destination_ref==='deposito'?'Depósito':`Cliente ${{esc(seg.destination_ref||index+1)}}`;return`<tr><td>${{index+1}}</td><td>${{from}}</td><td>${{to}}</td><td class=num>${{number(seg.distance_km,2)}} km</td><td class=num>${{number((seg.duration_seconds||0)/60,1)}} min</td><td>${{esc(seg.provider||'')}}</td><td>${{seg.fallback?'Estimado':'Vial'}}</td></tr>`}}).join('');return`<h2 style="margin-top:16px">Segmentos del recorrido</h2><div class=table-wrap style="max-height:260px;margin-bottom:14px"><table><thead><tr><th>#</th><th>Origen</th><th>Destino</th><th class=num>Km</th><th class=num>Minutos</th><th>Proveedor</th><th>Precisión</th></tr></thead><tbody>${{rows}}</tbody></table></div>`}}
+function render(data){{const r=data.route||{{}},cs=data.customers||[],c=r.components||{{}};lastRoute=r;lastCustomers=cs;$('warnings').style.display=r.warnings?.length?'block':'none';$('warnings').textContent=(r.warnings||[]).join(' ');$('result').innerHTML=`<div class=route-meta><b>${{esc(r.fecha||'')}}</b><span>${{esc(r.sucursal||'')}}</span><span>${{esc(r.camion||'Sin vehículo')}}</span><span>${{esc(r.chofer||'Sin chofer')}}</span><span>${{cs.length}} clientes</span></div><div class=kpis><div class=kpi><span>Costo total</span><strong>${{money(r.total_cost)}}</strong></div><div class=kpi><span>Distancia</span><strong>${{number(r.km)}} km</strong></div><div class=kpi><span>Duración</span><strong>${{number(r.horas,2)}} h</strong></div><div class=kpi><span>Clientes</span><strong>${{cs.length}}</strong></div><div class=kpi><span>Bultos</span><strong>${{number(r.bultos,1)}}</strong></div><div class=kpi><span>HL</span><strong>${{number(r.hl,2)}}</strong></div><div class=kpi><span>Por entrega</span><strong>${{money(r.cost_per_customer)}}</strong></div><div class=kpi><span>Por km</span><strong>${{money(r.cost_per_km)}}</strong></div><div class=kpi><span>Costo / venta</span><strong>${{r.cost_to_sales_pct==null?'—':number(r.cost_to_sales_pct,2)+'%'}}</strong></div></div><div style="display:flex;justify-content:flex-end;margin:0 0 7px"><label style="margin:0 7px 0 0;align-self:center">Visualizar por</label><select id=mapMode style="width:auto;min-width:160px" onchange="renderRouteMap(lastRoute,lastCustomers)"><option value=sequence>Secuencia</option><option value=cost>Costo entrega</option><option value=cost_per_bulto>$/Bulto</option><option value=cost_per_hl>$/HL</option><option value=cost_to_sales_pct>Costo/Venta %</option></select></div><div id=routeMap class=map></div>${{renderSegmentTable(r)}}<div class=components><div class=component><span>Combustible</span><b>${{money(c.fuel)}}</b></div><div class=component><span>Vehículo</span><b>${{money(c.vehicle)}}</b></div><div class=component><span>Personal</span><b>${{money(c.personal)}}</b></div><div class=component><span>Otros</span><b>${{money(c.other)}}</b></div></div><div style="display:flex;gap:8px;margin:0 0 9px"><input id=customerFilter placeholder="Filtrar clientes" oninput="renderCustomerRows()"><select id=customerSort style="max-width:190px" onchange="renderCustomerRows()"><option value=order>Orden de visita</option><option value=cost_desc>Mayor costo</option><option value=pct_desc>Mayor costo/venta</option><option value=bulto_desc>Mayor $/bulto</option><option value=hl_desc>Mayor $/HL</option></select></div><div class=table-wrap><table><thead><tr><th>#</th><th>Cliente</th><th>Nombre</th><th>Localidad</th><th>Estado</th><th class=num>Km</th><th class=num>Tiempo</th><th class=num>Bultos</th><th class=num>HL</th><th class=num>Pallets</th><th class=num>Venta</th><th class=num>Costo</th><th class=num>$/Bulto</th><th class=num>$/HL</th><th class=num>$/Pallet</th><th class=num>Costo/venta</th></tr></thead><tbody id=customerRows></tbody></table></div>`;renderRouteMap(r,cs);renderCustomerRows()}}
+function renderCustomerRows(){{const body=$('customerRows');if(!body)return;const query=($('customerFilter')?.value||'').trim().toLowerCase();const mode=$('customerSort')?.value||'order';const rows=lastCustomers.filter(x=>!query||[x.cliente,x.nombre,x.localidad,x.estado_entrega].some(v=>String(v||'').toLowerCase().includes(query)));const metric={{cost_desc:'costo_entrega',pct_desc:'cost_to_sales_pct',bulto_desc:'cost_per_bulto',hl_desc:'cost_per_hl'}}[mode];rows.sort((a,b)=>metric?Number(b[metric]||0)-Number(a[metric]||0):Number(a.orden_visita||0)-Number(b.orden_visita||0));body.innerHTML=rows.map(x=>`<tr><td>${{esc(x.orden_visita??'')}}</td><td>${{esc(x.cliente)}}</td><td>${{esc(x.nombre)}}</td><td>${{esc(x.localidad)}}</td><td>${{esc(x.estado_entrega)}}</td><td class=num>${{number(x.km_atribuibles,2)}}</td><td class=num>${{number((x.tiempo_segundos||0)/60)}} min</td><td class=num>${{number(x.bultos,1)}}</td><td class=num>${{number(x.hl,2)}}</td><td class=num>${{number(x.pallets,1)}}</td><td class=num>${{x.venta?money(x.venta):'—'}}</td><td class=num><b>${{money(x.costo_entrega)}}</b></td><td class=num>${{x.bultos?money(x.cost_per_bulto):'—'}}</td><td class=num>${{x.hl?money(x.cost_per_hl):'—'}}</td><td class=num>${{x.pallets?money(x.cost_per_pallet):'—'}}</td><td class=num>${{x.cost_to_sales_pct==null?'—':number(x.cost_to_sales_pct,2)+'%'}}</td></tr>`).join('')||'<tr><td colspan=16 class=empty>Sin clientes para el filtro.</td></tr>'}}
+function markerColor(customer,customers){{const mode=$('mapMode')?.value||'sequence';if(mode==='sequence')return '#15233B';const values=customers.map(x=>Number(mode==='cost'?x.costo_entrega:x[mode])).filter(v=>Number.isFinite(v)&&v>0).sort((a,b)=>a-b);const value=Number(mode==='cost'?customer.costo_entrega:customer[mode]);if(!Number.isFinite(value)||value<=0)return '#64748B';if(mode==='cost_to_sales_pct'){{const t=config.profitability_thresholds||{{green_max_pct:3,yellow_max_pct:6}};return value<t.green_max_pct?'#15803D':value<=t.yellow_max_pct?'#CA8A04':'#B91C1C'}}const low=values[Math.floor((values.length-1)*.33)]||0,high=values[Math.floor((values.length-1)*.66)]||0;return value<=low?'#15803D':value<=high?'#CA8A04':'#B91C1C'}}
+function renderRouteMap(route,customers){{const target=$('routeMap');if(routeMap){{routeMap.remove();routeMap=null}}if(!window.L){{target.innerHTML='<div class=empty>No se pudo cargar el mapa.</div>';return}}const segments=route.routing_segments||[];if(!segments.length){{target.innerHTML='<div class=empty>Recalculá esta ruta para generar la geometría vial.</div>';return}}routeMap=L.map(target,{{zoomControl:true}});L.tileLayer('https://tile.openstreetmap.org/{{z}}/{{x}}/{{y}}.png',{{maxZoom:19,attribution:'&copy; OpenStreetMap'}}).addTo(routeMap);const bounds=[];segments.forEach(seg=>{{let points=(seg.geometry||[]).map(p=>[p[1],p[0]]);if(!points.length)points=[[seg.origin.latitud,seg.origin.longitud],[seg.destination.latitud,seg.destination.longitud]];L.polyline(points,{{color:seg.fallback?'#B91C1C':'#1E3A8A',weight:4,opacity:.82,dashArray:seg.fallback?'7 7':null}}).addTo(routeMap).bindPopup(`${{number(seg.distance_km,2)}} km · ${{number((seg.duration_seconds||0)/60)}} min${{seg.fallback?' · estimado':''}}`);points.forEach(p=>bounds.push(p))}});const depot=segments[0]?.origin;if(depot){{L.marker([depot.latitud,depot.longitud],{{icon:L.divIcon({{className:'',html:'<div class=depot-marker>DEP</div>',iconSize:[34,34],iconAnchor:[17,17]}})}}).addTo(routeMap).bindPopup(`<b>${{esc((depots[route.sucursal]||{{}}).nombre||'Depósito')}}</b><br>${{esc(route.sucursal||'')}}`)}}customers.forEach(x=>{{if(x.latitud==null||x.longitud==null)return;const fields=[`<b>${{x.orden_visita}}. ${{esc(x.nombre||x.razon_social||x.cliente)}}</b>`,`Cliente: ${{esc(x.cliente)}}`,x.direccion?esc(x.direccion):'',x.localidad?esc(x.localidad):'',x.hora_llegada?`Llegada: ${{esc(x.hora_llegada)}}`:'',x.hora_salida?`Salida: ${{esc(x.hora_salida)}}`:'',x.tiempo_segundos?`Atención: ${{number(x.tiempo_segundos/60)}} min`:'',`Km atribuibles: ${{number(x.km_atribuibles,2)}}`,x.bultos?`Bultos: ${{number(x.bultos,1)}}`:'',x.hl?`HL: ${{number(x.hl,2)}}`:'',x.pallets?`Pallets: ${{number(x.pallets,1)}}`:'',x.venta?`Venta: ${{money(x.venta)}}`:'',`Costo: ${{money(x.costo_entrega)}}`,x.bultos?`$/Bulto: ${{money(x.cost_per_bulto)}}`:'',x.hl?`$/HL: ${{money(x.cost_per_hl)}}`:'',x.cost_to_sales_pct==null?'':`Costo/venta: ${{number(x.cost_to_sales_pct,2)}}%`].filter(Boolean);const color=markerColor(x,customers);L.marker([x.latitud,x.longitud],{{icon:L.divIcon({{className:'',html:`<div class=number-marker style="background:${{color}}">${{x.orden_visita}}</div>`,iconSize:[28,28],iconAnchor:[14,14]}})}}).addTo(routeMap).bindPopup(fields.join('<br>'))}});if(bounds.length)routeMap.fitBounds(bounds,{{padding:[24,24]}});setTimeout(()=>routeMap.invalidateSize(),0)}}
+async function loadHistory(rid){{const res=await fetch(`/costos-distribucion/ruta/${{encodeURIComponent(rid)}}/historial`);const data=await res.json();const rows=data.history||[];$('history').innerHTML=rows.length?`<h2 style="margin-top:18px">Historial de cálculos</h2><div class=table-wrap><table><thead><tr><th>Fecha</th><th>Tipo</th><th>Versión</th><th>Usuario</th><th>Motivo</th><th class=num>Total</th></tr></thead><tbody>${{rows.map(x=>`<tr><td>${{esc(new Date(x.calculated_at).toLocaleString('es-AR'))}}</td><td>${{esc(x.calculation_type||'')}}</td><td>${{esc(x.calculation_version||'')}}</td><td>${{esc(x.calculated_by||'')}}</td><td>${{esc(x.recalculation_reason||'')}}</td><td class=num>${{money(x.total_cost)}}</td></tr>`).join('')}}</tbody></table></div>`:''}}
+$('depotSucursal').addEventListener('change',loadDepot);$('routeSelect').addEventListener('change',async()=>{{syncDepotFromRoute();const rid=$('routeSelect').value;if(!rid)return;try{{const res=await fetch(`/costos-distribucion/ruta/${{encodeURIComponent(rid)}}`);const data=await res.json();if(data.route)render(data);else $('result').innerHTML='<div class=empty>Esta ruta todavía no fue calculada.</div>';await loadHistory(rid)}}catch(e){{showMessage(e.message,true)}}}});$('configForm').addEventListener('submit',async e=>{{e.preventDefault();try{{await saveConfig(true)}}catch(err){{showMessage(err.message,true)}}}});$('saveRateBtn').addEventListener('click',async()=>{{try{{await saveRate()}}catch(err){{showMessage(err.message,true)}}}});$('saveVehicleBtn').addEventListener('click',async()=>{{try{{await saveVehicle()}}catch(err){{showMessage(err.message,true)}}}});$('saveDepotBtn').addEventListener('click',async()=>{{try{{await saveDepot()}}catch(err){{showMessage(err.message,true)}}}});$('deleteDepotBtn').addEventListener('click',async()=>{{const sucursal=selectedDepotSucursal();if(!sucursal||!depots[sucursal])return;if(!confirm(`¿Eliminar el depósito de ${{sucursal}}?`))return;try{{const res=await fetch(`/costos-distribucion/depositos/${{encodeURIComponent(sucursal)}}`,{{method:'DELETE'}});const data=await res.json();if(!res.ok||!data.ok)throw new Error(data.error||'No se pudo eliminar');depots=data.depots;loadDepot();showMessage('Depósito eliminado.')}}catch(err){{showMessage(err.message,true)}}}});async function calculateRoute(confirmRecalculation=false,reason=''){{const rid=$('routeSelect').value;const res=await fetch(`/costos-distribucion/ruta/${{encodeURIComponent(rid)}}/calcular`,{{method:'POST',headers:{{'Content-Type':'application/json'}},body:JSON.stringify({{confirm:confirmRecalculation,reason}})}});const data=await res.json();if(res.status===409&&data.requires_confirmation){{if(!confirm('Esta ruta ya tiene un cálculo. ¿Crear un nuevo cálculo histórico?'))return null;const why=prompt('Motivo del recálculo:','Actualización de costos')||'';return calculateRoute(true,why)}}if(!res.ok||!data.ok)throw new Error(data.error||'No se pudo calcular');return data}}$('calculateBtn').addEventListener('click',async()=>{{const rid=$('routeSelect').value;if(!rid){{showMessage('Seleccioná una ruta.',true);return}}const btn=$('calculateBtn');btn.disabled=true;btn.textContent='Calculando...';try{{await saveConfig(false);const data=await calculateRoute();if(!data)return;render(data);await loadHistory(rid);showMessage(data.route.calculation_type==='recalculation'?'Recálculo guardado sin modificar el histórico anterior.':'Cálculo original guardado.')}}catch(err){{showMessage(err.message,true)}}finally{{btn.disabled=false;btn.textContent='Calcular ruta'}}}});fillConfig();if($('routeSelect').value)$('routeSelect').dispatchEvent(new Event('change'));</script></body></html>'''
+
+
+def _logistics_dashboard_page():
+    blocked = _require_login()
+    if blocked:
+        return blocked
+    filters = {
+        key: request.args.get(key, "").strip()
+        for key in ("desde", "hasta", "sucursal", "rid", "camion", "chofer", "cliente", "localidad")
+    }
+    try:
+        storage_pedidos.init_db()
+        data = pipeline.storage.load_logistics_dashboard(filters, 1000)
+        coverage = pipeline.storage.logistics_data_coverage()
+    except Exception as exc:
+        return Response(_data_unavailable_page("Dashboard de costos", exc), mimetype="text/html", status=503)
+    routes, customers, options = data["routes"], data["customers"], data["options"]
+
+    def num(rec, key):
+        try:
+            return float(rec.get(key) or 0)
+        except (TypeError, ValueError):
+            return 0.0
+
+    def ars(value):
+        return f"$ {value:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+
+    def dec(value, digits=1):
+        return f"{value:,.{digits}f}".replace(",", "X").replace(".", ",").replace("X", ".")
+
+    customer_scope = bool(filters["cliente"] or filters["localidad"])
+    scoped_routes = {}
+    route_delivery_counts = {}
+    for customer in customers:
+        rid = str(customer.get("rid") or "")
+        route_delivery_counts[rid] = route_delivery_counts.get(rid, 0) + 1
+        agg = scoped_routes.setdefault(rid, {"total_cost": 0.0, "km": 0.0, "bultos": 0.0, "hl": 0.0, "pallets": 0.0, "venta": 0.0})
+        agg["total_cost"] += num(customer, "costo_entrega")
+        agg["km"] += num(customer, "km_atribuibles")
+        for key in ("bultos", "hl", "pallets", "venta"):
+            agg[key] += num(customer, key)
+
+    def route_value(route, key):
+        if customer_scope:
+            return scoped_routes.get(str(route.get("rid") or ""), {}).get(key, 0.0)
+        return num(route, key)
+
+    total_cost = sum(route_value(r, "total_cost") for r in routes)
+    total_km = sum(route_value(r, "km") for r in routes)
+    total_bultos = sum(route_value(r, "bultos") for r in routes)
+    total_hl = sum(route_value(r, "hl") for r in routes)
+    total_pallets = sum(route_value(r, "pallets") for r in routes)
+    total_sales = sum(route_value(r, "venta") for r in routes)
+    deliveries = len(customers)
+    route_count = len(routes)
+    kpis = [
+        ("Costo total", ars(total_cost)),
+        ("Promedio por ruta", ars(total_cost / route_count if route_count else 0)),
+        ("Promedio por entrega", ars(total_cost / deliveries if deliveries else 0)),
+        ("Costo por km", ars(total_cost / total_km if total_km else 0)),
+        ("Kilómetros", f"{dec(total_km)} km"),
+        ("Rutas", str(route_count)),
+        ("Entregas", str(deliveries)),
+    ]
+    if total_bultos:
+        kpis.extend((("Bultos", dec(total_bultos)), ("Costo por bulto", ars(total_cost / total_bultos))))
+    if total_hl:
+        kpis.extend((("HL", dec(total_hl, 2)), ("Costo por HL", ars(total_cost / total_hl))))
+    if total_pallets:
+        kpis.extend((("Pallets", dec(total_pallets)), ("Costo por pallet", ars(total_cost / total_pallets))))
+    if total_sales:
+        kpis.extend((("Venta vinculada", ars(total_sales)), ("Costo / venta", f"{dec(total_cost / total_sales * 100, 2)}%")))
+
+    customer_groups = {}
+    for row in customers:
+        key = str(row.get("cliente") or "Sin código")
+        agg = customer_groups.setdefault(key, {"cliente": key, "nombre": row.get("nombre") or "", "localidad": row.get("localidad") or "", "costo": 0.0, "venta": 0.0, "km": 0.0, "entregas": 0, "bultos": 0.0, "hl": 0.0})
+        agg["costo"] += num(row, "costo_entrega")
+        agg["venta"] += num(row, "venta")
+        agg["km"] += num(row, "km_atribuibles")
+        agg["bultos"] += num(row, "bultos")
+        agg["hl"] += num(row, "hl")
+        agg["entregas"] += 1
+    customer_rank = sorted(customer_groups.values(), key=lambda row: row["costo"], reverse=True)[:10]
+    profitability_rank = sorted(
+        (row for row in customer_groups.values() if row["venta"] > 0),
+        key=lambda row: row["costo"] / row["venta"], reverse=True,
+    )[:10]
+    bulto_rank = sorted(
+        (row for row in customer_groups.values() if row["bultos"] > 0),
+        key=lambda row: row["costo"] / row["bultos"], reverse=True,
+    )[:10]
+    hl_rank = sorted(
+        (row for row in customer_groups.values() if row["hl"] > 0),
+        key=lambda row: row["costo"] / row["hl"], reverse=True,
+    )[:10]
+    route_rank = sorted(routes, key=lambda row: route_value(row, "total_cost"), reverse=True)[:10]
+    locality_groups = {}
+    for row in customer_groups.values():
+        locality = row["localidad"] or "Sin localidad"
+        agg = locality_groups.setdefault(locality, {"label": locality, "costo": 0.0})
+        agg["costo"] += row["costo"]
+    driver_groups = {}
+    vehicle_groups = {}
+    for row in routes:
+        driver = str(row.get("chofer") or "Sin chofer")
+        driver_agg = driver_groups.setdefault(driver, {"label": driver, "costo": 0.0, "km": 0.0, "rutas": 0})
+        driver_agg["costo"] += route_value(row, "total_cost")
+        driver_agg["km"] += route_value(row, "km")
+        driver_agg["rutas"] += 1
+        vehicle = str(row.get("camion") or "")
+        if vehicle.lower() not in ("", "sin camion", "sin camión"):
+            vehicle_agg = vehicle_groups.setdefault(vehicle, {"label": vehicle, "costo": 0.0, "km": 0.0, "rutas": 0})
+            vehicle_agg["costo"] += route_value(row, "total_cost")
+            vehicle_agg["km"] += route_value(row, "km")
+            vehicle_agg["rutas"] += 1
+
+    def bars(rows, label_fn, value_fn, formatter=ars):
+        max_value = max((value_fn(row) for row in rows), default=0) or 1
+        return "".join(
+            f'''<div class=bar-row><div class=bar-label>{escape(label_fn(row))}</div><div class=bar-track><span style="width:{max(2, value_fn(row) / max_value * 100):.1f}%"></span></div><b>{escape(formatter(value_fn(row)))}</b></div>'''
+            for row in rows
+        ) or '<div class=empty>Sin cálculos para los filtros seleccionados.</div>'
+
+    route_bars = bars(route_rank, lambda r: f"{r.get('fecha') or ''} · {r.get('sucursal') or ''} · {r.get('chofer') or ''}", lambda r: route_value(r, "total_cost"))
+    customer_bars = bars(customer_rank, lambda r: f"{r['cliente']} · {r['nombre']}", lambda r: r["costo"])
+    profitability_bars = bars(profitability_rank, lambda r: f"{r['cliente']} · {r['nombre']}", lambda r: r["costo"] / r["venta"] * 100, lambda value: f"{dec(value,2)}%")
+    bulto_bars = bars(bulto_rank, lambda r: f"{r['cliente']} · {r['nombre']}", lambda r: r["costo"] / r["bultos"])
+    hl_bars = bars(hl_rank, lambda r: f"{r['cliente']} · {r['nombre']}", lambda r: r["costo"] / r["hl"])
+    locality_bars = bars(sorted(locality_groups.values(), key=lambda row: row["costo"], reverse=True)[:10], lambda r: r["label"], lambda r: r["costo"])
+    driver_bars = bars(sorted(driver_groups.values(), key=lambda row: row["costo"] / row["rutas"], reverse=True)[:10], lambda r: r["label"], lambda r: r["costo"] / r["rutas"])
+    vehicle_bars = bars(sorted(vehicle_groups.values(), key=lambda row: row["costo"] / row["km"] if row["km"] else 0, reverse=True)[:10], lambda r: r["label"], lambda r: r["costo"] / r["km"] if r["km"] else 0)
+    route_rows = "".join(
+        f'''<tr><td>{escape(str(r.get("fecha") or ""))}</td><td>{escape(str(r.get("sucursal") or ""))}</td><td>{escape(str(r.get("chofer") or ""))}</td><td>{escape(str(r.get("camion") or ""))}</td><td class=num>{dec(route_value(r,"km"),2)}</td><td class=num>{route_delivery_counts.get(str(r.get("rid") or ""), 0)}</td><td class=num>{ars(route_value(r,"venta")) if route_value(r,"venta") else "—"}</td><td class=num>{ars(route_value(r,"total_cost"))}</td><td class=num>{dec(route_value(r,"total_cost") / route_value(r,"venta") * 100,2)+"%" if route_value(r,"venta") else "—"}</td><td><a href="/costos-distribucion?rid={escape(str(r.get('rid') or ''))}">Ver</a></td></tr>'''
+        for r in sorted(routes, key=lambda row: str(row.get("fecha") or ""), reverse=True)
+    ) or '<tr><td colspan=10 class=empty>Sin rutas calculadas.</td></tr>'
+
+    def opts(name, values):
+        selected = filters.get(name, "")
+        rows = []
+        for item in values:
+            value = item.get("value") if isinstance(item, dict) else item
+            label = item.get("label") if isinstance(item, dict) else item
+            rows.append(
+                f'<option value="{escape(str(value))}"{" selected" if str(value) == selected else ""}>{escape(str(label))}</option>'
+            )
+        return '<option value="">Todos</option>' + "".join(rows)
+
+    cards = "".join(f'<div class=kpi><span>{escape(label)}</span><strong>{escape(value)}</strong></div>' for label, value in kpis)
+    caveat = ""
+    if routes and not total_bultos and not total_hl:
+        caveat = '<div class=notice>Las rutas calculadas todavía no tienen bultos ni HL vinculados. Los indicadores de volumen se habilitarán cuando esa relación esté disponible.</div>'
+    def pct(part, total):
+        return f"{(100 * part / total):.1f}%" if total else "0%"
+    coverage_cards = "".join(
+        f'<div class=coverage-metric><span>{escape(label)}</span><strong>{escape(value)}</strong></div>'
+        for label, value in (
+            ("Rutas calculadas", f"{coverage['routes_calculated']} / {coverage['routes_total']}"),
+            ("Clientes con GPS", pct(coverage["clients_with_gps"], coverage["clients_total"])),
+            ("Rutas con volumen", pct(coverage["routes_with_volume"], coverage["routes_total"])),
+            ("Pedidos con volumen", pct(coverage["orders_with_volume"], coverage["orders_total"])),
+            ("Rutas con vehículo", pct(coverage["routes_with_vehicle"], coverage["routes_total"])),
+        )
+    )
+    return f'''<!doctype html><html lang=es><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><title>Dashboard de costos</title><style>
+*{{box-sizing:border-box}}body{{font-family:"Segoe UI",system-ui,Arial,sans-serif;background:#EEF1F5;color:#15233B;margin:0;line-height:1.45}}.wrap{{width:min(100% - 28px,1320px);margin:24px auto 48px}}.top{{display:flex;justify-content:space-between;gap:18px;align-items:flex-start;margin-bottom:18px}}h1{{font-size:25px;margin:0 0 4px}}h2{{font-size:17px;margin:0 0 13px}}.muted{{color:#657085;font-size:13px;margin:0}}.nav{{display:flex;gap:8px;flex-wrap:wrap}}.nav a,.btn{{background:#15233B;color:#fff;text-decoration:none;border:0;border-radius:7px;padding:10px 13px;font-size:13px;font-weight:700;cursor:pointer}}.nav a.secondary{{background:#fff;color:#15233B;border:1px solid #DCE2EA}}.filters{{display:grid;grid-template-columns:repeat(4,minmax(150px,1fr));gap:10px;align-items:end;background:#fff;border:1px solid #DCE2EA;border-radius:8px;padding:14px;margin-bottom:14px}}.filter-actions{{display:flex;gap:8px;align-items:center}}.filter-actions .btn{{flex:1;text-align:center}}label{{display:block;font-size:11px;text-transform:uppercase;font-weight:700;color:#657085;margin-bottom:4px}}input,select{{width:100%;height:39px;border:1px solid #CAD3DF;border-radius:6px;padding:7px 8px;background:#fff}}.kpis{{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:14px}}.kpi,.panel{{background:#fff;border:1px solid #DCE2EA;border-radius:8px}}.kpi{{padding:13px}}.kpi span,.coverage-metric span{{display:block;font-size:11px;text-transform:uppercase;color:#657085;font-weight:700}}.kpi strong,.coverage-metric strong{{display:block;font-size:20px;margin-top:5px}}.coverage-grid{{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));border:1px solid #E1E7EE;border-radius:7px;overflow:hidden;background:#FAFBFC}}.coverage-metric{{padding:12px;border-right:1px solid #E1E7EE}}.coverage-metric:last-child{{border-right:0}}.grid{{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px}}.panel{{padding:16px}}.bar-row{{display:grid;grid-template-columns:minmax(150px,1.4fr) 2fr 105px;gap:10px;align-items:center;margin:9px 0;font-size:12px}}.bar-label{{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}}.bar-track{{height:10px;background:#E7ECF2;border-radius:3px;overflow:hidden}}.bar-track span{{display:block;height:100%;background:#C77D1A}}.bar-row b{{text-align:right}}.table-wrap{{overflow:auto;max-height:460px;border:1px solid #E1E7EE;border-radius:7px}}table{{border-collapse:collapse;width:100%;font-size:12.5px}}th,td{{padding:9px 10px;border-bottom:1px solid #E7ECF2;text-align:left;white-space:nowrap}}th{{position:sticky;top:0;background:#F8FAFC;color:#657085;text-transform:uppercase;font-size:11px}}td.num{{text-align:right}}td a{{color:#1E3A8A;font-weight:700}}.notice{{background:#FEF3C7;border:1px solid #FCD34D;color:#92400E;border-radius:7px;padding:10px 12px;font-size:12.5px;margin-bottom:14px}}.empty{{padding:24px;color:#657085;text-align:center}}@media(max-width:900px){{.filters{{grid-template-columns:1fr 1fr}}.grid{{grid-template-columns:1fr}}}}@media(max-width:560px){{.wrap{{width:min(100% - 18px,1320px);margin-top:14px}}.top{{display:block}}.nav{{margin-top:10px}}.filters{{grid-template-columns:1fr}}.bar-row{{grid-template-columns:1fr 90px}}.bar-track{{grid-column:1/-1;grid-row:2}}.coverage-grid{{grid-template-columns:1fr 1fr}}.coverage-metric{{border-bottom:1px solid #E1E7EE}}}}
+</style><style>*{{letter-spacing:0}}.nav a.secondary,.btn.secondary{{background:#fff;color:#15233B;border:1px solid #DCE2EA}}.panel{{min-width:0}}:focus-visible{{outline:2px solid #C77D1A;outline-offset:2px}}@media(max-width:900px){{.filter-actions{{grid-column:1/-1}}}}@media(max-width:560px){{.filter-actions{{grid-column:auto}}.filter-actions .btn{{min-width:0}}}}@media(prefers-reduced-motion:reduce){{*{{scroll-behavior:auto!important;transition:none!important}}}}</style></head><body><div class=wrap><div class=top><div><h1>Dashboard de costos</h1><p class=muted>Cálculo vigente por ruta. Los recálculos históricos no se duplican en los totales.</p></div><div class=nav><a class=secondary href="/inicio">Inicio</a><a class=secondary href="/costos-distribucion">Calcular ruta</a><a class=secondary href="/pedidos">Pedidos</a><a class=secondary href="/dashboard">Dashboard operativo</a><a href="/logout">Salir</a></div></div>
+<form class=filters method=get><div><label>Desde</label><input type=date name=desde value="{escape(filters['desde'])}"></div><div><label>Hasta</label><input type=date name=hasta value="{escape(filters['hasta'])}"></div><div><label>Sucursal</label><select name=sucursal>{opts('sucursal',options['sucursales'])}</select></div><div><label>Ruta</label><select name=rid>{opts('rid',options['rutas'])}</select></div><div><label>Vehículo</label><select name=camion>{opts('camion',options['camiones'])}</select></div><div><label>Chofer</label><select name=chofer>{opts('chofer',options['choferes'])}</select></div><div><label>Cliente</label><select name=cliente>{opts('cliente',options['clientes'])}</select></div><div><label>Localidad</label><select name=localidad>{opts('localidad',options['localidades'])}</select></div><div class=filter-actions><button class=btn type=submit>Aplicar</button><a class="btn secondary" href="/costos-distribucion/dashboard">Limpiar</a></div></form>{caveat}<div class=kpis>{cards}</div><div class=grid><section class=panel><h2>Rutas más costosas</h2>{route_bars}</section><section class=panel><h2>Clientes más costosos</h2>{customer_bars}</section><section class=panel><h2>Mayor $/bulto</h2>{bulto_bars}</section><section class=panel><h2>Mayor $/HL</h2>{hl_bars}</section><section class=panel><h2>Mayor costo sobre venta</h2>{profitability_bars}</section><section class=panel><h2>Localidades más costosas</h2>{locality_bars}</section><section class=panel><h2>Costo promedio por chofer</h2>{driver_bars}</section><section class=panel><h2>Costo por km del vehículo</h2>{vehicle_bars}</section></div><section class=panel style="margin-bottom:14px"><h2>Cobertura de datos</h2><div class=coverage-grid>{coverage_cards}</div></section><section class=panel><h2>Detalle de rutas</h2><div class=table-wrap><table><thead><tr><th>Fecha</th><th>Sucursal</th><th>Chofer</th><th>Vehículo</th><th>Km</th><th>Entregas</th><th>Venta</th><th>Costo</th><th>Costo/venta</th><th></th></tr></thead><tbody>{route_rows}</tbody></table></div></section></div></body></html>'''
+
+
+@app.route("/costos-distribucion/dashboard")
+def costos_distribucion_dashboard():
+    return Response(_logistics_dashboard_page(), mimetype="text/html")
+
+
+@app.route("/costos-distribucion")
+def costos_distribucion():
+    return _costos_distribucion_page()
+
+
+@app.route("/costos-distribucion/config", methods=["GET", "POST"])
+def costos_distribucion_config():
+    blocked = _require_login()
+    if blocked:
+        return blocked
+    try:
+        if request.method == "POST":
+            payload = request.get_json(silent=True) or {}
+            numeric_keys = (
+                "fuel_price_per_liter", "vehicle_liters_per_100km", "vehicle_cost_per_km",
+                "driver_cost_per_hour", "helper_cost_per_hour", "helpers_count", "other_route_cost",
+            )
+            numeric_values = [float(payload.get(key, 0) or 0) for key in numeric_keys]
+            if any(not math.isfinite(value) or value < 0 for value in numeric_values):
+                raise ValueError("Los costos y cantidades no pueden ser negativos.")
+            if not numeric_values[numeric_keys.index("helpers_count")].is_integer():
+                raise ValueError("La cantidad de ayudantes debe ser un número entero.")
+            weights = payload.get("weights") or {}
+            weight_values = [float(weights.get(key, 0) or 0) for key in ("distance", "time", "volume")]
+            if any(not math.isfinite(value) or value < 0 for value in weight_values) or abs(sum(weight_values) - 1) > 0.001:
+                raise ValueError("Los pesos de distancia, tiempo y volumen deben sumar 1,00.")
+            if payload.get("volume_criterion") not in ("bultos", "hl", "pallets", "unidades"):
+                raise ValueError("El criterio de volumen no es válido.")
+            thresholds = payload.get("profitability_thresholds") or {}
+            green = float(thresholds.get("green_max_pct", 0) or 0)
+            yellow = float(thresholds.get("yellow_max_pct", 0) or 0)
+            if not all(math.isfinite(value) for value in (green, yellow)) or green < 0 or yellow < green:
+                raise ValueError("Los umbrales de rentabilidad no son válidos.")
+            cfg = dict(zip(numeric_keys, numeric_values))
+            cfg["helpers_count"] = int(cfg["helpers_count"])
+            cfg.update({
+                "fuel_type": str(payload.get("fuel_type") or "Gasoil").strip()[:100],
+                "weights": dict(zip(("distance", "time", "volume"), weight_values)),
+                "volume_criterion": payload["volume_criterion"],
+                "return_distance_criterion": "proportional_forward_distance",
+                "profitability_thresholds": {"green_max_pct": green, "yellow_max_pct": yellow},
+            })
+            cfg = pipeline.storage.save_logistics_config(cfg)
+            return Response(json.dumps({"ok": True, "config": cfg}, ensure_ascii=False), mimetype="application/json")
+        cfg = LogisticsCostService().get_config()
+        return Response(json.dumps({"config": cfg}, ensure_ascii=False), mimetype="application/json")
+    except Exception as e:
+        return Response(json.dumps({"ok": False, "error": str(e)}, ensure_ascii=False), mimetype="application/json", status=400)
+
+
+@app.route("/costos-distribucion/tarifas", methods=["GET", "POST"])
+def costos_distribucion_tarifas():
+    blocked = _require_login()
+    if blocked:
+        return blocked
+    try:
+        if request.method == "POST":
+            payload = request.get_json(silent=True) or {}
+            valid_from = str(payload.pop("valid_from", "")).strip()
+            date.fromisoformat(valid_from)
+            numeric_keys = (
+                "fuel_price_per_liter", "vehicle_liters_per_100km", "vehicle_cost_per_km",
+                "driver_cost_per_hour", "helper_cost_per_hour", "helpers_count", "other_route_cost",
+            )
+            rec = {key: float(payload.get(key, 0) or 0) for key in numeric_keys}
+            if any(not math.isfinite(value) or value < 0 for value in rec.values()):
+                raise ValueError("Los importes, consumos y cantidades no pueden ser negativos.")
+            if not rec["helpers_count"].is_integer():
+                raise ValueError("La cantidad de ayudantes debe ser un número entero.")
+            rec["helpers_count"] = int(rec["helpers_count"])
+            rec["fuel_type"] = str(payload.get("fuel_type") or "Gasoil").strip()[:100]
+            pipeline.storage.save_logistics_cost_rate(valid_from, rec)
+        return Response(json.dumps({"ok": True, "rates": pipeline.storage.load_logistics_cost_rates()}, ensure_ascii=False), mimetype="application/json")
+    except (TypeError, ValueError) as e:
+        return Response(json.dumps({"ok": False, "error": str(e)}, ensure_ascii=False), mimetype="application/json", status=400)
+    except Exception as e:
+        return Response(json.dumps({"ok": False, "error": str(e)}, ensure_ascii=False), mimetype="application/json", status=500)
+
+
+@app.route("/costos-distribucion/tarifas/<valid_from>", methods=["DELETE"])
+def costos_distribucion_tarifa_eliminar(valid_from):
+    blocked = _require_login()
+    if blocked:
+        return blocked
+    try:
+        if valid_from == "1900-01-01":
+            raise ValueError("La vigencia base no se puede eliminar; podés editar sus valores.")
+        deleted = pipeline.storage.delete_logistics_cost_rate(valid_from)
+        return Response(json.dumps({"ok": True, "deleted": deleted, "rates": pipeline.storage.load_logistics_cost_rates()}, ensure_ascii=False), mimetype="application/json")
+    except Exception as e:
+        return Response(json.dumps({"ok": False, "error": str(e)}, ensure_ascii=False), mimetype="application/json", status=400)
+
+
+@app.route("/costos-distribucion/vehiculos", methods=["GET", "POST"])
+def costos_distribucion_vehiculos():
+    blocked = _require_login()
+    if blocked:
+        return blocked
+    try:
+        if request.method == "POST":
+            payload = request.get_json(silent=True) or {}
+            vehicle = str(payload.get("vehicle") or "").strip()
+            valid_from = str(payload.get("valid_from") or "").strip()
+            date.fromisoformat(valid_from)
+            if not vehicle or len(vehicle) > 100 or vehicle.lower() in ("sin camion", "sin camión"):
+                raise ValueError("Ingresá un identificador real de vehículo.")
+            rec = {
+                "vehicle_liters_per_100km": float(payload.get("vehicle_liters_per_100km", 0) or 0),
+                "vehicle_cost_per_km": float(payload.get("vehicle_cost_per_km", 0) or 0),
+            }
+            if any(not math.isfinite(value) or value < 0 for value in rec.values()):
+                raise ValueError("El consumo y el costo no pueden ser negativos.")
+            pipeline.storage.save_logistics_vehicle_cost(vehicle, valid_from, rec)
+        return Response(json.dumps({"ok": True, "vehicles": pipeline.storage.load_logistics_vehicle_costs()}, ensure_ascii=False), mimetype="application/json")
+    except (TypeError, ValueError) as e:
+        return Response(json.dumps({"ok": False, "error": str(e)}, ensure_ascii=False), mimetype="application/json", status=400)
+    except Exception as e:
+        return Response(json.dumps({"ok": False, "error": str(e)}, ensure_ascii=False), mimetype="application/json", status=500)
+
+
+@app.route("/costos-distribucion/vehiculos/<path:vehicle>/<valid_from>", methods=["DELETE"])
+def costos_distribucion_vehiculo_eliminar(vehicle, valid_from):
+    blocked = _require_login()
+    if blocked:
+        return blocked
+    try:
+        deleted = pipeline.storage.delete_logistics_vehicle_cost(vehicle, valid_from)
+        return Response(json.dumps({"ok": True, "deleted": deleted, "vehicles": pipeline.storage.load_logistics_vehicle_costs()}, ensure_ascii=False), mimetype="application/json")
+    except Exception as e:
+        return Response(json.dumps({"ok": False, "error": str(e)}, ensure_ascii=False), mimetype="application/json", status=400)
+
+
+@app.route("/costos-distribucion/depositos", methods=["GET", "POST"])
+def costos_distribucion_depositos():
+    blocked = _require_login()
+    if blocked:
+        return blocked
+    try:
+        if request.method == "POST":
+            payload = request.get_json(silent=True) or {}
+            sucursal = str(payload.get("sucursal") or "").strip()
+            if not sucursal or len(sucursal) > 120:
+                raise ValueError("Falta la sucursal del depósito.")
+            latitud = float(payload.get("latitud"))
+            longitud = float(payload.get("longitud"))
+            if (
+                not math.isfinite(latitud) or not math.isfinite(longitud)
+                or not -90 <= latitud <= 90 or not -180 <= longitud <= 180
+                or (latitud == 0 and longitud == 0)
+            ):
+                raise ValueError("Las coordenadas del depósito no son válidas.")
+            pipeline.storage.save_logistics_depot(sucursal, {
+                "nombre": str(payload.get("nombre") or sucursal).strip()[:160],
+                "latitud": latitud,
+                "longitud": longitud,
+            })
+        depots = pipeline.storage.load_logistics_depots()
+        return Response(json.dumps({"ok": True, "depots": depots}, ensure_ascii=False), mimetype="application/json")
+    except (TypeError, ValueError) as e:
+        return Response(json.dumps({"ok": False, "error": str(e)}, ensure_ascii=False), mimetype="application/json", status=400)
+    except Exception as e:
+        return Response(json.dumps({"ok": False, "error": str(e)}, ensure_ascii=False), mimetype="application/json", status=500)
+
+
+@app.route("/costos-distribucion/depositos/<path:sucursal>", methods=["DELETE"])
+def costos_distribucion_deposito_eliminar(sucursal):
+    blocked = _require_login()
+    if blocked:
+        return blocked
+    try:
+        deleted = pipeline.storage.delete_logistics_depot(sucursal)
+        depots = pipeline.storage.load_logistics_depots()
+        return Response(json.dumps({"ok": True, "deleted": deleted, "depots": depots}, ensure_ascii=False), mimetype="application/json")
+    except Exception as e:
+        return Response(json.dumps({"ok": False, "error": str(e)}, ensure_ascii=False), mimetype="application/json", status=500)
+
+
+@app.route("/costos-distribucion/ruta/<rid>")
+def costos_distribucion_ruta(rid):
+    blocked = _require_login()
+    if blocked:
+        return blocked
+    try:
+        data = pipeline.storage.load_route_cost(rid)
+        return Response(json.dumps(data, ensure_ascii=False), mimetype="application/json")
+    except Exception as e:
+        return Response(json.dumps({"error": str(e)}, ensure_ascii=False), mimetype="application/json", status=400)
+
+
+@app.route("/costos-distribucion/ruta/<rid>/historial")
+def costos_distribucion_historial(rid):
+    blocked = _require_login()
+    if blocked:
+        return blocked
+    try:
+        history = pipeline.storage.load_route_cost_history(rid)
+        return Response(json.dumps({"ok": True, "history": history}, ensure_ascii=False), mimetype="application/json")
+    except Exception as e:
+        return Response(json.dumps({"ok": False, "error": str(e)}, ensure_ascii=False), mimetype="application/json", status=400)
+
+
+@app.route("/costos-distribucion/calculo/<calculation_id>")
+def costos_distribucion_calculo(calculation_id):
+    blocked = _require_login()
+    if blocked:
+        return blocked
+    try:
+        data = pipeline.storage.load_route_cost_calculation(calculation_id)
+        if not data.get("route"):
+            return Response(json.dumps({"ok": False, "error": "Cálculo no encontrado."}, ensure_ascii=False), mimetype="application/json", status=404)
+        return Response(json.dumps({"ok": True, **data}, ensure_ascii=False), mimetype="application/json")
+    except Exception as e:
+        return Response(json.dumps({"ok": False, "error": str(e)}, ensure_ascii=False), mimetype="application/json", status=400)
+
+
+@app.route("/costos-distribucion/ruta/<rid>/calcular", methods=["POST"])
+def costos_distribucion_calcular(rid):
+    blocked = _require_login()
+    if blocked:
+        return blocked
+    try:
+        payload = request.get_json(silent=True) or {}
+        existing = pipeline.storage.load_route_cost(rid).get("route")
+        if existing and not payload.get("confirm"):
+            return Response(
+                json.dumps({"ok": False, "requires_confirmation": True, "error": "La ruta ya tiene un cálculo guardado."}, ensure_ascii=False),
+                mimetype="application/json",
+                status=409,
+            )
+        reason = str(payload.get("reason") or "").strip()
+        if existing and not reason:
+            return Response(json.dumps({"ok": False, "error": "El motivo del recálculo es obligatorio."}, ensure_ascii=False), mimetype="application/json", status=400)
+        data = LogisticsCostService().calculate_route(
+            rid,
+            overwrite=True,
+            actor=session.get("admin_user") or ADMIN_USER,
+            reason=reason,
+        )
+        return Response(json.dumps({"ok": True, **data}, ensure_ascii=False), mimetype="application/json")
+    except Exception as e:
+        return Response(json.dumps({"ok": False, "error": str(e)}, ensure_ascii=False), mimetype="application/json", status=400)
 
 
 @app.route("/configurar-dqi", methods=["POST"])
@@ -1184,46 +1852,12 @@ def configurar_dqi():
 
 @app.route("/salud")
 def salud():
-    base = pipeline.storage.load_all()
-    clientes = pipeline.storage.load_clientes()
-    rechazos = pipeline.storage.load_rechazos()
-    rechazos_detalle = pipeline.storage.load_rechazos_detalle()
-    articulos = pipeline.storage.load_articulos()
-    rutas = list(base.values())
-    ontime_rutas = [r for r in rutas if "pdv_total" in r]
-    clientes_foxtrot_con_ventana = {
-        c.get("cliente")
-        for r in rutas
-        for c in r.get("clientes_con_ventana", [])
-        if c.get("cliente")
-    }
-    clientes_foxtrot_sin_ventana = {
-        c.get("cliente")
-        for r in rutas
-        for c in r.get("clientes_sin_ventana", [])
-        if c.get("cliente")
-    }
+    stats = pipeline.storage.health_stats()
     return {
         "ok": True,
         "backend": pipeline.storage.backend_name(),
-        "con_datos": len(base) > 0,
-        "rutas": len(base),
-        "validas": len([r for r in rutas if r.get("usable")]),
-        "clientes": len(clientes),
-        "clientes_con_ventana": len([c for c in clientes.values() if c.get("ventanas")]),
-        "clientes_foxtrot_unicos": len(clientes_foxtrot_con_ventana | clientes_foxtrot_sin_ventana),
-        "clientes_foxtrot_con_ventana": len(clientes_foxtrot_con_ventana),
-        "clientes_foxtrot_sin_ventana": len(clientes_foxtrot_sin_ventana),
-        "rechazos_dias": len(rechazos),
-        "rechazos_detalle": len(rechazos_detalle),
-        "rechazos_total": sum(r.get("rechazos", 0) for r in rechazos.values()),
-        "articulos": len(articulos),
-        "ontime_rutas": len(ontime_rutas),
-        "ontime_pdv_total": sum(r.get("pdv_total", 0) for r in rutas),
-        "ontime_pdv_evaluables": sum((r.get("pdv_ontime", 0) + r.get("pdv_fuera_ontime", 0)) for r in rutas),
-        "ontime_pdv_ok": sum(r.get("pdv_ontime", 0) for r in rutas),
-        "ontime_pdv_fuera": sum(r.get("pdv_fuera_ontime", 0) for r in rutas),
-        "ontime_pdv_sin_ventana": sum(r.get("pdv_sin_ventana", 0) for r in rutas),
+        "con_datos": stats["rutas"] > 0,
+        **stats,
     }
 
 

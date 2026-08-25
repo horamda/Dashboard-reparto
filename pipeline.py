@@ -9,7 +9,11 @@ determinística por ID para mantener consistencia histórica.
 """
 
 import os, json, hashlib, re
+import threading
+import time
 import unicodedata
+from concurrent.futures import ThreadPoolExecutor
+from functools import wraps
 from datetime import date, datetime
 from io import StringIO
 from http.cookiejar import CookieJar
@@ -69,6 +73,81 @@ DPO_GKPI_URLS = [
 ]
 
 STORAGE_INIT_ERROR = None
+
+EXTERNAL_CACHE_TTL_SECONDS = float(os.environ.get("EXTERNAL_DATA_CACHE_TTL_SECONDS", "900"))
+DASHBOARD_CACHE_TTL_SECONDS = float(os.environ.get("DASHBOARD_CACHE_TTL_SECONDS", "30"))
+EXTERNAL_REQUEST_TIMEOUT_SECONDS = float(os.environ.get("EXTERNAL_REQUEST_TIMEOUT_SECONDS", "8"))
+
+
+def _ttl_cached(ttl_seconds):
+    def decorator(func):
+        state = {
+            "expires_at": 0.0,
+            "value": None,
+            "loaded": False,
+            "refreshing": False,
+            "generation": 0,
+        }
+        lock = threading.RLock()
+
+        def refresh(generation, args, kwargs):
+            try:
+                value = func(*args, **kwargs)
+            except Exception:
+                with lock:
+                    if state["generation"] == generation:
+                        state["refreshing"] = False
+                        state["expires_at"] = time.monotonic() + min(30.0, ttl_seconds)
+                return
+            with lock:
+                if state["generation"] != generation:
+                    return
+                state.update({
+                    "expires_at": time.monotonic() + ttl_seconds,
+                    "value": value,
+                    "loaded": True,
+                    "refreshing": False,
+                })
+
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            now = time.monotonic()
+            with lock:
+                if state["loaded"] and now < state["expires_at"]:
+                    return state["value"]
+                if state["loaded"]:
+                    if not state["refreshing"]:
+                        state["refreshing"] = True
+                        generation = state["generation"]
+                        threading.Thread(
+                            target=refresh,
+                            args=(generation, args, kwargs),
+                            name=f"cache-refresh-{func.__name__}",
+                            daemon=True,
+                        ).start()
+                    return state["value"]
+                value = func(*args, **kwargs)
+                state.update({
+                    "expires_at": time.monotonic() + ttl_seconds,
+                    "value": value,
+                    "loaded": True,
+                    "refreshing": False,
+                })
+                return value
+
+        def cache_clear():
+            with lock:
+                state.update({
+                    "expires_at": 0.0,
+                    "value": None,
+                    "loaded": False,
+                    "refreshing": False,
+                    "generation": state["generation"] + 1,
+                })
+
+        wrapper.cache_clear = cache_clear
+        return wrapper
+    return decorator
 try:
     if storage.backend_name() == "json" or os.environ.get("RUN_DB_MIGRATIONS_ON_START") == "1":
         storage.init()
@@ -300,27 +379,20 @@ def _cache_record_to_item(rec):
 
 
 def _guardar_fichadas_cache(fichadas):
-    current = storage.load_settings().get("fichaya_marcas_cache") or {}
-    records = current.get("valor") if isinstance(current, dict) else {}
-    records = records if isinstance(records, dict) else {}
+    records = {}
     for key, item in fichadas.items():
         fecha, nombre = key
         if nombre.startswith("LEGAJO:"):
             continue
         records[f"{fecha}|{nombre}"] = _fichada_item_to_cache(fecha, nombre, item)
-    storage.save_setting("fichaya_marcas_cache", {
-        "valor": records,
-        "actualizado": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-    })
+    storage.save_fichaya_marks(records, datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
     return records
 
 
 def cargar_fichadas_cache(desde, hasta):
-    current = storage.load_settings().get("fichaya_marcas_cache") or {}
-    records = current.get("valor") if isinstance(current, dict) else {}
-    records = records if isinstance(records, dict) else {}
+    records = storage.load_fichaya_marks(desde, hasta)
     idx = {}
-    for rec in records.values():
+    for rec in records:
         fecha = str(rec.get("fecha") or "")
         nombre = _norm_persona_key(rec.get("nombre"))
         if not fecha or not nombre or fecha < desde or fecha > hasta:
@@ -333,16 +405,7 @@ def cargar_fichadas_cache(desde, hasta):
 
 
 def fichaya_cache_info():
-    current = storage.load_settings().get("fichaya_marcas_cache") or {}
-    records = current.get("valor") if isinstance(current, dict) else {}
-    records = records if isinstance(records, dict) else {}
-    fechas = sorted({str(r.get("fecha") or "") for r in records.values() if r.get("fecha")})
-    return {
-        "total": len(records),
-        "actualizado": current.get("actualizado") if isinstance(current, dict) else "",
-        "desde": fechas[0] if fechas else "",
-        "hasta": fechas[-1] if fechas else "",
-    }
+    return storage.load_fichaya_cache_info()
 
 
 def cargar_fichadas(desde, hasta, force_live=False):
@@ -421,6 +484,10 @@ def _pick_value(row, names, default=None):
     return default
 
 
+def _pick_col_value(row, names, default=None):
+    return _pick_value(_row_raw_dict(row), names, default)
+
+
 def _to_int(v):
     if v is None or v == "":
         return 0
@@ -471,6 +538,21 @@ def _row_raw_dict(row):
     return {str(k): _json_safe(v) for k, v in row.items()}
 
 
+def _first_text(row, names):
+    v = _pick_col_value(row, names)
+    if v is None or pd.isna(v):
+        return ""
+    return str(v).strip()
+
+
+def _first_float_or_none(row, names):
+    v = _pick_col_value(row, names)
+    if v is None or pd.isna(v) or str(v).strip() == "":
+        return None
+    val = _to_float(v)
+    return val if val != 0 else None
+
+
 def _parse_fecha_ar(v):
     dt = pd.to_datetime(v, dayfirst=True, errors="coerce")
     if pd.isna(dt):
@@ -478,6 +560,7 @@ def _parse_fecha_ar(v):
     return dt.strftime("%Y-%m-%d")
 
 
+@_ttl_cached(EXTERNAL_CACHE_TTL_SECONDS)
 def cargar_satisfaccion():
     rows, errors = [], []
 
@@ -498,7 +581,7 @@ def cargar_satisfaccion():
 
     def leer_csv(url, fecha_col, tipo_col, resultado_col):
         req = Request(url, headers={"Accept": "text/csv"})
-        with urlopen(req, timeout=20) as res:
+        with urlopen(req, timeout=EXTERNAL_REQUEST_TIMEOUT_SECONDS) as res:
             raw = res.read().decode("utf-8-sig", errors="replace")
         df = pd.read_csv(StringIO(raw), dtype=str).fillna("")
         out = []
@@ -515,21 +598,24 @@ def cargar_satisfaccion():
             })
         return out
 
-    try:
-        rows.extend(leer_csv(SATISFACCION_CSV_URL, "Fecha", "Tipo", "Resultado"))
-    except Exception:
-        errors.append("No se pudo leer el CSV publicado de RMD.")
-    try:
-        rows.extend(leer_csv(NPS_CSV_URL, "FECHA", "TIPO", "RESULTADO"))
-    except Exception:
-        errors.append("No se pudo leer el CSV publicado de NPS.")
+    with ThreadPoolExecutor(max_workers=2, thread_name_prefix="dashboard-satisfaction") as executor:
+        pending = (
+            (executor.submit(leer_csv, SATISFACCION_CSV_URL, "Fecha", "Tipo", "Resultado"), "No se pudo leer el CSV publicado de RMD."),
+            (executor.submit(leer_csv, NPS_CSV_URL, "FECHA", "TIPO", "RESULTADO"), "No se pudo leer el CSV publicado de NPS."),
+        )
+        for future, error_message in pending:
+            try:
+                rows.extend(future.result())
+            except Exception:
+                errors.append(error_message)
     return {"rows": rows, "error": " ".join(errors)}
 
 
+@_ttl_cached(EXTERNAL_CACHE_TTL_SECONDS)
 def cargar_dqi():
     req = Request(DQI_CSV_URL, headers={"Accept": "text/csv"})
     try:
-        with urlopen(req, timeout=30) as res:
+        with urlopen(req, timeout=EXTERNAL_REQUEST_TIMEOUT_SECONDS) as res:
             raw = res.read().decode("utf-8-sig", errors="replace")
         df = pd.read_csv(StringIO(raw), dtype=str).fillna("")
     except Exception:
@@ -627,15 +713,30 @@ def _dpo_ok(v):
     return s in ("OK", "SI", "SÍ", "TRUE", "1", "A TIEMPO")
 
 
+@_ttl_cached(EXTERNAL_CACHE_TTL_SECONDS)
 def cargar_dpo_gkpis():
     rows, errors = [], []
-    for unidad, sucursal, sid_default, url in DPO_GKPI_URLS:
+
+    def fetch_source(source):
+        unidad, sucursal, sid_default, url = source
         try:
             req = Request(url, headers={"Accept": "text/csv", "User-Agent": "Mozilla/5.0"})
-            raw = urlopen(req, timeout=30).read().decode("utf-8-sig", errors="replace")
+            raw = urlopen(req, timeout=EXTERNAL_REQUEST_TIMEOUT_SECONDS).read().decode("utf-8-sig", errors="replace")
+        except Exception as e:
+            return source, None, f"No se pudo leer DPO {sucursal}: {e}"
+        return source, raw, ""
+
+    with ThreadPoolExecutor(max_workers=min(4, len(DPO_GKPI_URLS)), thread_name_prefix="dashboard-dpo") as executor:
+        sources = list(executor.map(fetch_source, DPO_GKPI_URLS))
+    for source, raw, fetch_error in sources:
+        unidad, sucursal, sid_default, _url = source
+        if fetch_error:
+            errors.append(fetch_error)
+            continue
+        try:
             df = pd.read_csv(StringIO(raw), dtype=str).fillna("")
         except Exception as e:
-            errors.append(f"No se pudo leer DPO {sucursal}: {e}")
+            errors.append(f"No se pudo procesar DPO {sucursal}: {e}")
             continue
         fecha_col = _pick_col_norm(df, ["Fecha"])
         camion_col = _pick_col_norm(df, ["Camion", "Camión"])
@@ -696,7 +797,7 @@ def cargar_dpo_gkpis():
 
 
 def dqi_objetivo_bultos_mes():
-    cfg = storage.load_settings().get("dqi_objetivo_bultos_mes") or {}
+    cfg = storage.load_setting("dqi_objetivo_bultos_mes") or {}
     val = _to_float(cfg.get("valor"))
     return val if val > 0 else 1
 
@@ -744,6 +845,7 @@ def _norm_rechazo(row):
         "pico": str(_pick_value(row, ("pico",), "")).lower() == "true",
         "feriado": str(_pick_value(row, ("feriado",), "") or ""),
         "evento": str(_pick_value(row, ("evento",), "") or ""),
+        "raw_rechazo": {str(k): _json_safe(v) for k, v in row.items()},
     }
 
 
@@ -768,32 +870,10 @@ def _norm_rechazo_detalle(row):
         "bultos_rechazo": _to_float(_pick_value(row, ("bultos_rechazo", "rechazo_bultos"), 0)),
         "hl_rechazo": _to_float(_pick_value(row, ("hl_rechazo", "rechazo_hl"), 0)),
         "pallets_rechazo": _to_float(_pick_value(row, ("pallets_rechazo", "rechazo_pallets"), 0)),
+        "raw_rechazo_detalle": {str(k): _json_safe(v) for k, v in row.items()},
     }
     key_parts = [fecha, suc, rec["chofer_codigo"] or chofer, sector, motivo]
     return "|".join(str(x).replace("|", "/") for x in key_parts), rec
-
-
-def importar_rechazos(desde=None, hasta=None):
-    desde = desde or "2026-01-01"
-    hasta = hasta or _today()
-    params = {"desde": desde, "hasta": hasta, "sucursal": RECHAZOS_SUCURSALES_IMPORT}
-    if not RECHAZOS_API_URL.endswith("/integracion"):
-        params["formato"] = "csv"
-    url = RECHAZOS_API_URL + "?" + urlencode(params)
-    req = Request(url, headers={"Accept": "text/csv, application/json"})
-    try:
-        with urlopen(req, timeout=30) as res:
-            ctype = res.headers.get("Content-Type", "")
-            raw = res.read().decode("utf-8")
-    except HTTPError as e:
-        body = e.read().decode("utf-8", errors="replace")[:500]
-        raise ValueError(f"El endpoint respondió HTTP {e.code}. URL: {url}. Respuesta: {body}") from e
-    if "csv" in ctype.lower() or url.endswith("formato=csv"):
-        return guardar_rechazos_csv(raw, desde, hasta, url)
-    if "json" in ctype.lower():
-        payload = json.loads(raw)
-        return guardar_rechazos_payload(payload, desde, hasta, url)
-    raise ValueError(f"El endpoint no devolvió CSV ni JSON. Content-Type: {ctype or 'sin Content-Type'}")
 
 
 def _fetch_rechazos(url):
@@ -1032,8 +1112,15 @@ def procesar_clientes(clientes_file):
             "sucursal": _norm_id(r.get("Sucursal")),
             "razon_social": "" if pd.isna(r.get("Razon social")) else str(r.get("Razon social")).strip(),
             "nombre": "" if pd.isna(r.get("Nombre de fantasia")) else str(r.get("Nombre de fantasia")).strip(),
+            "direccion": _first_text(r, ("Direccion", "DirecciÃ³n", "Domicilio", "Calle")),
+            "localidad": _first_text(r, ("Localidad", "Ciudad", "Poblacion", "PoblaciÃ³n")),
+            "provincia": _first_text(r, ("Provincia",)),
+            "codigo_postal": _first_text(r, ("Codigo postal", "CÃ³digo postal", "CP")),
+            "latitud": _first_float_or_none(r, ("Latitud", "Latitude", "GPS Latitud", "GPS Latitude", "Coord Y de entrega", "Coord Y", "Y")),
+            "longitud": _first_float_or_none(r, ("Longitud", "Longitude", "GPS Longitud", "GPS Longitude", "Coord X de entrega", "Coord X", "X")),
             "horario_entrega": "" if pd.isna(horario) else str(horario).strip(),
             "ventanas": ventanas,
+            "raw_cliente": _row_raw_dict(r),
         }
     return out
 
@@ -1068,6 +1155,7 @@ def procesar_articulos(articulos_file):
             "articulo": articulo,
             "descripcion": str(r.get(desc_col, "")).strip() if desc_col is not None else "",
             "unidades_por_bulto": upb,
+            "raw_articulo": _row_raw_dict(r),
         }
     return out
 
@@ -1075,6 +1163,83 @@ def procesar_articulos(articulos_file):
 def actualizar_articulos(articulos_file):
     articulos = procesar_articulos(articulos_file)
     return storage.replace_articulos(articulos)
+
+
+def _leer_tabular(file_obj, filename=""):
+    name = (filename or getattr(file_obj, "name", "") or "").lower()
+    if hasattr(file_obj, "seek"):
+        file_obj.seek(0)
+    if name.endswith((".xls", ".xlsx")):
+        return _leer_excel(file_obj, name)
+    last_error = None
+    for encoding in ("utf-8-sig", "latin-1"):
+        try:
+            if hasattr(file_obj, "seek"):
+                file_obj.seek(0)
+            return pd.read_csv(file_obj, encoding=encoding, sep=None, engine="python")
+        except Exception as exc:
+            last_error = exc
+    raise ValueError(f"No se pudo leer el archivo tabular: {last_error}")
+
+
+def importar_volumen_entregas(file_obj, filename=""):
+    df = _leer_tabular(file_obj, filename)
+    route_col = _pick_col(df, ("Route ID", "Ruta ID", "ID Ruta"))
+    customer_col = _pick_col(df, ("Customer ID", "Cliente ID", "Código Cliente", "Codigo Cliente"))
+    if route_col is None or customer_col is None:
+        raise ValueError("El archivo debe contener Route ID y Customer ID.")
+    volume_columns = {
+        "bultos": _pick_col(df, ("Bultos entregados", "Bultos", "Cajas entregadas")),
+        "hl": _pick_col(df, ("HL entregados", "HL", "Hectolitros")),
+        "pallets": _pick_col(df, ("Pallets entregados", "Pallets", "Pallet")),
+        "unidades": _pick_col(df, ("Unidades entregadas", "Unidades")),
+    }
+    if not any(volume_columns.values()):
+        raise ValueError("El archivo no contiene Bultos, HL, Pallets ni Unidades entregadas.")
+    status_col = _pick_col(df, ("Estado entrega", "Estado", "Resultado entrega"))
+    records, invalid = [], 0
+    for _, row in df.iterrows():
+        route_id = _norm_id(row.get(route_col))
+        cliente = _norm_customer_id_foxtrot(row.get(customer_col))
+        if not route_id or not cliente:
+            invalid += 1
+            continue
+        values = {}
+        bad = False
+        for key, col in volume_columns.items():
+            if col is None:
+                continue
+            value = _to_float(row.get(col))
+            if value < 0:
+                bad = True
+                break
+            values[key] = value
+        if bad:
+            invalid += 1
+            continue
+        values["estado_entrega"] = str(row.get(status_col) or "").strip() if status_col is not None else ""
+        values["raw_entrega"] = _row_raw_dict(row)
+        records.append({"route_id": route_id, "cliente": cliente, "values": values})
+    updated = storage.update_attempt_deliveries(records)
+    return {"filas_validas": len(records), "filas_invalidas": invalid, "intentos_actualizados": updated}
+
+
+def importar_asignacion_vehiculos(file_obj, filename=""):
+    df = _leer_tabular(file_obj, filename)
+    route_col = _pick_col(df, ("Route ID", "Ruta ID", "ID Ruta"))
+    vehicle_col = _pick_col(df, ("Vehículo", "Vehiculo", "Patente", "Camión", "Camion", "Unidad"))
+    if route_col is None or vehicle_col is None:
+        raise ValueError("El archivo debe contener Route ID y Vehículo o Patente.")
+    records, invalid = {}, 0
+    for _, row in df.iterrows():
+        rid = _norm_id(row.get(route_col))
+        vehicle = "" if pd.isna(row.get(vehicle_col)) else str(row.get(vehicle_col) or "").strip()
+        if not rid or not vehicle or vehicle.lower() in ("sin camion", "sin camión"):
+            invalid += 1
+            continue
+        records[rid] = {"rid": rid, "camion": vehicle, "raw": _row_raw_dict(row)}
+    updated = storage.update_route_vehicles(list(records.values()))
+    return {"filas_validas": len(records), "filas_invalidas": invalid, "rutas_actualizadas": updated}
 
 
 def _pick_col(df, candidates):
@@ -1116,6 +1281,12 @@ def _leer_csv_visitas(csv_files):
     return pd.concat(frames, ignore_index=True)
 
 
+def _visitas_df(csv_files_or_df):
+    if isinstance(csv_files_or_df, pd.DataFrame):
+        return csv_files_or_df
+    return _leer_csv_visitas(csv_files_or_df or [])
+
+
 def _attempt_key(row, idx):
     parts = [
         row.get("Route ID"),
@@ -1129,7 +1300,7 @@ def _attempt_key(row, idx):
 
 
 def procesar_attempts(csv_files):
-    visitas = _leer_csv_visitas(csv_files)
+    visitas = _visitas_df(csv_files)
     if visitas.empty:
         return {}
     out = {}
@@ -1137,12 +1308,45 @@ def procesar_attempts(csv_files):
         rec = _row_raw_dict(row)
         key = _attempt_key(row, idx)
         rec["attempt_key"] = key
+        rec["route_id"] = str(row.get("Route ID") or "").strip()
+        rec["cliente"] = _norm_customer_id_foxtrot(row.get("Customer ID"))
+        rec["cliente_nombre"] = str(row.get("Customer Name") or "").strip()
+        rec["orden_visita"] = _to_int(_pick_col_value(row, (
+            "Stop Sequence", "Sequence", "Secuencia", "Orden", "Visit Sequence",
+            "Planned Sequence", "Waypoint Sequence", "Waypoint ID",
+        ))) or None
+        rec["visit_start"] = _json_safe(row.get("Visit Start Timestamp"))
+        rec["driver_click"] = _json_safe(row.get("Driver Click Timestamp"))
+        rec["visit_duration_seconds"] = _to_int(row.get("Visit Duration Seconds"))
+        rec["service_duration_seconds"] = _to_int(_pick_col_value(row, (
+            "Beta: Inferred Service Duration Seconds", "Service Duration Seconds",
+            "Tiempo Atencion Segundos", "Tiempo AtenciÃ³n Segundos",
+        )))
+        rec["latitud"] = _first_float_or_none(row, (
+            "Customer Latitude", "Customer Lat", "Latitude", "Latitud",
+            "Visit Latitude", "Driver Click Latitude",
+        ))
+        rec["longitud"] = _first_float_or_none(row, (
+            "Customer Longitude", "Customer Lon", "Longitude", "Longitud",
+            "Visit Longitude", "Driver Click Longitude",
+        ))
+        rec["bultos"] = _first_float_or_none(row, (
+            "Bultos", "Bultos Despachados", "Cases", "Delivered Cases",
+            "Actual Cases", "Packages", "Unidades Paquete", "Unidad Paquete",
+        ))
+        rec["hl"] = _first_float_or_none(row, (
+            "HL", "HLS", "Hectolitros", "Volume HL", "Delivered HL",
+            "Actual HL", "Volumen HL",
+        ))
+        rec["pallets"] = _first_float_or_none(row, (
+            "Pallets", "Pallet", "Tarimas", "Unidad de Medida",
+        ))
         out[key] = rec
     return out
 
 
 def _mapa_correccion(csv_files):
-    c = _leer_csv_visitas(csv_files)
+    c = _visitas_df(csv_files)
     if c.empty:
         return {}
     lv = c.groupby("Route ID").agg(u1=("click", "max"), u2=("visend", "max"))
@@ -1151,10 +1355,10 @@ def _mapa_correccion(csv_files):
 
 
 def _mapa_ontime(csv_files):
-    visitas = _leer_csv_visitas(csv_files)
-    clientes = storage.load_clientes()
+    visitas = _visitas_df(csv_files)
     if visitas.empty:
         return {}
+    clientes = storage.load_clientes()
     cli_col = _pick_col(visitas, ["Customer ID", "Customer Id", "Customer", "Client ID", "Cliente"])
     if cli_col is None:
         return {}
@@ -1174,10 +1378,10 @@ def _mapa_ontime(csv_files):
             cliente = clientes.get(cid) or {}
             nombre = cliente.get("nombre") or cliente.get("razon_social") or str(v.get("Customer Name", ""))
             ventanas = cliente.get("ventanas", [])
-            cliente_ref = {"cliente": cid, "nombre": nombre}
             if ventanas:
-                clientes_con_ventana[cid] = cliente_ref
+                clientes_con_ventana[cid] = cid
             else:
+                cliente_ref = {"cliente": cid, "nombre": nombre}
                 cliente_ref["motivo"] = "sin ventana cargada" if cliente else "no encontrado en base de clientes"
                 clientes_sin_ventana[cid] = cliente_ref
             ok = _en_ventana(v["paso"], ventanas)
@@ -1208,9 +1412,10 @@ def _mapa_ontime(csv_files):
     return stats
 
 
-def procesar_export(xls_file, xls_name="", csv_files=None):
+def procesar_export(xls_file, xls_name="", csv_files=None, visitas=None):
     """Devuelve dict rid -> registro, calculado desde el export."""
     csv_files = csv_files or []
+    visitas = _visitas_df(visitas if visitas is not None else csv_files)
     x = _leer_excel(xls_file, xls_name)
     hl_col = _pick_col(x, ["HL", "HLS", "Hectolitros", "Hectolitro", "Hectoliter", "Hectoliters", "Volume HL", "Delivered HL", "Planned HL", "Actual HL", "Volumen HL", "Volumen Hectolitros"])
     bultos_col = _pick_col(x, ["Bultos", "Bultos Despachados", "Cases", "Delivered Cases", "Planned Cases", "Actual Cases", "Packages", "Unidades Paquete", "Unidad Paquete"])
@@ -1222,8 +1427,8 @@ def procesar_export(xls_file, xls_name="", csv_files=None):
     valid = x["fox_ini"].notna() & x["fox_fin"].notna()
     same_day = x["fox_ini"].dt.date == x["fox_fin"].dt.date
     x["raw_h"] = (x["fox_fin"] - x["fox_ini"]).dt.total_seconds() / 3600
-    fmap = _mapa_correccion(csv_files)
-    omap = _mapa_ontime(csv_files)
+    fmap = _mapa_correccion(visitas)
+    omap = _mapa_ontime(visitas)
 
     x["fin_final"] = x["fox_fin"]; x["usable"] = False
     for i in x[valid].index:
@@ -1294,8 +1499,28 @@ def procesar_export(xls_file, xls_name="", csv_files=None):
     return out
 
 
+DASHBOARD_ROUTE_FIELDS = {
+    "rid", "suc", "chofer", "mes", "fecha", "anio", "inicio_foxtrot", "fin_foxtrot",
+    "camion", "usable", "alerta", "ti", "tml", "tml_ti_origen", "horas", "adhsec",
+    "adhcli", "disp_km_plan", "disp_km_real", "disp_hs_plan", "disp_hs_real", "dispkm",
+    "disphs", "disp_descartada", "disp_motivo", "pdv_total", "pdv_ontime",
+    "pdv_fuera_ontime", "pdv_sin_ventana", "ontime_pct", "clientes_fuera_ontime",
+    "clientes_con_ventana", "clientes_sin_ventana",
+}
+
+
+def _dashboard_route(rec):
+    projected = {key: value for key, value in rec.items() if key in DASHBOARD_ROUTE_FIELDS}
+    projected["clientes_con_ventana"] = [
+        str(item.get("cliente") or "") if isinstance(item, dict) else str(item or "")
+        for item in projected.get("clientes_con_ventana") or []
+        if (item.get("cliente") if isinstance(item, dict) else item)
+    ]
+    return _descartar_dispersion_anomala(projected)
+
+
 def _data_desde_base(base):
-    rutas = sorted((_descartar_dispersion_anomala(dict(r)) for r in base.values()), key=lambda r: (r["fecha"], r["suc"], r["chofer"]))
+    rutas = sorted((_dashboard_route(r) for r in base.values()), key=lambda r: (r["fecha"], r["suc"], r["chofer"]))
     rechazos_base = storage.load_rechazos()
     if rutas and not rechazos_base:
         try:
@@ -1307,12 +1532,19 @@ def _data_desde_base(base):
             rechazos_base = {}
     rechazos = sorted(rechazos_base.values(), key=lambda r: r["fecha"])
     rechazos_detalle = sorted(storage.load_rechazos_detalle().values(), key=lambda r: (r["fecha"], r.get("chofer", ""), r.get("motivo", "")))
+    with ThreadPoolExecutor(max_workers=3, thread_name_prefix="dashboard-external") as executor:
+        satisfaction_future = executor.submit(cargar_satisfaccion)
+        dqi_future = executor.submit(cargar_dqi)
+        dpo_future = executor.submit(cargar_dpo_gkpis)
+        satisfaction = satisfaction_future.result()
+        dqi = dqi_future.result()
+        dpo = dpo_future.result()
     return {"rutas": rutas,
             "rechazos": rechazos,
             "rechazos_detalle": rechazos_detalle,
-            "satisfaccion": cargar_satisfaccion(),
-            "dqi": cargar_dqi(),
-            "dpo": cargar_dpo_gkpis(),
+            "satisfaccion": satisfaction,
+            "dqi": dqi,
+            "dpo": dpo,
             "settings": {"dqi_objetivo_bultos_mes": dqi_objetivo_bultos_mes()},
             "choferes": sorted({r["chofer"] for r in rutas}),
             "sucursales": sorted({r["suc"] for r in rutas}),
@@ -1324,28 +1556,32 @@ def actualizar(xls_file, xls_name, csv_files=None, reset=False):
     """Procesa el export y agrega a la base SOLO las rutas nuevas. Devuelve stats."""
     if reset:
         storage.reset()
-    previas = len(storage.load_all())
-    nuevos = procesar_export(xls_file, xls_name, csv_files)
-    attempts = procesar_attempts(csv_files) if csv_files else {}
+    visitas = _leer_csv_visitas(csv_files or [])
+    previas = storage.count_routes()
+    nuevos = procesar_export(xls_file, xls_name, csv_files, visitas=visitas)
+    attempts = procesar_attempts(visitas) if not visitas.empty else {}
     actualiza_existentes = True
     agregadas = storage.upsert_all(nuevos)
     attempts_guardados = storage.upsert_attempts(attempts) if attempts else 0
-    base = storage.load_all()
-    us = [r for r in base.values() if r.get("usable")]
-    tml = [r["tml"] for r in us]; ti = [r["ti"] for r in us]
-    return {"previas": previas, "agregadas": agregadas, "actualiza_existentes": actualiza_existentes, "procesadas": len(nuevos), "attempts_guardados": attempts_guardados, "total": len(base),
-            "validas": len(us), "sin_cierre": len(base) - len(us),
-            "tml_prom": round(float(np.mean(tml)), 1) if tml else None,
-            "tml_cumpl": round(100 * float(np.mean([v <= 30 for v in tml]))) if tml else None,
-            "ti_prom": round(float(np.mean(ti)), 1) if ti else None,
-            "ti_cumpl": round(100 * float(np.mean([v <= 30 for v in ti]))) if ti else None}
+    stats = storage.route_import_stats(OBJ["tml"], OBJ["ti"])
+    return {"previas": previas, "agregadas": agregadas, "actualiza_existentes": actualiza_existentes, "procesadas": len(nuevos), "attempts_guardados": attempts_guardados, **stats}
 
 
+@_ttl_cached(DASHBOARD_CACHE_TTL_SECONDS)
 def render_dashboard():
-    data = _data_desde_base(storage.load_all())
+    data = _data_desde_base(storage.load_dashboard_routes(DASHBOARD_ROUTE_FIELDS))
     html = open(PLANTILLA, encoding="utf-8").read()
-    return html.replace("__DATA__", json.dumps(data, ensure_ascii=False))
+    payload = json.dumps(data, ensure_ascii=False, separators=(",", ":")).replace("</", "<\\/")
+    return html.replace("__DATA__", payload)
+
+
+def clear_dashboard_cache(include_external=False):
+    render_dashboard.cache_clear()
+    if include_external:
+        cargar_satisfaccion.cache_clear()
+        cargar_dqi.cache_clear()
+        cargar_dpo_gkpis.cache_clear()
 
 
 def hay_datos():
-    return len(storage.load_all()) > 0
+    return storage.count_routes() > 0

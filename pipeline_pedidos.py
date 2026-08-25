@@ -97,6 +97,40 @@ def _si_no(v):
     return str(v).strip().upper() in ("SÍ", "SI", "S", "TRUE", "1")
 
 
+def _to_float(v):
+    if v is None or v == "":
+        return None
+    try:
+        if isinstance(v, (int, float)):
+            return float(v)
+        s = str(v).strip().replace("\xa0", "").replace(" ", "")
+        if not s:
+            return None
+        if "," in s and "." in s:
+            return float(s.replace(".", "").replace(",", ".")) if s.rfind(",") > s.rfind(".") else float(s.replace(",", ""))
+        if "," in s:
+            return float(s.replace(".", "").replace(",", "."))
+        return float(s)
+    except (TypeError, ValueError):
+        return None
+
+
+def _json_safe(v):
+    if isinstance(v, datetime):
+        return v.isoformat()
+    return v
+
+
+def _pick_first(row, idx, names):
+    lower = {str(k).strip().lower(): k for k in idx}
+    for name in names:
+        key = lower.get(name.lower())
+        if key is not None:
+            i = idx[key]
+            return row[i] if i < len(row) else None
+    return None
+
+
 def _franja(dt):
     hour = dt.hour
     if hour < 7:
@@ -157,6 +191,11 @@ def parse_pedidos(source, sheet_name="ag-grid"):
             total = float(g(row, "TOTAL") or 0)
         except (TypeError, ValueError):
             total = 0.0
+        raw = {
+            h: _json_safe(row[i]) if i < len(row) else None
+            for h, i in idx.items()
+            if h
+        }
 
         rec = {
             "nro_pedido": int(nro),
@@ -183,7 +222,17 @@ def parse_pedidos(source, sheet_name="ag-grid"):
             "fecha_entrega": (lambda d: d.strftime("%Y-%m-%d") if d else None)(
                 _parse_dt(g(row, "FECHA ENTREGA"))),
             "total": round(total, 2),
-            "bultos": None,   # <- hueco para completar cuando haya fuente de bultos
+            "bultos": _to_float(_pick_first(row, idx, (
+                "BULTOS", "CANT. PAQUETES", "CANTIDAD PAQUETES", "PAQUETES",
+                "CAJAS", "UNIDADES PAQUETE",
+            ))),
+            "hl": _to_float(_pick_first(row, idx, (
+                "HL", "HLS", "HECTOLITROS", "UNIDAD PAQUETE", "VOLUMEN HL",
+            ))),
+            "pallets": _to_float(_pick_first(row, idx, (
+                "PALLETS", "PALLET", "TARIMAS",
+            ))),
+            "raw_pedido": raw,
         }
         records.append(rec)
 

@@ -1,61 +1,88 @@
-# Dashboard de Tiempos de reparto — Foxtrot (app Flask + Postgres)
+# Dashboard de reparto
 
-App web que muestra el dashboard y permite **subir el export nuevo desde el navegador**
-para actualizarlo online. La base es **incremental**: cada actualización agrega solo los
-días que faltan y nunca cambia lo ya cargado (cada ruta se identifica por Route ID y su
-TI/TML es determinístico por ID).
+Aplicacion Flask de Del Palacio S.A. para operacion de reparto, calidad Foxtrot,
+pedidos, FichaYA y costos logisticos. Usa PostgreSQL en produccion y archivos JSON
+como respaldo para desarrollo local.
 
-## Estructura
-```
-dashboard-reparto/
-├── app.py                   # servidor Flask (dashboard + carga de export)
-├── pipeline.py              # procesa el export y arma el HTML
-├── storage.py               # persistencia: Postgres (o JSON local si no hay DB)
-├── plantilla_dashboard.html # plantilla del dashboard
-├── requirements.txt
-├── Procfile                 # web: gunicorn app:app --bind 0.0.0.0:$PORT
-├── railway.json
-└── data/                    # solo se usa en modo local sin DB
-```
+## Modulos
 
-## Persistencia
-- **Producción (Railway):** si existe la variable `DATABASE_URL`, guarda en Postgres,
-  en la tabla `rutas_dashboard (rid TEXT PRIMARY KEY, rec JSONB)`. La tabla se crea sola
-  al arrancar. La inserción usa `ON CONFLICT (rid) DO NOTHING`: solo entran rutas nuevas.
-- **Local sin DB:** si no hay `DATABASE_URL`, cae a un archivo JSON en `DATA_DIR` (./data).
+- Dashboard operativo: TML, TI, horas, adherencia, dispersion, on time, OTIF,
+  rechazos, DQI, DPO y satisfaccion.
+- Pedidos: importacion XLSX, filtros operativos, ventas, bultos, HL y pallets.
+- Calidad Foxtrot: auditoria y correccion de columnas del export.
+- FichaYA: asociacion por legajo y reporte comparativo con Foxtrot.
+- Costos de distribucion: depositos CRUD, tarifas por vigencia, perfiles de
+  vehiculo, ruteo vial, asignacion por cliente e historial de recalculos.
+- Datos cargados: busqueda, paginacion, edicion y borrado controlado.
 
-## Rutas
-- `/`           → dashboard (o pantalla de carga si aún no hay datos)
-- `/admin`      → formulario para subir el export
-- `/actualizar` → recibe el `.xls` (+ CSV opcionales) y actualiza la base
-- `/salud`      → chequeo simple (JSON)
+## Inicio local
 
-## Probar local
-```
-pip install -r requirements.txt
-python app.py            # http://localhost:5050  (usa JSON en ./data)
+```powershell
+python -m pip install -r requirements.txt
+Copy-Item .env.example .env
+python app.py
 ```
 
-## Subir a Railway (con Postgres)
-1. Subí esta carpeta a un repo de GitHub.
-2. Railway → **New Project → Deploy from GitHub repo**. Nixpacks detecta Python y arranca
-   con gunicorn (Procfile).
-3. En el mismo proyecto: **New → Database → Add PostgreSQL**. Railway crea la DB y expone
-   la variable `DATABASE_URL` al servicio automáticamente (si no, copiala en las Variables
-   del servicio web con **Reference → DATABASE_URL**).
-4. Variables de entorno del servicio web:
-   - `DATABASE_URL`  → la del plugin Postgres (referenciada).
-   - `ADMIN_TOKEN = unaclave`  → clave para poder subir datos (recomendado).
-5. Deploy. Railway te da la URL pública: dashboard en `/`, carga en `/admin`.
+La aplicacion queda disponible en `http://127.0.0.1:5050`. Completar en `.env`
+como minimo `ADMIN_PASSWORD`; para PostgreSQL, definir `DATABASE_URL`.
 
-> Con Postgres **no hace falta volumen**: la base vive en la DB y sobrevive a los deploys.
+## Importaciones
 
-## Actualizar los datos
-Entrá a `.../admin`, subí el export nuevo (y CSV de visitas si tenés) y confirmá. Se
-agregan solo las rutas nuevas. La opción "Rehacer de cero" hace `TRUNCATE` y recalcula todo
-(útil si sumás CSV de meses viejos para recuperar rutas sin cierre).
+Desde `/admin` se pueden cargar:
 
-## Parámetros
-En `pipeline.py` (arriba): `TI_CENTRO`, `TML_CENTRO` y `OBJ` (objetivos de TML/TI/ruta,
-tolerancia de dispersión ±10% y adherencia ≥85%). Cambiás ahí y redeployás; lo ya guardado
-no se recalcula salvo "Rehacer de cero".
+- Route Analytics `.xls` o `.xlsx`.
+- Attempt Analytics `.csv`, `.xls` o `.xlsx`.
+- Clientes y ventanas horarias `.csv`.
+- Rechazos, articulos, volumen entregado y asignacion de vehiculos.
+
+Las rutas se actualizan por `Route ID`. Las visitas se actualizan por ruta y
+cliente. Los lotes usan `execute_values`, indices dedicados y un pool de
+conexiones para evitar escrituras fila por fila.
+
+## Costos logisticos
+
+La configuracion incluye combustible, costo por kilometro, mano de obra,
+ayudantes, otros costos, criterio de volumen y pesos de asignacion. Los pesos de
+distancia, tiempo y volumen deben sumar `1.00`.
+
+Cada calculo conserva:
+
+- distancia y duracion por tramo;
+- geometria y proveedor de ruteo;
+- componentes del costo total;
+- asignacion por cliente;
+- version, usuario, fecha y motivo de recalculo.
+
+El ruteo usa OSRM y guarda cache persistente. Si el proveedor no responde, el
+calculo usa distancia Haversine y deja una advertencia trazable.
+
+## Variables principales
+
+Consultar [`.env.example`](.env.example). Las mas relevantes son:
+
+- `DATABASE_URL`, `SECRET_KEY`, `ADMIN_USER`, `ADMIN_PASSWORD`.
+- `PG_POOL_MAX`, `PG_INSERT_PAGE_SIZE`, `PGSTATEMENT_TIMEOUT_SECONDS`.
+- `STORAGE_CACHE_TTL_SECONDS`, `DASHBOARD_CACHE_TTL_SECONDS`.
+- `OSRM_BASE_URL`, `ROUTING_TIMEOUT_SECONDS`.
+- Credenciales FichaYA y `OPENAI_API_KEY`, ambas opcionales.
+
+No guardar `.env` ni credenciales en Git.
+
+## Pruebas
+
+```powershell
+python -m pytest -q
+```
+
+Las pruebas cubren asignacion de costos, ruteo por lotes y fallback, importacion
+de volumen/vehiculos, autenticacion, compresion gzip y respuestas condicionales.
+
+## Produccion
+
+Railway ejecuta Gunicorn con un proceso y cuatro hilos. Esto conserva memoria y
+permite atender otras solicitudes mientras una importacion espera por la base o
+una integracion externa. El timeout es de 180 segundos para archivos grandes.
+
+`/salud` devuelve el estado y los conteos agregados sin descargar las tablas
+completas. Las migraciones son idempotentes; para forzarlas al iniciar se puede
+definir `RUN_DB_MIGRATIONS_ON_START=1`.
