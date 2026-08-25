@@ -21,6 +21,13 @@ from contextlib import contextmanager
 from urllib.parse import quote
 
 
+def _safe_float(value):
+    try:
+        return float(value or 0)
+    except (TypeError, ValueError):
+        return 0.0
+
+
 def _load_local_env():
     """Carga variables desde .env local si existen y no estaban definidas."""
     env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
@@ -792,6 +799,169 @@ if BACKEND == "postgres":
                 )
                 updated += cur.rowcount
         clear_cache("attempts:")
+        clear_cache("logistics:")
+        return updated
+
+    def load_routes_for_logistics_sync(desde, hasta):
+        with _conn() as cn, cn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT rid, fecha::text, sucursal, chofer,
+                       COALESCE(camion, rec->>'camion'),
+                       COALESCE(bultos, CASE WHEN (rec->>'bultos') ~ '^-?[0-9]+([.][0-9]+)?$' THEN (rec->>'bultos')::double precision END),
+                       COALESCE(hl, CASE WHEN (rec->>'hl') ~ '^-?[0-9]+([.][0-9]+)?$' THEN (rec->>'hl')::double precision END),
+                       CASE WHEN (rec->>'pallets') ~ '^-?[0-9]+([.][0-9]+)?$' THEN (rec->>'pallets')::double precision END,
+                       CASE WHEN (rec->>'unidades') ~ '^-?[0-9]+([.][0-9]+)?$' THEN (rec->>'unidades')::double precision END,
+                       rec #>> '{raw_foxtrot,Driver ID}'
+                FROM rutas_dashboard
+                WHERE fecha BETWEEN %s::date AND %s::date
+                ORDER BY fecha, sucursal, chofer, rid;
+                """,
+                (str(desde), str(hasta)),
+            )
+            return [
+                {
+                    "rid": rid,
+                    "fecha": fecha or "",
+                    "suc": sucursal or "",
+                    "chofer": chofer or "",
+                    "camion": camion or "",
+                    "bultos": bultos,
+                    "hl": hl,
+                    "pallets": pallets,
+                    "unidades": unidades,
+                    "chofer_codigo": driver_id or "",
+                }
+                for rid, fecha, sucursal, chofer, camion, bultos, hl, pallets, unidades, driver_id
+                in cur.fetchall()
+            ]
+
+    def update_routes_from_logistics_api(records):
+        if not records:
+            return 0
+        rows = [
+            (
+                str(rec["rid"]),
+                rec.get("values", {}).get("camion"),
+                rec.get("values", {}).get("bultos"),
+                rec.get("values", {}).get("hl"),
+                rec.get("values", {}).get("pallets"),
+                rec.get("values", {}).get("unidades"),
+                _extras.Json(rec.get("payload") or {}),
+            )
+            for rec in records
+        ]
+        updated = 0
+        with _conn() as cn, cn.cursor() as cur:
+            for start in range(0, len(rows), DB_INSERT_PAGE_SIZE):
+                batch = rows[start:start + DB_INSERT_PAGE_SIZE]
+                _extras.execute_values(
+                    cur,
+                    """
+                    UPDATE rutas_dashboard AS current_route
+                    SET camion = CASE
+                            WHEN LOWER(BTRIM(COALESCE(current_route.camion, current_route.rec->>'camion', ''))) IN ('', 'sin camion', 'sin camión', 'sin transporte')
+                                 AND incoming.camion IS NOT NULL THEN incoming.camion
+                            ELSE current_route.camion
+                        END,
+                        bultos = CASE
+                            WHEN COALESCE(
+                                current_route.bultos,
+                                CASE WHEN (current_route.rec->>'bultos') ~ '^-?[0-9]+([.][0-9]+)?$'
+                                     THEN (current_route.rec->>'bultos')::double precision END,
+                                0
+                            ) <= 0 AND incoming.bultos IS NOT NULL THEN incoming.bultos
+                            ELSE current_route.bultos
+                        END,
+                        hl = CASE
+                            WHEN COALESCE(
+                                current_route.hl,
+                                CASE WHEN (current_route.rec->>'hl') ~ '^-?[0-9]+([.][0-9]+)?$'
+                                     THEN (current_route.rec->>'hl')::double precision END,
+                                0
+                            ) <= 0 AND incoming.hl IS NOT NULL THEN incoming.hl
+                            ELSE current_route.hl
+                        END,
+                        rec = COALESCE(current_route.rec, '{}'::jsonb) || incoming.payload
+                            || CASE
+                                WHEN LOWER(BTRIM(COALESCE(current_route.camion, current_route.rec->>'camion', ''))) IN ('', 'sin camion', 'sin camión', 'sin transporte')
+                                     AND incoming.camion IS NOT NULL
+                                THEN jsonb_build_object('camion', incoming.camion)
+                                ELSE '{}'::jsonb
+                            END
+                            || CASE
+                                WHEN COALESCE(
+                                    current_route.bultos,
+                                    CASE WHEN (current_route.rec->>'bultos') ~ '^-?[0-9]+([.][0-9]+)?$'
+                                         THEN (current_route.rec->>'bultos')::double precision END,
+                                    0
+                                ) <= 0 AND incoming.bultos IS NOT NULL
+                                THEN jsonb_build_object('bultos', incoming.bultos)
+                                ELSE '{}'::jsonb
+                            END
+                            || CASE
+                                WHEN COALESCE(
+                                    current_route.hl,
+                                    CASE WHEN (current_route.rec->>'hl') ~ '^-?[0-9]+([.][0-9]+)?$'
+                                         THEN (current_route.rec->>'hl')::double precision END,
+                                    0
+                                ) <= 0 AND incoming.hl IS NOT NULL
+                                THEN jsonb_build_object('hl', incoming.hl)
+                                ELSE '{}'::jsonb
+                            END
+                            || CASE
+                                WHEN COALESCE(
+                                    CASE WHEN (current_route.rec->>'pallets') ~ '^-?[0-9]+([.][0-9]+)?$'
+                                         THEN (current_route.rec->>'pallets')::double precision END,
+                                    0
+                                ) <= 0 AND incoming.pallets IS NOT NULL
+                                THEN jsonb_build_object('pallets', incoming.pallets)
+                                ELSE '{}'::jsonb
+                            END
+                            || CASE
+                                WHEN COALESCE(
+                                    CASE WHEN (current_route.rec->>'unidades') ~ '^-?[0-9]+([.][0-9]+)?$'
+                                         THEN (current_route.rec->>'unidades')::double precision END,
+                                    0
+                                ) <= 0 AND incoming.unidades IS NOT NULL
+                                THEN jsonb_build_object('unidades', incoming.unidades)
+                                ELSE '{}'::jsonb
+                            END
+                    FROM (VALUES %s) AS incoming(rid, camion, bultos, hl, pallets, unidades, payload)
+                    WHERE current_route.rid = incoming.rid
+                      AND (
+                          (incoming.camion IS NOT NULL
+                           AND LOWER(BTRIM(COALESCE(current_route.camion, current_route.rec->>'camion', ''))) IN ('', 'sin camion', 'sin camión', 'sin transporte'))
+                          OR (incoming.bultos IS NOT NULL AND COALESCE(
+                              current_route.bultos,
+                              CASE WHEN (current_route.rec->>'bultos') ~ '^-?[0-9]+([.][0-9]+)?$'
+                                   THEN (current_route.rec->>'bultos')::double precision END,
+                              0
+                          ) <= 0)
+                          OR (incoming.hl IS NOT NULL AND COALESCE(
+                              current_route.hl,
+                              CASE WHEN (current_route.rec->>'hl') ~ '^-?[0-9]+([.][0-9]+)?$'
+                                   THEN (current_route.rec->>'hl')::double precision END,
+                              0
+                          ) <= 0)
+                          OR (incoming.pallets IS NOT NULL AND COALESCE(
+                              CASE WHEN (current_route.rec->>'pallets') ~ '^-?[0-9]+([.][0-9]+)?$'
+                                   THEN (current_route.rec->>'pallets')::double precision END,
+                              0
+                          ) <= 0)
+                          OR (incoming.unidades IS NOT NULL AND COALESCE(
+                              CASE WHEN (current_route.rec->>'unidades') ~ '^-?[0-9]+([.][0-9]+)?$'
+                                   THEN (current_route.rec->>'unidades')::double precision END,
+                              0
+                          ) <= 0)
+                      );
+                    """,
+                    batch,
+                    template="(%s, %s, %s, %s, %s, %s, %s::jsonb)",
+                    page_size=len(batch),
+                )
+                updated += cur.rowcount
+        clear_cache("routes:")
         clear_cache("logistics:")
         return updated
 
@@ -1999,6 +2169,65 @@ else:
                     rec.update(item["values"])
                     updated += 1
         upsert_attempts(attempts)
+        return updated
+
+    def load_routes_for_logistics_sync(desde, hasta):
+        rows = []
+        for rid, route in load_all().items():
+            fecha = str(route.get("fecha") or "")
+            if fecha < str(desde) or fecha > str(hasta):
+                continue
+            raw = route.get("raw_foxtrot") or {}
+            rows.append({
+                "rid": str(rid),
+                "fecha": fecha,
+                "suc": route.get("suc") or "",
+                "chofer": route.get("chofer") or "",
+                "camion": route.get("camion") or "",
+                "bultos": route.get("bultos"),
+                "hl": route.get("hl"),
+                "pallets": route.get("pallets"),
+                "unidades": route.get("unidades"),
+                "chofer_codigo": raw.get("Driver ID") or "",
+            })
+        return sorted(rows, key=lambda rec: (rec["fecha"], str(rec["suc"]), str(rec["chofer"]), rec["rid"]))
+
+    def update_routes_from_logistics_api(records):
+        routes = load_all()
+        updated = 0
+        value_fields = {"camion", "bultos", "hl", "pallets", "unidades"}
+        for item in records:
+            route = routes.get(str(item.get("rid") or ""))
+            if route is None:
+                continue
+            values = item.get("values") or {}
+            changed_fields = []
+            for field, value in values.items():
+                current = route.get(field)
+                missing = (
+                    str(current or "").strip().lower() in ("", "sin camion", "sin camión", "sin transporte")
+                    if field == "camion"
+                    else _safe_float(current) <= 0
+                )
+                if missing and value not in (None, ""):
+                    route[field] = value
+                    changed_fields.append(field)
+            if not changed_fields:
+                continue
+            payload = {
+                key: value for key, value in (item.get("payload") or {}).items()
+                if key not in value_fields
+            }
+            sources = payload.get("logistics_data_sources")
+            if isinstance(sources, dict):
+                payload["logistics_data_sources"] = {
+                    field: source for field, source in sources.items()
+                    if field in changed_fields
+                }
+            route.update(payload)
+            updated += 1
+        if updated:
+            upsert_all(routes, count_new=False)
         return updated
 
     def update_route_vehicles(records):

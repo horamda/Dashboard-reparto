@@ -110,6 +110,7 @@ tfoot td{font-weight:700;border-top:2px solid var(--line);border-bottom:none}
 .pill{display:inline-flex;align-items:center;justify-content:center;min-width:52px;padding:3px 7px;border-radius:999px;font-weight:800;font-size:11.5px}
 .pill.good{background:#DCFCE7;color:#166534}.pill.bad{background:#FEE2E2;color:#991B1B}.pill.neutral{background:#EEF2F7;color:var(--ink2)}
 @media(max-width:1100px){.filters{grid-template-columns:repeat(2,minmax(170px,1fr))}.reset{width:100%}.grid{grid-template-columns:1fr!important}.grid>.panel[style*="grid-column"]{grid-column:1/-1!important}}
+@media(min-width:721px) and (max-width:1024px){.wrap{width:min(100% - 24px,1240px)}header{position:relative;padding:18px 0 16px}header .wrap{align-items:flex-start}.head-actions{order:3;width:100%;justify-content:flex-start;flex-wrap:nowrap;overflow-x:auto;overscroll-behavior-x:contain;padding:2px 0 6px}.head-actions a{display:inline-flex;align-items:center;min-height:44px;padding:9px 11px}.hcount{text-align:left}.filters select,.filters .reset,.tab{min-height:44px}.c5,.c4,.c2{grid-template-columns:repeat(2,minmax(0,1fr))}.gauges{grid-template-columns:repeat(2,minmax(0,1fr))}.gauges>.gcard:last-child:nth-child(odd){grid-column:1/-1}.chartbox{height:290px}.team-table{font-size:11.5px}.team-table th,.team-table td{padding:9px 7px}}
 @media(max-width:720px){.wrap{width:min(100% - 20px,1240px);padding-bottom:40px}header{position:relative;padding:18px 0 16px}header .wrap{align-items:flex-start}.head-actions{justify-content:flex-start}.head-actions a{padding:7px 9px;font-size:12px}h1{font-size:18px}.hcount{text-align:left}.filters{grid-template-columns:1fr;padding:12px}.panel{padding:14px 12px;overflow:hidden}.panel>table{display:block;overflow-x:auto;white-space:nowrap}.card{min-height:104px;padding:14px}.cards,.c5,.c4,.c2{grid-template-columns:1fr}.tab{padding:9px 14px}.chartbox{height:260px}.tblscroll{margin:0 -8px;padding:0 8px;border-radius:0}.team-table{min-width:980px;font-size:11px}.team-table th,.team-table td{padding:8px 6px}.team-table tbody td:nth-child(2){font-size:11.5px;padding-left:10px}.team-table th:first-child,.team-table td:first-child{max-width:82px;min-width:82px;white-space:normal}.rech-table{min-width:1080px}.rech-table th,.rech-table td{padding:9px 8px}.pill{min-width:48px}}
 @media(max-width:420px){.wrap{width:min(100% - 14px,1240px)}.panel{padding:12px 9px}.filters{gap:10px}.team-table{min-width:920px}.team-table th,.team-table td{padding:7px 5px}.team-table th:first-child,.team-table td:first-child{max-width:72px;min-width:72px}.card .v{font-size:22px}}
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*{transition:none!important}}
@@ -842,9 +843,14 @@ function switchTab(t){state.tab=t;tabMes.classList.toggle('active',t==='mes');ta
  if(t==='sem'&&!state.sem&&WEEKS.length)state.sem=WEEKS[WEEKS.length-1];render()}
 tabMes.addEventListener('click',()=>switchTab('mes'));tabSem.addEventListener('click',()=>switchTab('sem'));tabDia.addEventListener('click',()=>switchTab('dia'));tabHorarios.addEventListener('click',()=>switchTab('horarios'));tabDpo.addEventListener('click',()=>switchTab('dpo'));tabOnTime.addEventListener('click',()=>switchTab('ontime'));tabTeamRoom.addEventListener('click',()=>switchTab('teamroom'));tabDqi.addEventListener('click',()=>switchTab('dqi'));tabSatisfaccion.addEventListener('click',()=>switchTab('satisfaccion'));tabRechazos.addEventListener('click',()=>switchTab('rechazos'));tabOtif.addEventListener('click',()=>switchTab('otif'));tabCalidad.addEventListener('click',()=>switchTab('calidad'));
 render();
-const chartScript=document.createElement('script');
-chartScript.src='https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js';
-chartScript.async=true;
-chartScript.onload=()=>render();
-document.head.appendChild(chartScript);
+function loadDashboardCharts(){
+ if(typeof Chart!=='undefined')return;
+ const chartScript=document.createElement('script');
+ chartScript.src='https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js';
+ chartScript.async=true;
+ chartScript.onload=()=>render();
+ document.head.appendChild(chartScript);
+}
+if('requestIdleCallback' in window)window.requestIdleCallback(loadDashboardCharts,{timeout:1200});
+else window.setTimeout(loadDashboardCharts,80);
 </script></body></html>

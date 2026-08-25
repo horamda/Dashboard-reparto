@@ -68,6 +68,20 @@ Consultar [`.env.example`](.env.example). Las mas relevantes son:
 
 No guardar `.env` ni credenciales en Git.
 
+FichaYA usa por defecto `FICHAYA_INTEGRATION_MODE=web`: inicia sesión con
+`FICHAYA_WEB_USERNAME` / `FICHAYA_WEB_PASSWORD` y descarga el CSV de marcas, sin
+requerir la API externa. Los modos `api` y `auto` quedan disponibles para cuando
+esa integración sea habilitada. Un `.env` local no se copia a Railway: las
+variables del modo elegido deben cargarse también en el servicio desplegado.
+
+La API logística v1 completa campos faltantes de las rutas con
+`GET /api/v1/integracion/logistica/diaria`. El consumidor usa
+`LOGISTICS_INTEGRATION_API_BASE_URL` y `LOGISTICS_INTEGRATION_API_KEY`; esta
+última debe coincidir con `INTEGRATION_API_KEY` del servicio productor. El
+emparejamiento es conservador por fecha, sucursal y chofer, no sobrescribe datos
+existentes y omite coincidencias ambiguas. La sincronización se ejecuta desde
+`/admin` y guarda la respuesta fuente dentro de `logistics_api` en cada ruta.
+
 ## Pruebas
 
 ```powershell

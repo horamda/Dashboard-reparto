@@ -5,7 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Ingreso de pedidos - Del Palacio S.A.</title>
 <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <style>
   :root { --brand:#15233b; --accent:#c77d1a; --ink:#1f2937; --muted:#6b7280; }
   * { letter-spacing:0!important; }
@@ -85,6 +84,19 @@
     .filters .filter-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
     .filters .switch-panel { grid-template-columns:1fr; }
     .filters .filter-action { width:100%; }
+  }
+  @media (min-width: 769px) and (max-width: 1024px) {
+    .app-shell { padding-left:12px!important; padding-right:12px!important; }
+    .navbar .container-fluid { align-items:flex-start; flex-wrap:wrap; gap:8px; }
+    .navbar-nav { order:2; width:100%; flex-direction:row; flex-wrap:nowrap; overflow-x:auto; overscroll-behavior-x:contain; gap:12px; padding-bottom:4px; }
+    .navbar-nav .nav-link { display:flex; align-items:center; min-height:44px; padding:7px 0; }
+    .upload-form { order:3; width:100%; margin-left:0; }
+    .upload-form input[type=file] { flex:1 1 280px; min-height:44px; }
+    .upload-form .btn, .filters .btn, .filters .form-control, .filters .form-select { min-height:44px; }
+    .switch-pill { min-height:44px; }
+    .daily-layout { grid-template-columns:1fr; }
+    .daily-report { max-height:300px; }
+    .daily-chart, .chart-wrap, .chart-wrap.tall { height:290px; }
   }
   @media (max-width: 768px) {
     .navbar .container-fluid { align-items:flex-start; gap:8px; }
@@ -515,13 +527,15 @@ function render(){
   renderChartScopes(rows);
   renderKPIs(rows);
   renderReporte1430(rows);
-  renderHora(rows);
   renderHeatmap(rows);
-  renderFranja(rows);
-  renderAcum(rows);
-  renderCat(rows,'chLocalidad','localidad',10,true);
-  renderCat(rows,'chVendedor','vendedor',10,true);
-  renderCanal(rows);
+  if(typeof Chart !== 'undefined'){
+    renderHora(rows);
+    renderFranja(rows);
+    renderAcum(rows);
+    renderCat(rows,'chLocalidad','localidad',10,true);
+    renderCat(rows,'chVendedor','vendedor',10,true);
+    renderCanal(rows);
+  }
 }
 
 function renderKPIs(rows){
@@ -751,11 +765,7 @@ async function analizarConIA(){
 }
 
 function baseChart(id, cfg){
-  if(typeof Chart==='undefined'){
-    const box=document.getElementById(id)?.closest('.card-body');
-    if(box&&!box.querySelector('.chart-error')) box.insertAdjacentHTML('beforeend','<div class="chart-error text-danger small mt-2">No se pudo cargar la librer?a de gr?ficos. Recarg? la p?gina.</div>');
-    return;
-  }
+  if(typeof Chart==='undefined') return;
   const canvas = document.getElementById(id);
   const box = canvas?.parentElement;
   box?.querySelector('.chart-empty')?.remove();
@@ -815,8 +825,30 @@ const valueLabelsPlugin = {
     ctx.restore();
   }
 };
-if(typeof Chart !== 'undefined'){
+let valueLabelsRegistered = false;
+function registerChartPlugins(){
+  if(typeof Chart === 'undefined' || valueLabelsRegistered) return;
   Chart.register(valueLabelsPlugin);
+  valueLabelsRegistered = true;
+}
+
+function loadChartLibrary(){
+  if(typeof Chart !== 'undefined'){
+    registerChartPlugins();
+    if(RAW.length) render();
+    return;
+  }
+  const script = document.createElement('script');
+  script.src = 'https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js';
+  script.async = true;
+  script.onload = ()=>{
+    registerChartPlugins();
+    if(RAW.length) render();
+  };
+  script.onerror = ()=>document.querySelectorAll('.chart-wrap,.daily-chart').forEach(box=>{
+    if(!box.querySelector('.chart-error')) box.insertAdjacentHTML('beforeend','<div class="chart-error text-danger small position-absolute top-50 start-50 translate-middle text-center">No se pudieron cargar los gráficos.</div>');
+  });
+  document.head.appendChild(script);
 }
 
 function renderHora(rows){
@@ -948,6 +980,8 @@ function renderHeatmap(rows){
   }
   el.innerHTML=html;
 }
+if('requestIdleCallback' in window) window.requestIdleCallback(loadChartLibrary,{timeout:1200});
+else window.setTimeout(loadChartLibrary,80);
 </script>
 </body>
 </html>

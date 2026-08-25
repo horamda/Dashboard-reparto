@@ -3,7 +3,7 @@ import os
 import threading
 import time
 import unittest
-from unittest.mock import patch
+from unittest.mock import call, patch
 
 os.environ["DISABLE_CACHE_PREWARM"] = "1"
 
@@ -92,6 +92,35 @@ class AppRuntimeTests(unittest.TestCase):
         marks.assert_not_called()
         self.assertEqual(rows, [])
         self.assertEqual(warning, "")
+
+    def test_admin_can_complete_missing_logistics_data_from_api(self):
+        with self.client.session_transaction() as user_session:
+            user_session["admin_logged_in"] = True
+        stats = {
+            "api_rows": 3,
+            "routes_updated": 2,
+            "routes_unmatched": 1,
+            "routes_ambiguous": 0,
+            "fields_updated": {"camion": 1, "bultos": 2},
+        }
+        with patch.object(
+            app_module.pipeline,
+            "completar_rutas_desde_api_logistica",
+            return_value=stats,
+        ) as sync, patch.object(
+            app_module.pipeline, "clear_dashboard_cache"
+        ) as clear_cache, patch.object(
+            app_module, "_admin_page", side_effect=lambda msg, err=False: msg
+        ):
+            response = self.client.post(
+                "/actualizar-logistica-api",
+                data={"desde": "2026-08-01", "hasta": "2026-08-13", "sucursal": "2"},
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b"Rutas actualizadas: 2", response.data)
+        sync.assert_called_once_with("2026-08-01", "2026-08-13", "2")
+        clear_cache.assert_has_calls([call(include_external=True)])
 
     def test_cost_config_rejects_weights_that_do_not_sum_one(self):
         with self.client.session_transaction() as user_session:

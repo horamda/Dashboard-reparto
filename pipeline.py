@@ -14,7 +14,7 @@ import time
 import unicodedata
 from concurrent.futures import ThreadPoolExecutor
 from functools import wraps
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from io import StringIO
 from http.cookiejar import CookieJar
 from urllib.error import HTTPError
@@ -47,6 +47,10 @@ RECHAZOS_API_URL = os.environ.get(
 RECHAZOS_SUCURSAL = os.environ.get("RECHAZOS_SUCURSAL", "Dolores")
 RECHAZOS_SUCURSAL_ID = os.environ.get("RECHAZOS_SUCURSAL_ID", "2")
 RECHAZOS_SUCURSALES_IMPORT = os.environ.get("RECHAZOS_API_SUCURSAL", "TODAS")
+LOGISTICS_INTEGRATION_API_BASE_URL = os.environ.get(
+    "LOGISTICS_INTEGRATION_API_BASE_URL",
+    RECHAZOS_API_URL.split("/api/", 1)[0],
+).rstrip("/")
 FICHAYA_API_BASE_URL = os.environ.get("FICHAYA_API_BASE_URL", "https://control-asistencia.up.railway.app").rstrip("/")
 FICHAYA_API_USERNAME = os.environ.get("FICHAYA_API_USERNAME") or os.environ.get("EXTERNAL_API_USERNAME")
 FICHAYA_API_PASSWORD = os.environ.get("FICHAYA_API_PASSWORD") or os.environ.get("EXTERNAL_API_PASSWORD")
@@ -252,11 +256,67 @@ def _parse_hora_fichaya(v):
     return None
 
 
+def _first_env(*names):
+    for name in names:
+        value = os.environ.get(name)
+        if value and value.strip():
+            return value.strip()
+    return None
+
+
+def _fichaya_credentials():
+    common_username = _first_env("FICHAYA_USERNAME", "FICHAYA_USER")
+    common_password = _first_env("FICHAYA_PASSWORD")
+    api_username = _first_env(
+        "FICHAYA_API_USERNAME", "FICHAYA_API_USER", "EXTERNAL_API_USERNAME"
+    ) or FICHAYA_API_USERNAME
+    api_password = _first_env(
+        "FICHAYA_API_PASSWORD", "EXTERNAL_API_PASSWORD"
+    ) or FICHAYA_API_PASSWORD
+    web_username = _first_env(
+        "FICHAYA_WEB_USERNAME", "FICHAYA_WEB_USER"
+    ) or FICHAYA_WEB_USERNAME
+    web_password = _first_env("FICHAYA_WEB_PASSWORD") or FICHAYA_WEB_PASSWORD
+
+    # Ambos accesos usan la misma cuenta en la instalacion actual. Los fallbacks
+    # permiten configurar un solo par sin depender del nombre historico usado.
+    api_username = api_username or web_username or common_username
+    api_password = api_password or web_password or common_password
+    web_username = web_username or api_username or common_username
+    web_password = web_password or api_password or common_password
+    return {
+        "base_url": (_first_env("FICHAYA_API_BASE_URL") or FICHAYA_API_BASE_URL).rstrip("/"),
+        "api_username": api_username,
+        "api_password": api_password,
+        "web_username": web_username,
+        "web_password": web_password,
+    }
+
+
+def _fichaya_integration_mode():
+    mode = (_first_env("FICHAYA_INTEGRATION_MODE", "FICHAYA_MODE") or "web").lower()
+    return mode if mode in {"web", "api", "auto"} else "web"
+
+
+def fichaya_credentials_status():
+    credentials = _fichaya_credentials()
+    return {
+        "base_url": credentials["base_url"],
+        "mode": _fichaya_integration_mode(),
+        "api_configured": bool(credentials["api_username"] and credentials["api_password"]),
+        "web_configured": bool(credentials["web_username"] and credentials["web_password"]),
+    }
+
+
 def _fichaya_token():
-    if not FICHAYA_API_USERNAME or not FICHAYA_API_PASSWORD:
+    credentials = _fichaya_credentials()
+    if not credentials["api_username"] or not credentials["api_password"]:
         return None
-    url = FICHAYA_API_BASE_URL + "/api/v1/external/auth/token"
-    body = json.dumps({"username": FICHAYA_API_USERNAME, "password": FICHAYA_API_PASSWORD}).encode("utf-8")
+    url = credentials["base_url"] + "/api/v1/external/auth/token"
+    body = json.dumps({
+        "username": credentials["api_username"],
+        "password": credentials["api_password"],
+    }).encode("utf-8")
     req = Request(url, data=body, headers={"Content-Type": "application/json", "Accept": "application/json"}, method="POST")
     with urlopen(req, timeout=30) as res:
         return json.loads(res.read().decode("utf-8")).get("access_token")
@@ -268,18 +328,19 @@ def _csrf_from_html(html):
 
 
 def _fichaya_web_csv(desde, hasta):
-    if not FICHAYA_WEB_USERNAME or not FICHAYA_WEB_PASSWORD:
+    credentials = _fichaya_credentials()
+    if not credentials["web_username"] or not credentials["web_password"]:
         raise RuntimeError("faltan FICHAYA_WEB_USERNAME/FICHAYA_WEB_PASSWORD")
     opener = build_opener(HTTPCookieProcessor(CookieJar()))
-    login_url = FICHAYA_API_BASE_URL + "/login"
+    login_url = credentials["base_url"] + "/login"
     with opener.open(Request(login_url, headers={"Accept": "text/html"}), timeout=30) as res:
         login_html = res.read().decode("utf-8", errors="replace")
     csrf = _csrf_from_html(login_html)
     if not csrf:
         raise RuntimeError("no se pudo obtener CSRF del login web FichaYA")
     body = urlencode({
-        "username": FICHAYA_WEB_USERNAME,
-        "password": FICHAYA_WEB_PASSWORD,
+        "username": credentials["web_username"],
+        "password": credentials["web_password"],
         "csrf_token": csrf,
     }).encode("utf-8")
     req = Request(
@@ -288,7 +349,7 @@ def _fichaya_web_csv(desde, hasta):
         headers={
             "Content-Type": "application/x-www-form-urlencoded",
             "Accept": "text/html",
-            "Origin": FICHAYA_API_BASE_URL,
+            "Origin": credentials["base_url"],
             "Referer": login_url,
         },
         method="POST",
@@ -303,7 +364,7 @@ def _fichaya_web_csv(desde, hasta):
         "fecha_hasta": hasta,
         "tipo_marca": "jornada",
     })
-    req = Request(FICHAYA_API_BASE_URL + "/asistencias/marcas.csv?" + params, headers={"Accept": "text/csv"})
+    req = Request(credentials["base_url"] + "/asistencias/marcas.csv?" + params, headers={"Accept": "text/csv"})
     with opener.open(req, timeout=60) as res:
         ctype = res.headers.get("Content-Type", "")
         raw = res.read().decode("utf-8-sig", errors="replace")
@@ -313,6 +374,7 @@ def _fichaya_web_csv(desde, hasta):
 
 
 def _fichaya_external_csv(desde, hasta):
+    credentials = _fichaya_credentials()
     token = _fichaya_token()
     if not token:
         raise RuntimeError("faltan credenciales de API externa FichaYA")
@@ -323,7 +385,7 @@ def _fichaya_external_csv(desde, hasta):
         "estado": "all",
         "limit": 20000,
     })
-    url = FICHAYA_API_BASE_URL + "/api/v1/external/reportes/asistencia.csv?" + params
+    url = credentials["base_url"] + "/api/v1/external/reportes/asistencia.csv?" + params
     req = Request(url, headers={"Authorization": f"Bearer {token}", "Accept": "text/csv"})
     with urlopen(req, timeout=60) as res:
         return res.read().decode("utf-8-sig", errors="replace")
@@ -409,24 +471,295 @@ def fichaya_cache_info():
 
 
 def cargar_fichadas(desde, hasta, force_live=False):
+    cached = {}
     if not force_live:
         cached = cargar_fichadas_cache(desde, hasta)
         if cached:
             return cached
-    try:
-        fichadas = _indexar_fichadas_csv(_fichaya_web_csv(desde, hasta))
-        _guardar_fichadas_cache(fichadas)
-        return fichadas
-    except Exception as web_exc:
+    status = fichaya_credentials_status()
+    mode = status["mode"]
+    sources = []
+    if mode in {"web", "auto"}:
+        sources.append((
+            "acceso web",
+            status["web_configured"],
+            _fichaya_web_csv,
+            "faltan FICHAYA_WEB_USERNAME/FICHAYA_WEB_PASSWORD en las variables del servicio",
+        ))
+    if mode in {"api", "auto"}:
+        sources.append((
+            "API externa",
+            status["api_configured"],
+            _fichaya_external_csv,
+            "faltan FICHAYA_API_USERNAME/FICHAYA_API_PASSWORD en las variables del servicio",
+        ))
+
+    errors = []
+    for label, configured, loader, missing_message in sources:
+        if not configured:
+            errors.append(f"{label}: {missing_message}")
+            continue
         try:
-            fichadas = _indexar_fichadas_csv(_fichaya_external_csv(desde, hasta))
+            fichadas = _indexar_fichadas_csv(loader(desde, hasta))
             _guardar_fichadas_cache(fichadas)
             return fichadas
-        except Exception as api_exc:
-            cached = cargar_fichadas_cache(desde, hasta)
-            if cached:
-                return cached
-            raise RuntimeError(f"web: {web_exc}; api externa: {api_exc}")
+        except Exception as exc:
+            errors.append(f"{label}: {exc}")
+
+    cached = cargar_fichadas_cache(desde, hasta)
+    if cached:
+        return cached
+    raise RuntimeError("; ".join(errors) or "no hay un método FichaYA habilitado")
+
+
+def _logistics_integration_config():
+    base_url = (
+        _first_env("LOGISTICS_INTEGRATION_API_BASE_URL", "LOGISTICS_API_BASE_URL")
+        or LOGISTICS_INTEGRATION_API_BASE_URL
+    ).rstrip("/")
+    return {
+        "base_url": base_url,
+        "endpoint": base_url + "/api/v1/integracion/logistica/diaria",
+        "api_key": _first_env("LOGISTICS_INTEGRATION_API_KEY", "INTEGRATION_API_KEY"),
+        "empresa_id": _first_env("LOGISTICS_INTEGRATION_EMPRESA_ID") or "1",
+        "timeout": float(_first_env("LOGISTICS_INTEGRATION_TIMEOUT_SECONDS") or "30"),
+    }
+
+
+def logistics_integration_status():
+    config = _logistics_integration_config()
+    return {
+        "base_url": config["base_url"],
+        "endpoint": config["endpoint"],
+        "configured": bool(config["api_key"]),
+        "empresa_id": config["empresa_id"],
+    }
+
+
+def _logistics_api_error(exc):
+    raw = exc.read().decode("utf-8", errors="replace") if hasattr(exc, "read") else ""
+    try:
+        payload = json.loads(raw) if raw else {}
+    except json.JSONDecodeError:
+        payload = {}
+    message = str(payload.get("error") or raw or exc.reason or exc)
+    if payload.get("codigo") == "integration_not_configured":
+        message += " Configurá INTEGRATION_API_KEY en el servicio productor de Railway."
+    return f"API logística HTTP {getattr(exc, 'code', '')}: {message}".strip()
+
+
+def _consultar_logistica_api_chunk(desde, hasta, sucursal="TODAS"):
+    config = _logistics_integration_config()
+    if not config["api_key"]:
+        raise RuntimeError(
+            "Falta LOGISTICS_INTEGRATION_API_KEY en las variables del servicio consumidor."
+        )
+    rows, offset, pages = [], 0, 0
+    while True:
+        params = urlencode({
+            "desde": desde.isoformat(),
+            "hasta": hasta.isoformat(),
+            "empresa_id": config["empresa_id"],
+            "sucursal": sucursal or "TODAS",
+            "incluir_clientes": 0,
+            "limit": 1000,
+            "offset": offset,
+        })
+        req = Request(
+            config["endpoint"] + "?" + params,
+            headers={"X-API-Key": config["api_key"], "Accept": "application/json"},
+        )
+        try:
+            with urlopen(req, timeout=config["timeout"]) as response:
+                payload = json.loads(response.read().decode("utf-8"))
+        except HTTPError as exc:
+            raise RuntimeError(_logistics_api_error(exc)) from exc
+        except (OSError, ValueError, json.JSONDecodeError) as exc:
+            raise RuntimeError(f"No se pudo consultar la API logística: {exc}") from exc
+        if payload.get("api_version") != "v1" or not isinstance(payload.get("datos"), list):
+            raise RuntimeError("La API logística devolvió una respuesta incompatible con el contrato v1.")
+        page_rows = payload["datos"]
+        rows.extend(page_rows)
+        pages += 1
+        pagination = payload.get("paginacion") or {}
+        total = int(pagination.get("total") or len(rows))
+        if not pagination.get("hay_mas") or not page_rows or len(rows) >= total:
+            break
+        offset += len(page_rows)
+    return rows, pages
+
+
+def consultar_logistica_api(desde, hasta, sucursal="TODAS"):
+    start = date.fromisoformat(str(desde))
+    end = date.fromisoformat(str(hasta))
+    if start > end:
+        raise ValueError("Desde no puede ser posterior a hasta.")
+    if (end - start).days > 366:
+        raise ValueError("La sincronización admite como máximo 367 días por ejecución.")
+    rows, pages, chunks = [], 0, 0
+    cursor = start
+    while cursor <= end:
+        chunk_end = min(end, cursor + timedelta(days=30))
+        chunk_rows, chunk_pages = _consultar_logistica_api_chunk(cursor, chunk_end, sucursal)
+        rows.extend(chunk_rows)
+        pages += chunk_pages
+        chunks += 1
+        cursor = chunk_end + timedelta(days=1)
+    return {"datos": rows, "paginas": pages, "rangos": chunks}
+
+
+def _norm_logistics_match(value):
+    normalized = _norm_persona_key(value)
+    return re.sub(r"[^A-Z0-9]+", " ", normalized).strip()
+
+
+def _norm_logistics_branch(value):
+    normalized = _norm_logistics_match(value)
+    if normalized in {"1", "CASA CENTRAL"} or "MAR DE AJO" in normalized:
+        return "CASA CENTRAL"
+    if normalized == "2" or "DOLORES" in normalized:
+        return "DOLORES"
+    if normalized == "3" or "CHASCOMUS" in normalized:
+        return "CHASCOMUS"
+    return re.sub(r"\b(SUCURSAL|DEPOSITO)\b", "", normalized).strip()
+
+
+def _driver_match_keys(name, code=""):
+    keys = set()
+    normalized = _norm_logistics_match(name)
+    if normalized and normalized not in {"SIN CHOFER", "SIN CONDUCTOR"}:
+        keys.add("NAME:" + normalized)
+        keys.add("TOKENS:" + " ".join(sorted(normalized.split())))
+    normalized_code = _norm_id(code)
+    if normalized_code:
+        keys.add("ID:" + normalized_code)
+    return keys
+
+
+def _vehicle_match_keys(item):
+    values = item if isinstance(item, (list, tuple, set)) else [item]
+    keys = set()
+    for value in values:
+        normalized = _norm_logistics_match(value)
+        if not normalized or normalized in {"SIN CAMION", "SIN TRANSPORTE"}:
+            continue
+        keys.add(normalized)
+        keys.add(normalized.replace(" ", ""))
+    return keys
+
+
+def _route_needs_logistics_data(route):
+    missing_vehicle = _norm_logistics_match(route.get("camion")) in {"", "SIN CAMION", "SIN TRANSPORTE"}
+    missing_volume = any(_to_float(route.get(key)) <= 0 for key in ("bultos", "hl", "pallets", "unidades"))
+    return missing_vehicle or missing_volume
+
+
+def _logistics_api_source(item):
+    fields = (
+        "fecha", "empresa_id", "sucursal_id", "sucursal", "camion_codigo",
+        "camion_descripcion", "patente", "marca", "modelo", "carga_maxima_kg",
+        "capacidad_up", "camion_en_maestro_flota", "chofer_codigo", "chofer",
+        "clientes", "documentos", "bultos", "hl", "pallets_estimados", "up",
+        "lineas_origen", "calidad",
+    )
+    return {key: item.get(key) for key in fields if key in item}
+
+
+def completar_rutas_desde_api_logistica(desde, hasta, sucursal="TODAS"):
+    api_result = consultar_logistica_api(desde, hasta, sucursal)
+    api_rows = [row for row in api_result["datos"] if isinstance(row, dict)]
+    routes = storage.load_routes_for_logistics_sync(desde, hasta)
+    incomplete_routes = [route for route in routes if _route_needs_logistics_data(route)]
+
+    api_by_day_branch = {}
+    for index, item in enumerate(api_rows):
+        key = (str(item.get("fecha") or ""), _norm_logistics_branch(item.get("sucursal") or item.get("sucursal_id")))
+        api_by_day_branch.setdefault(key, []).append((index, item))
+
+    proposals = []
+    unmatched = ambiguous = 0
+    for route in incomplete_routes:
+        base_key = (str(route.get("fecha") or ""), _norm_logistics_branch(route.get("suc")))
+        route_driver = _driver_match_keys(route.get("chofer"), route.get("chofer_codigo"))
+        candidates = [
+            (index, item) for index, item in api_by_day_branch.get(base_key, [])
+            if route_driver & _driver_match_keys(item.get("chofer"), item.get("chofer_codigo"))
+        ]
+        existing_vehicle = _vehicle_match_keys(route.get("camion"))
+        if len(candidates) > 1 and existing_vehicle:
+            vehicle_matches = [
+                candidate for candidate in candidates
+                if existing_vehicle & _vehicle_match_keys((
+                    candidate[1].get("camion_codigo"), candidate[1].get("patente"),
+                    candidate[1].get("camion_descripcion"),
+                ))
+            ]
+            if vehicle_matches:
+                candidates = vehicle_matches
+        if len(candidates) == 1:
+            proposals.append((route, candidates[0][0], candidates[0][1]))
+        elif candidates:
+            ambiguous += 1
+        else:
+            unmatched += 1
+
+    api_usage = {}
+    for _, api_index, _ in proposals:
+        api_usage[api_index] = api_usage.get(api_index, 0) + 1
+
+    updates = []
+    fields_updated = {key: 0 for key in ("camion", "bultos", "hl", "pallets", "unidades")}
+    matched = 0
+    synced_at = datetime.now().astimezone().isoformat()
+    for route, api_index, item in proposals:
+        if api_usage[api_index] > 1:
+            ambiguous += 1
+            continue
+        matched += 1
+        values = {}
+        if _norm_logistics_match(route.get("camion")) in {"", "SIN CAMION", "SIN TRANSPORTE"}:
+            vehicle = item.get("patente") or item.get("camion_codigo")
+            if _vehicle_match_keys(vehicle):
+                values["camion"] = str(vehicle).strip()
+        api_fields = {
+            "bultos": item.get("bultos"),
+            "hl": item.get("hl"),
+            "pallets": item.get("pallets_estimados"),
+            "unidades": item.get("up"),
+        }
+        for field, value in api_fields.items():
+            if _to_float(route.get(field)) <= 0 and _to_float(value) > 0:
+                values[field] = round(_to_float(value), 4)
+        if not values:
+            continue
+        for field in values:
+            fields_updated[field] += 1
+        updates.append({
+            "rid": route["rid"],
+            "values": values,
+            "payload": {
+                "logistics_data_sources": {field: "api_logistica_v1" for field in values},
+                "logistics_api": {
+                    "api_version": "v1",
+                    "synced_at": synced_at,
+                    "match_criterion": "fecha_sucursal_chofer_unico",
+                    "source": _logistics_api_source(item),
+                },
+            },
+        })
+    updated = storage.update_routes_from_logistics_api(updates)
+    return {
+        "api_rows": len(api_rows),
+        "api_pages": api_result["paginas"],
+        "api_ranges": api_result["rangos"],
+        "routes_considered": len(routes),
+        "routes_incomplete": len(incomplete_routes),
+        "routes_matched": matched,
+        "routes_updated": updated,
+        "routes_unmatched": unmatched,
+        "routes_ambiguous": ambiguous,
+        "fields_updated": fields_updated,
+    }
 
 
 def _minutos_entre(a, b):
@@ -623,20 +956,36 @@ def cargar_dqi():
     fecha_col = _pick_col(df, ["Fecha Mvto", "Fecha Movimiento", "Fecha"])
     unids_col = _pick_col(df, ["Unids", "Unidades"])
     bultos_col = _pick_col(df, ["Bultos"])
+    bultos_real_col = _pick_col(df, ["BULTOS_REAL", "Bultos Real", "Bultos reales"])
+    hl_real_col = _pick_col(df, ["ROTURA_HL_REAL", "Rotura HL Real", "HL Real"])
     deposito_col = _pick_col(df, ["Depósito", "Deposito"])
     articulo_col = _pick_col(df, ["Artículo", "Articulo"])
-    transporte_cols = [
+    articulo_descripcion_col = _pick_col(df, ["Descripción Artículo", "Descripcion Articulo"])
+    sector_col = _pick_col(df, ["SECTOR", "Sector"])
+    transporte_col = _pick_col(df, ["Transporte"])
+    transporte_descripcion_cols = list(dict.fromkeys(
         c for c in [
-            _pick_col(df, ["Transporte"]),
             _pick_col(df, ["Descripción Transporte", "Descripcion Transporte"]),
-            _pick_col(df, ["Descripción Movimiento", "Descripcion Movimiento"]),
+            _pick_col(df, ["ALMACENAMIENTO", "Almacenamiento"]),
+            _pick_col(df, ["Vehículo", "Vehiculo", "Camión", "Camion"]),
+            _pick_col(df, ["Descripción", "Descripcion"]),
         ] if c is not None
-    ]
-    if fecha_col is None or unids_col is None:
-        return {"rows": [], "error": "El CSV de DQI no trae Fecha Mvto y Unids."}
+    ))
+    movimiento_col = _pick_col(df, ["Descripción Movimiento", "Descripcion Movimiento"])
+    transporte_cols = list(dict.fromkeys(
+        c for c in [transporte_col, *transporte_descripcion_cols, movimiento_col]
+        if c is not None
+    ))
+    has_fallback_volume = bultos_col is not None or unids_col is not None
+    if fecha_col is None or (bultos_real_col is None and not has_fallback_volume):
+        return {"rows": [], "error": "El CSV de DQI no trae fecha ni volumen de roturas utilizables."}
     articulos = storage.load_articulos()
 
     def es_entrega(row):
+        if sector_col is not None:
+            sector = _norm_persona_key(row.get(sector_col))
+            if sector:
+                return sector in {"REPARTO", "DISTRIBUCION", "ENTREGA"}
         if not transporte_cols:
             return True
         txt = " ".join(str(row.get(c, "")) for c in transporte_cols).lower()
@@ -647,8 +996,12 @@ def cargar_dqi():
         return False
 
     def bultos_equivalentes(row):
+        if bultos_real_col is not None:
+            raw_real = str(row.get(bultos_real_col, "")).strip()
+            if raw_real:
+                return max(0.0, _to_float(raw_real))
         bultos = _to_float(row.get(bultos_col)) if bultos_col is not None else 0.0
-        unids = _to_float(row.get(unids_col))
+        unids = _to_float(row.get(unids_col)) if unids_col is not None else 0.0
         articulo = _norm_id(row.get(articulo_col)) if articulo_col is not None else ""
         upb = (articulos.get(articulo) or {}).get("unidades_por_bulto")
         extra = (unids / upb) if upb and upb > 0 else 0.0
@@ -671,7 +1024,16 @@ def cargar_dqi():
             continue
         articulo = _norm_id(r.get(articulo_col)) if articulo_col is not None else ""
         art = articulos.get(articulo) or {}
-        camion = " ".join(str(r.get(c, "")).strip() for c in transporte_cols if str(r.get(c, "")).strip())
+        descripcion_camion = next((
+            str(r.get(c, "")).strip() for c in transporte_descripcion_cols
+            if str(r.get(c, "")).strip()
+        ), "")
+        camion = " · ".join(dict.fromkeys(
+            value for value in (
+                str(r.get(transporte_col, "")).strip() if transporte_col is not None else "",
+                descripcion_camion,
+            ) if value
+        ))
         if not camion:
             camion = "Sin camion"
         daily[fecha] = daily.get(fecha, 0.0) + bultos_eq
@@ -680,8 +1042,12 @@ def cargar_dqi():
             "mes": fecha[:7],
             "camion": camion,
             "articulo": articulo,
-            "descripcion": art.get("descripcion") or str(r.get(_pick_col(df, ["Descripción Artículo", "Descripcion Articulo"]) or "", "")).strip(),
+            "descripcion": art.get("descripcion") or (
+                str(r.get(articulo_descripcion_col, "")).strip()
+                if articulo_descripcion_col is not None else ""
+            ),
             "bultos": round(bultos_eq, 2),
+            "hl": round(_to_float(r.get(hl_real_col)), 4) if hl_real_col is not None else 0.0,
         })
     rows = [
         {"fecha": fecha, "mes": fecha[:7], "dqi": round(valor, 1)}
