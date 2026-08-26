@@ -39,6 +39,13 @@ Las rutas se actualizan por `Route ID`. Las visitas se actualizan por ruta y
 cliente. Los lotes usan `execute_values`, indices dedicados y un pool de
 conexiones para evitar escrituras fila por fila.
 
+El módulo DQI toma de la hoja publicada únicamente `Depósito = 7`, `TIPO = DQI`
+y `TIPOMERC = MERCADERIA`; envases y esqueletos quedan excluidos. Los indicadores de calidad usan `DQI_WQI_BULTOS` y
+`DQI_WQI_HL`; `BULTOS_REAL` y `ROTURA_HL_REAL` se conservan como rotura física
+separada. La solapa DQI presenta ambas familias en bloques independientes. Antes
+de sumar se descartan solo las filas que son duplicados exactos. Team Room
+repite las cuatro métricas y las acumula por día, semana y mes.
+
 ## Costos logisticos
 
 La configuracion incluye combustible, costo por kilometro, mano de obra,
@@ -73,6 +80,12 @@ FichaYA usa por defecto `FICHAYA_INTEGRATION_MODE=web`: inicia sesión con
 requerir la API externa. Los modos `api` y `auto` quedan disponibles para cuando
 esa integración sea habilitada. Un `.env` local no se copia a Railway: las
 variables del modo elegido deben cargarse también en el servicio desplegado.
+
+El reporte FichaYA/Foxtrot permite guardar ajustes manuales por `Route ID` para
+las cuatro marcas horarias. Se persisten aparte de los datos importados, por lo
+que una sincronización posterior no los sobrescribe. Cada ajuste registra
+motivo, usuario y fecha; la acción `Restablecer origen` elimina únicamente el
+ajuste y vuelve a mostrar los valores recibidos de FichaYA/Foxtrot.
 
 La API logística v1 completa campos faltantes de las rutas con
 `GET /api/v1/integracion/logistica/diaria`. El consumidor usa

@@ -93,6 +93,26 @@ class FichayaCredentialTests(unittest.TestCase):
         web.assert_called_once()
         api.assert_not_called()
 
+    def test_forced_refresh_does_not_hide_failure_behind_stale_cache(self):
+        stale = {
+            ("2026-08-24", "OPERADOR"): {
+                "ingreso": pipeline._parse_hora_fichaya("07:30"),
+                "egreso": pipeline._parse_hora_fichaya("14:30"),
+            }
+        }
+        status = {"mode": "web", "web_configured": True, "api_configured": False}
+        with patch.object(
+            pipeline, "cargar_fichadas_cache", return_value=stale
+        ), patch.object(
+            pipeline, "fichaya_credentials_status", return_value=status
+        ), patch.object(
+            pipeline, "_fichaya_web_csv", side_effect=RuntimeError("servicio no disponible")
+        ):
+            with self.assertRaisesRegex(RuntimeError, "servicio no disponible"):
+                pipeline.cargar_fichadas(
+                    "2026-08-01", "2026-08-25", force_live=True
+                )
+
 
 class TabletLayoutTests(unittest.TestCase):
     def test_operational_dashboard_has_tablet_breakpoint_and_idle_charts(self):
@@ -101,6 +121,27 @@ class TabletLayoutTests(unittest.TestCase):
         self.assertIn("@media(min-width:721px) and (max-width:1024px)", html)
         self.assertIn("requestIdleCallback(loadDashboardCharts", html)
         self.assertIn("min-height:44px", html)
+
+    def test_operational_dashboard_cross_filters_chart_dimensions(self):
+        html = (ROOT / "plantilla_dashboard.html").read_text(encoding="utf-8")
+
+        self.assertIn('id="fFecha" type="date"', html)
+        self.assertIn('id="filterContext"', html)
+        self.assertIn("function applyChartFilter(dimension,value)", html)
+        self.assertIn("function chartInteraction(selection)", html)
+        self.assertIn("chartFilter('mes',ser.map(s=>s.key))", html)
+        self.assertIn("chartFilter('fecha',dd.map(s=>s.key))", html)
+        self.assertIn("chartFilter('cho',rc.map(r=>r.key)", html)
+        self.assertIn("otChart('chOTZona',byZona,'suc')", html)
+        self.assertIn("const ser=aggOperativo('mes',usM)", html)
+        self.assertIn("const full=r=>base(r)&&periodOk(r)", html)
+
+    def test_operational_compliance_shows_route_numerator_and_denominator(self):
+        html = (ROOT / "plantilla_dashboard.html").read_text(encoding="utf-8")
+
+        self.assertIn('id="oTIcmp"', html)
+        self.assertIn('id="oTMLcmp"', html)
+        self.assertIn('result.ok+" de "+result.total+" rutas', html)
 
     def test_orders_loads_chartjs_dynamically_and_supports_tablets(self):
         html = (ROOT / "templates" / "plantilla_pedidos.html").read_text(
@@ -113,18 +154,80 @@ class TabletLayoutTests(unittest.TestCase):
             '<script src="https://cdn.jsdelivr.net/npm/chart.js', html
         )
 
+    def test_dqi_view_separates_physical_breakage_from_quality_indicators(self):
+        html = (ROOT / "plantilla_dashboard.html").read_text(encoding="utf-8")
+
+        self.assertIn("dqi-real-section", html)
+        self.assertIn("dqi-quality-section", html)
+        self.assertIn("Roturas reales", html)
+        self.assertIn("Indicadores de calidad", html)
+        self.assertIn("BULTOS_REAL", html)
+        self.assertIn("ROTURA_HL_REAL", html)
+        self.assertIn("DQI_WQI_BULTOS", html)
+        self.assertIn("DQI_WQI_HL", html)
+        self.assertIn('id="chDqiRealBultos"', html)
+        self.assertIn('id="chDqiRealHl"', html)
+        self.assertIn('id="chDqiDia"', html)
+        self.assertIn('id="chDqiHlDia"', html)
+        self.assertIn("rankDqi(realDet,'camion','bultos_real')", html)
+        self.assertIn("rankDqi(det,'camion','bultos')", html)
+
+    def test_dqi_view_compares_monthly_and_cumulative_history(self):
+        html = (ROOT / "plantilla_dashboard.html").read_text(encoding="utf-8")
+
+        self.assertIn('id="chDqiHistoricoMes"', html)
+        self.assertIn('id="chDqiHistoricoAcum"', html)
+        self.assertIn('id="tbodyDqiHistorico"', html)
+        self.assertIn('data-dqi-history-metric="dqi"', html)
+        self.assertIn('data-dqi-history-metric="dqi_hl"', html)
+        self.assertIn("function dqiHistoricalSeries(field)", html)
+        self.assertIn("function dqiHistoryChart(id,series,cumulative)", html)
+        self.assertIn("return String(r.fecha||'').startsWith(DQI_FOCUS_YEAR+'-')", html)
+        self.assertIn("...DQI.map(r=>r.mes).filter(Boolean)", html)
+
+    def test_dpo_gkpis_shows_monthly_dqi_plus_wqi_in_hl(self):
+        html = (ROOT / "plantilla_dashboard.html").read_text(encoding="utf-8")
+
+        self.assertIn('id="chDpoDqiWqiMes"', html)
+        self.assertIn('id="chDpoDqiWqiAcum"', html)
+        self.assertIn('id="tbodyDpoDqiWqi"', html)
+        self.assertIn("DQIWQI=(DATA.dqi&&DATA.dqi.dqi_wqi_rows)||[]", html)
+        self.assertIn("function dpoQualityMonthly()", html)
+        self.assertIn("function dpoQualityStackedChart(id,items)", html)
+        self.assertIn("function dpoQualityCumulativeChart(id,items)", html)
+        self.assertIn("renderDpoQuality();", html)
+        self.assertIn("solo TIPOMERC MERCADERIA", html)
+
+    def test_team_room_sums_and_separates_dqi_metrics(self):
+        html = (ROOT / "plantilla_dashboard.html").read_text(encoding="utf-8")
+
+        self.assertIn("function dqiSum(rows,field)", html)
+        self.assertNotIn("function dqiAvg(rows)", html)
+        self.assertIn("'real_bultos','Bultos reales'", html)
+        self.assertIn("'real_hl','HL reales'", html)
+        self.assertIn("'dqi_bultos','DQI en bultos'", html)
+        self.assertIn("'dqi_hl','DQI en HL'", html)
+        self.assertIn("DQI y roturas: solo MERCADERIA", html)
+        self.assertIn("key==='dqi_bultos'&&period==='day'", html)
+        self.assertIn("key==='dqi_bultos'&&period==='month'", html)
+
 
 class DqiSheetTests(unittest.TestCase):
     def tearDown(self):
         pipeline.cargar_dqi.cache_clear()
 
-    def test_current_sheet_columns_load_real_breakage_volume(self):
+    def test_current_sheet_uses_weighted_dqi_and_keeps_physical_volume(self):
         csv_data = (
-            "Depósito,Fecha Mvto,Transporte,ALMACENAMIENTO,Artículo,"
-            "Descripción Artículo,Bultos,Unids,BULTOS_REAL,ROTURA_HL_REAL,SECTOR\n"
-            '7,13/8/2026,1403,(08) IVECO TECTOR (AF071AX),20433,CORONA,0,2,"0,25","0,05",REPARTO\n'
-            '7,13/8/2026,16,ALMACENAMIENTO,20433,CORONA,0,8,"1,00","0,20",ALMACEN\n'
-            '2,13/8/2026,1100,(19) IVECO TECTOR,20433,CORONA,0,4,"0,50","0,10",REPARTO\n'
+            "Depósito,Tipo,Fecha Mvto,Transporte,ALMACENAMIENTO,Artículo,"
+            "Descripción Artículo,Bultos,Unids,UXB,DQI_WQI_BULTOS,BULTOS_REAL,"
+            "DQI_WQI_HL,ROTURA_HL_REAL,TIPOMERC,TIPO\n"
+            '7,RCS,13/8/2026,1403,(08) IVECO TECTOR (AF071AX),20433,CORONA,0,2,8,"0,25","0,08","0,03","0,01",MERCADERIA,DQI\n'
+            '7,RCS,13/8/2026,1403,(08) IVECO TECTOR (AF071AX),20433,CORONA,0,2,8,"0,25","0,08","0,03","0,01",MERCADERIA,DQI\n'
+            '7,RCS,13/8/2026,1301,(01) MERCEDES ATEGO (DSB034),20434,ANDES,0,4,24,"1,00","0,17","0,04","0,01",MERCADERIA,DQI\n'
+            '7,RCS,13/8/2026,1306,(06) IVECO TECTOR (HPU756),20435,QUILMES,0,8,8,"9,00","1,00","0,90","0,10",MERCADERIA,WQI\n'
+            '7,RCS,13/8/2026,1306,(06) IVECO TECTOR (HPU756),20435,ENVASE,0,8,8,"7,00","1,00","0,70","0,10",ENVASE,DQI\n'
+            '7,RCS,13/8/2026,1306,(06) IVECO TECTOR (HPU756),20435,ESQUELETO,0,8,8,"6,00","1,00","0,60","0,10",ESQUELETO,DQI\n'
+            '2,RCS,13/8/2026,1100,(19) IVECO TECTOR,20436,PATAGONIA,0,4,8,"5,00","0,50","0,50","0,10",MERCADERIA,DQI\n'
         )
         response = MagicMock()
         response.__enter__.return_value.read.return_value = csv_data.encode("utf-8")
@@ -135,11 +238,82 @@ class DqiSheetTests(unittest.TestCase):
             result = pipeline.cargar_dqi()
 
         self.assertEqual(result["error"], "")
-        self.assertEqual(result["rows"], [{"fecha": "2026-08-13", "mes": "2026-08", "dqi": 0.2}])
-        self.assertEqual(len(result["detalles"]), 1)
+        self.assertEqual(result["rows"], [{
+            "fecha": "2026-08-13",
+            "mes": "2026-08",
+            "dqi": 1.25,
+            "bultos_real": 0.25,
+            "dqi_hl": 0.07,
+            "hl_real": 0.02,
+        }])
+        self.assertEqual(result["dqi_wqi_rows"], [{
+            "fecha": "2026-08-13",
+            "mes": "2026-08",
+            "dqi_bultos": 1.25,
+            "wqi_bultos": 9.0,
+            "total_bultos": 10.25,
+            "dqi_hl": 0.07,
+            "wqi_hl": 0.9,
+            "total_hl": 0.97,
+        }])
+        self.assertEqual(len(result["detalles"]), 2)
         self.assertIn("1403", result["detalles"][0]["camion"])
         self.assertIn("IVECO TECTOR", result["detalles"][0]["camion"])
-        self.assertEqual(result["detalles"][0]["hl"], 0.05)
+        self.assertTrue(any("MERCEDES ATEGO" in row["camion"] for row in result["detalles"]))
+        self.assertEqual(result["detalles"][0]["bultos"], 0.25)
+        self.assertEqual(result["detalles"][0]["bultos_real"], 0.08)
+        self.assertEqual(result["detalles"][0]["hl"], 0.03)
+        self.assertEqual(result["detalles"][0]["hl_real"], 0.01)
+        self.assertTrue(all(row["tipo_mercaderia"] == "MERCADERIA" for row in result["detalles"]))
+        self.assertEqual(result["quality"]["source_rows"], 7)
+        self.assertEqual(result["quality"]["duplicates_removed"], 1)
+        self.assertEqual(result["quality"]["included_rows"], 2)
+        self.assertEqual(result["quality"]["included_wqi_rows"], 1)
+        self.assertEqual(result["quality"]["latest_quality_date"], "2026-08-13")
+        self.assertEqual(result["quality"]["merchandise_filter"], "MERCADERIA")
+        self.assertEqual(result["quality"]["metric"], "DQI_WQI_BULTOS")
+        self.assertEqual(result["quality"]["quality_hl_metric"], "DQI_WQI_HL")
+
+    def test_dqi_loads_2024_2025_and_2026_for_historical_comparison(self):
+        csv_data = (
+            "Deposito,Fecha Mvto,DQI_WQI_BULTOS,BULTOS_REAL,"
+            "DQI_WQI_HL,ROTURA_HL_REAL,TIPOMERC,TIPO\n"
+            '7,15/1/2024,"2,00","1,00","0,20","0,10",MERCADERIA,DQI\n'
+            '7,15/1/2025,"3,00","2,00","0,30","0,20",MERCADERIA,DQI\n'
+            '7,15/1/2026,"4,00","3,00","0,40","0,30",MERCADERIA,DQI\n'
+            '7,15/1/2023,"9,00","9,00","0,90","0,90",MERCADERIA,DQI\n'
+        )
+        response = MagicMock()
+        response.__enter__.return_value.read.return_value = csv_data.encode("utf-8")
+        pipeline.cargar_dqi.cache_clear()
+        with patch.object(pipeline, "urlopen", return_value=response), patch.object(
+            pipeline.storage, "load_articulos", return_value={}
+        ):
+            result = pipeline.cargar_dqi()
+
+        self.assertEqual(
+            [row["fecha"] for row in result["rows"]],
+            ["2024-01-15", "2025-01-15", "2026-01-15"],
+        )
+        self.assertEqual(result["quality"]["comparison_years"], ["2024", "2025", "2026"])
+        self.assertEqual(result["quality"]["source_date_from"], "2024-01-15")
+        self.assertEqual(result["quality"]["source_date_to"], "2026-01-15")
+        self.assertEqual(result["quality"]["latest_dqi_date"], "2026-01-15")
+
+    def test_dqi_rejects_sources_without_merchandise_classification(self):
+        csv_data = (
+            "Depósito,Fecha Mvto,BULTOS_REAL,TIPO\n"
+            '7,13/8/2026,"1,00",DQI\n'
+        )
+        response = MagicMock()
+        response.__enter__.return_value.read.return_value = csv_data.encode("utf-8")
+        pipeline.cargar_dqi.cache_clear()
+
+        with patch.object(pipeline, "urlopen", return_value=response):
+            result = pipeline.cargar_dqi()
+
+        self.assertEqual(result["rows"], [])
+        self.assertIn("TIPOMERC", result["error"])
 
 
 class LogisticsIntegrationTests(unittest.TestCase):

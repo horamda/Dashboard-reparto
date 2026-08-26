@@ -18,13 +18,18 @@ h1{font-size:22px;font-weight:750;letter-spacing:0;line-height:1.15}.sub{color:#
 .hcount{text-align:right;color:#cdd7e6;font-size:12px;min-width:118px}.hcount b{display:block;font-size:28px;color:#fff;font-weight:750;line-height:1.05}
 .alert{display:none;align-items:center;gap:10px;background:#FEF2F2;border:1px solid #FCA5A5;border-left:4px solid var(--bad);color:#991B1B;border-radius:10px;padding:12px 16px;margin-bottom:18px;font-size:13.5px}
 .alert.show{display:flex}.alert b{font-weight:700}
-.filters{display:grid;grid-template-columns:repeat(4,minmax(160px,1fr)) auto;gap:14px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin-bottom:14px;box-shadow:var(--shadow)}
+.filters{display:grid;grid-template-columns:repeat(5,minmax(140px,1fr)) auto;gap:14px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin-bottom:10px;box-shadow:var(--shadow)}
 .fg{display:flex;flex-direction:column;gap:5px;min-width:0}
 .fg label{font-size:11px;font-weight:600;text-transform:uppercase;color:var(--muted)}
 select{appearance:none;min-height:40px;background:#fff url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6'><path d='M0 0l5 6 5-6z' fill='%23657085'/></svg>") no-repeat right 12px center;border:1px solid var(--line);border-radius:8px;padding:9px 32px 9px 12px;font-size:14px;color:var(--ink);cursor:pointer;font-family:inherit;width:100%}
-select:focus{outline:2px solid #C77D1A;outline-offset:1px}
+.filters input{min-height:40px;background:#fff;border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:14px;color:var(--ink);font-family:inherit;width:100%}
+select:focus,.filters input:focus{outline:2px solid #C77D1A;outline-offset:1px}
 .reset{align-self:end;min-height:40px;background:none;border:1px solid var(--line);border-radius:8px;padding:9px 14px;font-size:13px;color:var(--muted);cursor:pointer;font-family:inherit;white-space:nowrap}
 .reset:hover{border-color:var(--ink);color:var(--ink)}
+.filter-context{display:none;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 14px;padding:8px 10px;background:#F8FAFC;border:1px solid var(--line);border-radius:8px;color:var(--muted);font-size:11.5px}
+.filter-context.show{display:flex}.filter-context>span{font-weight:750;color:var(--ink2)}
+.filter-chip{display:inline-flex;align-items:center;gap:7px;min-height:30px;padding:5px 8px;background:#fff;border:1px solid #CBD5E1;border-radius:7px;color:var(--ink2);font-family:inherit;font-size:11.5px;font-weight:650;cursor:pointer}
+.filter-chip:hover{border-color:#94A3B8}.filter-chip b{font-size:16px;line-height:1;color:#64748B}
 .tabs{display:flex;gap:7px;margin-bottom:18px;overflow-x:auto;overscroll-behavior-x:contain;scrollbar-width:thin;padding:1px 2px 6px}
 .tab{background:var(--card);border:1px solid var(--line);border-radius:9px;padding:9px 18px;min-height:40px;font-size:13.5px;font-weight:650;color:var(--muted);cursor:pointer;font-family:inherit;white-space:nowrap}
 .tab:hover{border-color:#B8C2D1;color:var(--ink)}
@@ -69,6 +74,17 @@ td.empty{color:transparent}
 tfoot td{font-weight:700;border-top:2px solid var(--line);border-bottom:none}
 .tblscroll{max-height:360px;overflow:auto;border-radius:8px}
 .tblscroll table{min-width:980px}
+.dqi-definition{margin-bottom:20px;padding:11px 14px;background:#fff;border-left:4px solid var(--obj);color:var(--ink2);font-size:12.5px;box-shadow:0 1px 0 rgba(21,35,59,.04)}
+.dqi-section{--dqi-accent:var(--obj);--dqi-soft:#F8FAFC;margin:0 0 30px;padding-top:18px;border-top:3px solid var(--dqi-accent)}
+.dqi-real-section{--dqi-accent:#B45309;--dqi-soft:#FFF7ED}.dqi-quality-section{--dqi-accent:#0E7C6B;--dqi-soft:#ECFDF5}.dqi-reconcile-section{--dqi-accent:#475569;--dqi-soft:#F8FAFC}
+.dqi-block-head{display:flex;align-items:flex-start;justify-content:space-between;gap:20px;margin-bottom:14px;padding:13px 16px;background:var(--dqi-soft);border-left:4px solid var(--dqi-accent)}
+.dqi-block-title{min-width:0}.dqi-kicker{display:block;margin-bottom:2px;color:var(--dqi-accent);font-size:10.5px;font-weight:800;text-transform:uppercase}.dqi-block-title h2{font-size:18px;line-height:1.2}.dqi-block-title p{max-width:760px;margin-top:4px;color:var(--muted);font-size:12px}
+.dqi-legend{display:flex;gap:12px;flex-wrap:wrap;justify-content:flex-end;padding-top:3px;color:var(--muted);font-size:11px;white-space:nowrap}.dqi-legend span{display:inline-flex;align-items:center;gap:6px}.dqi-dot{width:9px;height:9px;border-radius:50%;background:var(--dqi-accent)}
+.dqi-history-head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin:20px 0 12px}.dqi-history-head h3{font-size:14px;color:var(--ink2)}.dqi-history-head p{margin-top:3px;color:var(--muted);font-size:11.5px}
+.dqi-metric-switch{display:inline-flex;padding:3px;border:1px solid #CBD5E1;border-radius:8px;background:#F8FAFC}.dqi-metric-switch button{min-width:78px;min-height:34px;padding:6px 11px;border:0;border-radius:6px;background:transparent;color:var(--muted);font-family:inherit;font-size:12px;font-weight:750;cursor:pointer}.dqi-metric-switch button.active{background:var(--ink);color:#fff;box-shadow:0 1px 3px rgba(21,35,59,.18)}
+.dqi-partial{display:inline-flex;align-items:center;margin-left:6px;padding:2px 6px;border-radius:999px;background:#FEF3C7;color:#92400E;font-size:10px;font-weight:800;text-transform:uppercase}.tblscroll table.dqi-history-table{min-width:900px}
+.tblscroll table.dqi-rank-table{min-width:560px}.tblscroll table.dqi-summary-table{min-width:760px}.tblscroll table.dqi-detail-table{min-width:850px}
+.dqi-table .metric-split{border-left:2px solid #CBD5E1}.dqi-table th.real-col{color:#92400E}.dqi-table th.dqi-col{color:#0F766E}
 .clientlist{max-height:520px;min-height:180px;overflow:auto}
 .clientlist table{min-width:720px}
 .rechlist{max-height:560px;border:1px solid var(--line);border-radius:10px;overflow:auto}
@@ -109,10 +125,17 @@ tfoot td{font-weight:700;border-top:2px solid var(--line);border-bottom:none}
  .team-table td:nth-child(3),.team-table td:nth-child(4),.team-table td:nth-child(5){color:var(--muted);font-weight:650}
 .pill{display:inline-flex;align-items:center;justify-content:center;min-width:52px;padding:3px 7px;border-radius:999px;font-weight:800;font-size:11.5px}
 .pill.good{background:#DCFCE7;color:#166534}.pill.bad{background:#FEE2E2;color:#991B1B}.pill.neutral{background:#EEF2F7;color:var(--ink2)}
+.dpo-quality-section{margin:24px 0 20px;padding-top:18px;border-top:3px solid var(--cli)}
+.dpo-quality-head{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;margin-bottom:14px;padding:13px 16px;background:#ECFDF5;border-left:4px solid var(--cli)}
+.dpo-quality-head h2{font-size:18px;line-height:1.2}.dpo-quality-head p{max-width:790px;margin-top:4px;color:var(--muted);font-size:12px}
+.dpo-quality-legend{display:flex;gap:12px;flex-wrap:wrap;justify-content:flex-end;color:var(--muted);font-size:11px;white-space:nowrap}
+.dpo-quality-legend span{display:inline-flex;align-items:center;gap:6px}.dpo-quality-swatch{width:10px;height:10px;border-radius:2px;background:var(--swatch)}
+.tblscroll table.dpo-quality-table{min-width:720px}
 @media(max-width:1100px){.filters{grid-template-columns:repeat(2,minmax(170px,1fr))}.reset{width:100%}.grid{grid-template-columns:1fr!important}.grid>.panel[style*="grid-column"]{grid-column:1/-1!important}}
-@media(min-width:721px) and (max-width:1024px){.wrap{width:min(100% - 24px,1240px)}header{position:relative;padding:18px 0 16px}header .wrap{align-items:flex-start}.head-actions{order:3;width:100%;justify-content:flex-start;flex-wrap:nowrap;overflow-x:auto;overscroll-behavior-x:contain;padding:2px 0 6px}.head-actions a{display:inline-flex;align-items:center;min-height:44px;padding:9px 11px}.hcount{text-align:left}.filters select,.filters .reset,.tab{min-height:44px}.c5,.c4,.c2{grid-template-columns:repeat(2,minmax(0,1fr))}.gauges{grid-template-columns:repeat(2,minmax(0,1fr))}.gauges>.gcard:last-child:nth-child(odd){grid-column:1/-1}.chartbox{height:290px}.team-table{font-size:11.5px}.team-table th,.team-table td{padding:9px 7px}}
+@media(min-width:721px) and (max-width:1024px){.wrap{width:min(100% - 24px,1240px)}header{position:relative;padding:18px 0 16px}header .wrap{align-items:flex-start}.head-actions{order:3;width:100%;justify-content:flex-start;flex-wrap:nowrap;overflow-x:auto;overscroll-behavior-x:contain;padding:2px 0 6px}.head-actions a{display:inline-flex;align-items:center;min-height:44px;padding:9px 11px}.hcount{text-align:left}.filters select,.filters input,.filters .reset,.tab{min-height:44px}.c5,.c4,.c2{grid-template-columns:repeat(2,minmax(0,1fr))}.gauges{grid-template-columns:repeat(2,minmax(0,1fr))}.gauges>.gcard:last-child:nth-child(odd){grid-column:1/-1}.chartbox{height:290px}.team-table{font-size:11.5px}.team-table th,.team-table td{padding:9px 7px}}
 @media(max-width:720px){.wrap{width:min(100% - 20px,1240px);padding-bottom:40px}header{position:relative;padding:18px 0 16px}header .wrap{align-items:flex-start}.head-actions{justify-content:flex-start}.head-actions a{padding:7px 9px;font-size:12px}h1{font-size:18px}.hcount{text-align:left}.filters{grid-template-columns:1fr;padding:12px}.panel{padding:14px 12px;overflow:hidden}.panel>table{display:block;overflow-x:auto;white-space:nowrap}.card{min-height:104px;padding:14px}.cards,.c5,.c4,.c2{grid-template-columns:1fr}.tab{padding:9px 14px}.chartbox{height:260px}.tblscroll{margin:0 -8px;padding:0 8px;border-radius:0}.team-table{min-width:980px;font-size:11px}.team-table th,.team-table td{padding:8px 6px}.team-table tbody td:nth-child(2){font-size:11.5px;padding-left:10px}.team-table th:first-child,.team-table td:first-child{max-width:82px;min-width:82px;white-space:normal}.rech-table{min-width:1080px}.rech-table th,.rech-table td{padding:9px 8px}.pill{min-width:48px}}
 @media(max-width:420px){.wrap{width:min(100% - 14px,1240px)}.panel{padding:12px 9px}.filters{gap:10px}.team-table{min-width:920px}.team-table th,.team-table td{padding:7px 5px}.team-table th:first-child,.team-table td:first-child{max-width:72px;min-width:72px}.card .v{font-size:22px}}
+@media(max-width:720px){.dqi-block-head,.dqi-history-head,.dpo-quality-head{flex-direction:column;align-items:stretch;gap:8px;padding:12px}.dqi-history-head{padding:0;margin-top:18px}.dqi-metric-switch{width:100%}.dqi-metric-switch button{flex:1}.dqi-legend,.dpo-quality-legend{justify-content:flex-start;white-space:normal}.dqi-block-title h2,.dpo-quality-head h2{font-size:16px}.dqi-section{margin-bottom:24px}}
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*{transition:none!important}}
 </style></head><body>
 <header><div class="wrap"><div><h1>Tiempos de reparto · Foxtrot - FichaYA - 2026 </h1>
@@ -125,9 +148,11 @@ tfoot td{font-weight:700;border-top:2px solid var(--line);border-bottom:none}
   <div class="fg"><label>Unidad</label><select id="fUnidad"></select></div>
   <div class="fg"><label>Zona / Sucursal</label><select id="fSuc"></select></div>
   <div class="fg"><label>Mes</label><select id="fMes"></select></div>
+  <div class="fg"><label>Día</label><input id="fFecha" type="date"></div>
   <div class="fg"><label>Chofer</label><select id="fCho"></select></div>
   <button class="reset" id="reset">Limpiar filtros</button>
  </div>
+ <div class="filter-context" id="filterContext" aria-live="polite"><span>Filtros activos</span><div id="filterChips"></div></div>
  <div class="tabs"><button class="tab" id="tabTeamRoom">Team Room</button><button class="tab active" id="tabMes">Mensual</button><button class="tab" id="tabSem">Semanal</button><button class="tab" id="tabDia">Diario</button><button class="tab" id="tabHorarios">Horarios Foxtrot</button><button class="tab" id="tabOnTime">On time</button><button class="tab" id="tabRechazos">Rechazos</button><button class="tab" id="tabOtif">OTIF</button><button class="tab" id="tabDqi">DQI</button><button class="tab" id="tabSatisfaccion">Satisfaccion del cliente</button><button class="tab" id="tabDpo">DPO GKPIs</button><button class="tab" id="tabCalidad">Data Quality</button></div>
  <div id="operationalSummary">
  <div class="sectlbl">Tiempos</div>
@@ -156,13 +181,13 @@ tfoot td{font-weight:700;border-top:2px solid var(--line);border-bottom:none}
  <div id="viewMes">
   <div class="sectlbl">Cumplimiento de objetivos</div>
   <div class="cards c2" style="margin-bottom:22px">
-   <div class="card" id="cTIcmp"><div class="badge" id="gTIcmp"></div><div class="k">Cumplimiento TI</div><div class="v" id="kTIcmp">–</div><div class="obj">≥65% de rutas validadas con TI ≤ 30 min</div><div class="bar"><i id="bTIcmp"></i></div></div>
-   <div class="card" id="cTMLcmp"><div class="badge" id="gTMLcmp"></div><div class="k">Cumplimiento TML</div><div class="v" id="kTMLcmp">–</div><div class="obj">≥65% de rutas validadas con TML ≤ 30 min</div><div class="bar"><i id="bTMLcmp"></i></div></div>
+   <div class="card" id="cTIcmp"><div class="badge" id="gTIcmp"></div><div class="k">Cumplimiento TI</div><div class="v" id="kTIcmp">–</div><div class="obj" id="oTIcmp">≥65% de rutas validadas con TI ≤ 30 min</div><div class="bar"><i id="bTIcmp"></i></div></div>
+   <div class="card" id="cTMLcmp"><div class="badge" id="gTMLcmp"></div><div class="k">Cumplimiento TML</div><div class="v" id="kTMLcmp">–</div><div class="obj" id="oTMLcmp">≥65% de rutas validadas con TML ≤ 30 min</div><div class="bar"><i id="bTMLcmp"></i></div></div>
   </div>
   <div class="grid">
-   <div class="panel"><h2>TML por mes</h2><div class="note">Minutos · FichaYA desde ago 2026; histórico estimado · objetivo 30</div><div class="chartbox"><canvas id="chTml"></canvas></div></div>
+   <div class="panel"><h2>TML por mes</h2><div class="note">Promedio por ruta válida · FichaYA desde ago 2026 · Casa Central ene-jul calibrado · objetivo 30 min</div><div class="chartbox"><canvas id="chTml"></canvas></div></div>
    <div class="panel"><h2>Tiempo en ruta por mes</h2><div class="note">Promedio por jornada · normal + recarga · objetivo 7</div><div class="chartbox"><canvas id="chHr"></canvas></div></div>
-   <div class="panel"><h2>TI por mes</h2><div class="note">Minutos · FichaYA desde ago 2026; histórico estimado · objetivo 30</div><div class="chartbox"><canvas id="chTi"></canvas></div></div>
+   <div class="panel"><h2>TI por mes</h2><div class="note">Promedio por ruta válida · FichaYA desde ago 2026 · Casa Central ene-jul calibrado · objetivo 30 min</div><div class="chartbox"><canvas id="chTi"></canvas></div></div>
   </div>
   <div class="grid" style="grid-template-columns:2fr 1fr">
    <div class="panel"><h2>Mes por mes</h2><div class="note">Adherencia verde si ≥85%, rojo si no.</div>
@@ -179,9 +204,9 @@ tfoot td{font-weight:700;border-top:2px solid var(--line);border-bottom:none}
  <div id="viewDia" style="display:none">
   <div class="hint" id="hintDia"></div>
   <div class="grid">
-   <div class="panel"><h2>TML por día</h2><div class="note">Minutos · FichaYA desde ago 2026; histórico estimado · objetivo 30</div><div class="chartbox"><canvas id="chTmlD"></canvas></div></div>
+   <div class="panel"><h2>TML por día</h2><div class="note">Minutos · FichaYA desde ago 2026; Casa Central ene-jul calibrado al cuadro de referencia · objetivo 30</div><div class="chartbox"><canvas id="chTmlD"></canvas></div></div>
    <div class="panel"><h2>Tiempo en ruta por día</h2><div class="note">Promedio por jornada · normal + recarga · objetivo 7</div><div class="chartbox"><canvas id="chHrD"></canvas></div></div>
-   <div class="panel"><h2>TI por día</h2><div class="note">Minutos · FichaYA desde ago 2026; histórico estimado · objetivo 30</div><div class="chartbox"><canvas id="chTiD"></canvas></div></div>
+   <div class="panel"><h2>TI por día</h2><div class="note">Minutos · FichaYA desde ago 2026; Casa Central ene-jul calibrado al cuadro de referencia · objetivo 30</div><div class="chartbox"><canvas id="chTiD"></canvas></div></div>
   </div>
   <div class="grid" style="grid-template-columns:1fr 1fr">
    <div class="panel"><h2>Adherencia por día</h2><div class="note">Secuencia y click · objetivo 85%</div><div class="chartbox" style="height:280px"><canvas id="chAdhD"></canvas></div></div>
@@ -194,9 +219,9 @@ tfoot td{font-weight:700;border-top:2px solid var(--line);border-bottom:none}
   <div class="filters" style="margin-bottom:16px"><div class="fg"><label>Semana (lunes a sábado)</label><select id="fSem"></select></div></div>
   <div class="hint" id="hintSem"></div>
   <div class="grid">
-   <div class="panel"><h2>TML por día</h2><div class="note">Minutos · FichaYA desde ago 2026; histórico estimado · objetivo 30</div><div class="chartbox"><canvas id="chTmlS"></canvas></div></div>
+   <div class="panel"><h2>TML por día</h2><div class="note">Minutos · FichaYA desde ago 2026; Casa Central ene-jul calibrado al cuadro de referencia · objetivo 30</div><div class="chartbox"><canvas id="chTmlS"></canvas></div></div>
    <div class="panel"><h2>Tiempo en ruta por día</h2><div class="note">Promedio por jornada · normal + recarga · objetivo 7</div><div class="chartbox"><canvas id="chHrS"></canvas></div></div>
-   <div class="panel"><h2>TI por día</h2><div class="note">Minutos · FichaYA desde ago 2026; histórico estimado · objetivo 30</div><div class="chartbox"><canvas id="chTiS"></canvas></div></div>
+   <div class="panel"><h2>TI por día</h2><div class="note">Minutos · FichaYA desde ago 2026; Casa Central ene-jul calibrado al cuadro de referencia · objetivo 30</div><div class="chartbox"><canvas id="chTiS"></canvas></div></div>
   </div>
   <div class="grid" style="grid-template-columns:1fr 1fr">
    <div class="panel"><h2>Adherencia por día</h2><div class="note">Secuencia y click · objetivo 85%</div><div class="chartbox" style="height:280px"><canvas id="chAdhS"></canvas></div></div>
@@ -252,33 +277,68 @@ tfoot td{font-weight:700;border-top:2px solid var(--line);border-bottom:none}
   </div>
  </div>
  <div id="viewDqi" style="display:none">
-  <div class="hint" id="hintDqi">DQI se calcula desde el CSV publicado de roturas. UM: bultos. El objetivo mensual se configura desde el sistema.</div>
-  <div class="cards c4" style="margin-bottom:22px">
-   <div class="card" id="cDqiUlt"><div class="badge" id="gDqiUlt"></div><div class="k">Ultimo DQI</div><div class="v" id="kDqiUlt">-</div><div class="obj" id="oDqiUlt">bultos del dia</div><div class="bar"><i id="bDqiUlt"></i></div></div>
-   <div class="card" id="cDqiProm"><div class="badge" id="gDqiProm"></div><div class="k">Bultos del mes</div><div class="v" id="kDqiProm">-</div><div class="obj" id="oDqiProm">objetivo mensual</div><div class="bar"><i id="bDqiProm"></i></div></div>
-   <div class="card" id="cDqiDias"><div class="k">Dias con DQI</div><div class="v" id="kDqiDias">-</div><div class="obj">periodo filtrado</div><div class="bar"><i id="bDqiDias"></i></div></div>
-  </div>
-  <div class="grid" style="grid-template-columns:1fr">
-   <div class="panel"><h2>Criterio objetivo DQI Dolores 2026</h2><div class="note">Histórico anual: 2023 = 6 bultos · 2024 = 30 bultos · 2025 = 13 bultos. Se toma la mediana histórica (13) y se fija una mejora operativa para 2026: objetivo <= 12 bultos/año. La referencia diaria usa 293 días operativos: 312 lunes-sábado menos 19 feriados nacionales 2026.</div></div>
-  </div>
-  <div class="grid" style="grid-template-columns:2fr 1fr">
-   <div class="panel"><h2>DQI por dia</h2><div class="note">Bultos diarios.</div><div class="chartbox" style="height:300px"><canvas id="chDqiDia"></canvas></div></div>
-   <div class="panel"><h2>DQI por mes</h2><div class="note">Bultos totales por mes.</div><div class="chartbox" style="height:300px"><canvas id="chDqiMes"></canvas></div></div>
-  </div>
-  <div class="grid" style="grid-template-columns:1fr">
-   <div class="panel"><h2>Detalle DQI</h2><div class="note">Valores diarios importados desde el Sheet publicado.</div>
-    <table><thead><tr><th>Fecha</th><th>Mes</th><th>DQI bultos</th><th>Estado</th></tr></thead><tbody id="tbodyDqi"></tbody></table></div>
-  </div>
-  <div class="grid" style="grid-template-columns:1fr 1fr">
-   <div class="panel"><h2>Camiones con mas roturas</h2><div class="note">Ranking por bultos totales del periodo filtrado.</div>
-    <table><thead><tr><th>Camion</th><th>Bultos totales</th></tr></thead><tbody id="tbodyDqiCamiones"></tbody></table></div>
-   <div class="panel"><h2>Productos con mas roturas</h2><div class="note">Ranking por bultos totales del periodo filtrado.</div>
-    <table><thead><tr><th>Articulo</th><th>Producto</th><th>Bultos totales</th></tr></thead><tbody id="tbodyDqiProductos"></tbody></table></div>
-  </div>
- <div class="grid" style="grid-template-columns:1fr">
-   <div class="panel"><h2>Roturas por articulo - ultimos 30 dias</h2><div class="note">Ranking por bultos totales, independiente del filtro de mes.</div>
-    <table><thead><tr><th>Articulo</th><th>Producto</th><th>Bultos totales</th></tr></thead><tbody id="tbodyDqiUlt30Productos"></tbody></table></div>
-  </div>
+  <div class="hint" id="hintDqi">La solapa separa rotura física real de los indicadores ponderados de calidad DQI.</div>
+  <div class="dqi-definition" id="noteDqiDef">Fuente: Depósito 7 · TIPO DQI · solo TIPOMERC MERCADERIA. Rotura real: BULTOS_REAL y ROTURA_HL_REAL. Calidad: DQI_WQI_BULTOS y DQI_WQI_HL.</div>
+
+  <section class="dqi-section dqi-real-section" aria-labelledby="dqiRealTitle">
+   <div class="dqi-block-head"><div class="dqi-block-title"><span class="dqi-kicker">Roturas reales</span><h2 id="dqiRealTitle">Volumen físico roto</h2><p>Cantidad física registrada en bultos y hectolitros. Estos valores representan mercadería realmente rota.</p></div><div class="dqi-legend"><span><i class="dqi-dot"></i>BULTOS_REAL</span><span><i class="dqi-dot"></i>ROTURA_HL_REAL</span></div></div>
+   <div class="cards c4">
+    <div class="card" id="cDqiReal"><div class="k">Bultos reales</div><div class="v" id="kDqiReal">-</div><div class="obj">rotura física del período</div><div class="bar"><i id="bDqiReal"></i></div></div>
+    <div class="card" id="cDqiRealHl"><div class="k">HL reales</div><div class="v" id="kDqiRealHl">-</div><div class="obj">rotura física del período</div><div class="bar"><i id="bDqiRealHl"></i></div></div>
+    <div class="card" id="cDqiRealReg"><div class="k">Registros de rotura</div><div class="v" id="kDqiRealReg">-</div><div class="obj">líneas físicas con volumen</div><div class="bar"><i id="bDqiRealReg"></i></div></div>
+    <div class="card" id="cDqiRealUlt"><div class="k">Última rotura real</div><div class="v" id="kDqiRealUlt">-</div><div class="obj" id="oDqiRealUlt">bultos reales del día</div><div class="bar"><i id="bDqiRealUlt"></i></div></div>
+   </div>
+   <div class="grid" style="grid-template-columns:1fr 1fr">
+    <div class="panel"><h2>Bultos reales por día</h2><div class="note">Volumen físico desde BULTOS_REAL.</div><div class="chartbox"><canvas id="chDqiRealBultos"></canvas></div></div>
+    <div class="panel"><h2>HL reales por día</h2><div class="note">Volumen físico desde ROTURA_HL_REAL.</div><div class="chartbox"><canvas id="chDqiRealHl"></canvas></div></div>
+   </div>
+   <div class="grid" style="grid-template-columns:1fr 1fr">
+    <div class="panel"><h2>Rotura real por camión</h2><div class="note">Ordenado por bultos reales del período filtrado.</div><div class="tblscroll"><table class="dqi-table dqi-rank-table"><thead><tr><th>Camión</th><th class="real-col">Bultos reales</th><th class="real-col">HL reales</th><th>Registros</th></tr></thead><tbody id="tbodyDqiRealCamiones"></tbody></table></div></div>
+    <div class="panel"><h2>Rotura real por producto</h2><div class="note">Ordenado por bultos reales del período filtrado.</div><div class="tblscroll"><table class="dqi-table dqi-rank-table"><thead><tr><th>Artículo</th><th>Producto</th><th class="real-col">Bultos reales</th><th class="real-col">HL reales</th></tr></thead><tbody id="tbodyDqiRealProductos"></tbody></table></div></div>
+   </div>
+  </section>
+
+  <section class="dqi-section dqi-quality-section" aria-labelledby="dqiQualityTitle">
+   <div class="dqi-block-head"><div class="dqi-block-title"><span class="dqi-kicker">Indicadores de calidad</span><h2 id="dqiQualityTitle">DQI ponderado</h2><p>Índice de calidad calculado en equivalentes de bultos y HL. No representa directamente el volumen físico roto.</p></div><div class="dqi-legend"><span><i class="dqi-dot"></i>DQI_WQI_BULTOS</span><span><i class="dqi-dot"></i>DQI_WQI_HL</span></div></div>
+   <div class="cards c4">
+    <div class="card" id="cDqiProm"><div class="badge" id="gDqiProm"></div><div class="k">DQI en bultos</div><div class="v" id="kDqiProm">-</div><div class="obj" id="oDqiProm">objetivo del período</div><div class="bar"><i id="bDqiProm"></i></div></div>
+    <div class="card" id="cDqiHl"><div class="k">DQI en HL</div><div class="v" id="kDqiHl">-</div><div class="obj">indicador ponderado del período</div><div class="bar"><i id="bDqiHl"></i></div></div>
+    <div class="card" id="cDqiDias"><div class="k">Días con DQI</div><div class="v" id="kDqiDias">-</div><div class="obj">período filtrado</div><div class="bar"><i id="bDqiDias"></i></div></div>
+    <div class="card" id="cDqiUlt"><div class="badge" id="gDqiUlt"></div><div class="k">Último DQI en bultos</div><div class="v" id="kDqiUlt">-</div><div class="obj" id="oDqiUlt">indicador del día</div><div class="bar"><i id="bDqiUlt"></i></div></div>
+   </div>
+   <div class="dqi-history-head">
+    <div><h3>Comparación histórica 2024-2026</h3><p id="dqiHistorySummary">Resultados mensuales y acumulados del indicador de calidad.</p></div>
+    <div class="dqi-metric-switch" role="group" aria-label="Métrica histórica DQI"><button type="button" class="active" data-dqi-history-metric="dqi" aria-pressed="true">Bultos</button><button type="button" data-dqi-history-metric="dqi_hl" aria-pressed="false">HL</button></div>
+   </div>
+   <div class="grid" style="grid-template-columns:1fr 1fr">
+    <div class="panel"><h2>DQI mensual por año</h2><div class="note" id="noteDqiHistoricoMes">Comparación de meses cerrados y mes actual parcial.</div><div class="chartbox"><canvas id="chDqiHistoricoMes"></canvas></div></div>
+    <div class="panel"><h2>DQI acumulado por año</h2><div class="note" id="noteDqiHistoricoAcum">Acumulado de enero hasta cada mes.</div><div class="chartbox"><canvas id="chDqiHistoricoAcum"></canvas></div></div>
+   </div>
+   <div class="grid" style="grid-template-columns:1fr">
+    <div class="panel"><h2>Comparativo mensual</h2><div class="note" id="noteDqiHistoricoTabla">Valor del mes y acumulado anual para cada año.</div><div class="tblscroll"><table class="dqi-table dqi-history-table"><thead><tr><th>Mes</th><th>2024</th><th>Acum. 2024</th><th>2025</th><th>Acum. 2025</th><th>2026</th><th>Acum. 2026</th></tr></thead><tbody id="tbodyDqiHistorico"></tbody></table></div></div>
+   </div>
+   <div class="grid" style="grid-template-columns:1fr 1fr">
+    <div class="panel"><h2>DQI en bultos por día</h2><div class="note">Indicador de calidad DQI_WQI_BULTOS.</div><div class="chartbox"><canvas id="chDqiDia"></canvas></div></div>
+    <div class="panel"><h2>DQI en HL por día</h2><div class="note">Indicador de calidad DQI_WQI_HL.</div><div class="chartbox"><canvas id="chDqiHlDia"></canvas></div></div>
+   </div>
+   <div class="grid" style="grid-template-columns:1fr 1fr">
+    <div class="panel"><h2>DQI por camión</h2><div class="note">Ordenado por el indicador DQI en bultos.</div><div class="tblscroll"><table class="dqi-table dqi-rank-table"><thead><tr><th>Camión</th><th class="dqi-col">DQI bultos</th><th class="dqi-col">DQI HL</th><th>Registros</th></tr></thead><tbody id="tbodyDqiCamiones"></tbody></table></div></div>
+    <div class="panel"><h2>DQI por producto</h2><div class="note">Ordenado por el indicador DQI en bultos.</div><div class="tblscroll"><table class="dqi-table dqi-rank-table"><thead><tr><th>Artículo</th><th>Producto</th><th class="dqi-col">DQI bultos</th><th class="dqi-col">DQI HL</th></tr></thead><tbody id="tbodyDqiProductos"></tbody></table></div></div>
+   </div>
+  </section>
+
+  <section class="dqi-section dqi-reconcile-section" aria-labelledby="dqiDetailTitle">
+   <div class="dqi-block-head"><div class="dqi-block-title"><span class="dqi-kicker">Conciliación</span><h2 id="dqiDetailTitle">Rotura real e indicadores DQI</h2><p>Vista conjunta para comparar la evolución sin mezclar la naturaleza de cada medida.</p></div></div>
+   <div class="grid" style="grid-template-columns:1fr">
+    <div class="panel"><h2>Resumen mensual</h2><div class="note">Totales físicos e indicadores ponderados por mes.</div><div class="tblscroll"><table class="dqi-table dqi-summary-table"><thead><tr><th>Mes</th><th>Días</th><th class="real-col">Bultos reales</th><th class="real-col">HL reales</th><th class="dqi-col metric-split">DQI bultos</th><th class="dqi-col">DQI HL</th></tr></thead><tbody id="tbodyDqiMesResumen"></tbody></table></div></div>
+   </div>
+   <div class="grid" style="grid-template-columns:1fr">
+    <div class="panel"><h2>Detalle diario</h2><div class="note">Primero volumen físico; luego indicadores de calidad.</div><div class="tblscroll"><table class="dqi-table dqi-detail-table"><thead><tr><th>Fecha</th><th>Mes</th><th class="real-col">Bultos reales</th><th class="real-col">HL reales</th><th class="dqi-col metric-split">DQI bultos</th><th class="dqi-col">DQI HL</th><th>Estado DQI</th></tr></thead><tbody id="tbodyDqi"></tbody></table></div></div>
+   </div>
+   <div class="grid" style="grid-template-columns:1fr">
+    <div class="panel"><h2>Productos con roturas - últimos 30 días</h2><div class="note">Comparación física y DQI, independiente del filtro de mes.</div><div class="tblscroll"><table class="dqi-table dqi-summary-table"><thead><tr><th>Artículo</th><th>Producto</th><th class="real-col">Bultos reales</th><th class="real-col">HL reales</th><th class="dqi-col metric-split">DQI bultos</th><th class="dqi-col">DQI HL</th></tr></thead><tbody id="tbodyDqiUlt30Productos"></tbody></table></div></div>
+   </div>
+  </section>
  </div>
  <div id="viewHorarios" style="display:none">
   <div class="hint">Inicio y finalizacion marcados por el chofer en Foxtrot. Usa los filtros superiores de mes, sucursal y chofer; el año se toma del mes seleccionado o del periodo completo.</div>
@@ -334,6 +394,17 @@ tfoot td{font-weight:700;border-top:2px solid var(--line);border-bottom:none}
    <div class="panel"><h2>Camiones salidos por mes</h2><div class="note">Cantidad de salidas declaradas en DPO.</div><div class="chartbox" style="height:300px"><canvas id="chDpoSalidas"></canvas></div></div>
    <div class="panel"><h2>Personas promedio por mes</h2><div class="note">Dotacion promedio por camion salido.</div><div class="chartbox" style="height:300px"><canvas id="chDpoPersonas"></canvas></div></div>
   </div>
+  <section class="dpo-quality-section" aria-labelledby="dpoQualityTitle">
+   <div class="dpo-quality-head">
+    <div><span class="dqi-kicker">Calidad en hectolitros</span><h2 id="dpoQualityTitle">DQI + WQI mes por mes</h2><p id="noteDpoQuality">Indicadores ponderados de calidad para mercadería del Depósito 7.</p></div>
+    <div class="dpo-quality-legend" aria-label="Series del gráfico"><span><i class="dpo-quality-swatch" style="--swatch:#D97706"></i>DQI HL</span><span><i class="dpo-quality-swatch" style="--swatch:#0E7C6B"></i>WQI HL</span><span><i class="dpo-quality-swatch" style="--swatch:#1E3A8A"></i>Total</span></div>
+   </div>
+   <div class="grid" style="grid-template-columns:1fr 1fr">
+    <div class="panel"><h2>Composición mensual DQI + WQI</h2><div class="note" id="noteDpoQualityMes">DQI y WQI apilados; unidad HL.</div><div class="chartbox" style="height:300px"><canvas id="chDpoDqiWqiMes"></canvas></div></div>
+    <div class="panel"><h2>Acumulado DQI + WQI 2026</h2><div class="note" id="noteDpoQualityAcum">Acumulado desde enero hasta cada mes; unidad HL.</div><div class="chartbox" style="height:300px"><canvas id="chDpoDqiWqiAcum"></canvas></div></div>
+   </div>
+   <div class="panel"><h2>Detalle mensual DQI + WQI</h2><div class="note" id="noteDpoQualityTabla">Valores exactos y acumulado 2026 en HL.</div><div class="tblscroll"><table class="dpo-quality-table"><thead><tr><th>Mes</th><th>DQI HL</th><th>WQI HL</th><th>DQI + WQI HL</th><th>% WQI</th><th>Acumulado 2026 HL</th></tr></thead><tbody id="tbodyDpoDqiWqi"></tbody></table></div></div>
+  </section>
   <div class="grid" style="grid-template-columns:1fr 1fr">
    <div class="panel"><h2>Ranking por camion</h2><div class="note">Ordenado por cantidad de salidas.</div><div class="tblscroll"><table><thead><tr><th>Camion</th><th>Salidas</th><th>UP prom.</th><th>Clientes prom.</th><th>Personas prom.</th></tr></thead><tbody id="tbodyDpoCamion"></tbody></table></div></div>
    <div class="panel"><h2>Ranking por chofer</h2><div class="note">Responsable billetera declarado.</div><div class="tblscroll"><table><thead><tr><th>Chofer</th><th>Salidas</th><th>Camiones</th><th>UP prom.</th><th>Clientes prom.</th></tr></thead><tbody id="tbodyDpoChofer"></tbody></table></div></div>
@@ -439,7 +510,7 @@ tfoot td{font-weight:700;border-top:2px solid var(--line);border-bottom:none}
  </div>
 </div>
 <script>
-const DATA=__DATA__;const R=DATA.rutas,RECH=DATA.rechazos||[],RECHDET=DATA.rechazos_detalle||[],SAT=(DATA.satisfaccion&&DATA.satisfaccion.rows)||[],DQI=(DATA.dqi&&DATA.dqi.rows)||[],DQIDET=(DATA.dqi&&DATA.dqi.detalles)||[],DPO=(DATA.dpo&&DATA.dpo.rows)||[],MESES=DATA.meses,OBJ=DATA.obj;const OA=OBJ.adh,OD=OBJ.disp;
+const DATA=__DATA__;const R=DATA.rutas,RECH=DATA.rechazos||[],RECHDET=DATA.rechazos_detalle||[],SAT=(DATA.satisfaccion&&DATA.satisfaccion.rows)||[],DQI=(DATA.dqi&&DATA.dqi.rows)||[],DQIDET=(DATA.dqi&&DATA.dqi.detalles)||[],DQIWQI=(DATA.dqi&&DATA.dqi.dqi_wqi_rows)||[],DPO=(DATA.dpo&&DATA.dpo.rows)||[],MESES=DATA.meses,OBJ=DATA.obj;const OA=OBJ.adh,OD=OBJ.disp;
 const C={good:'#16A34A',bad:'#DC2626',amber:'#D97706',obj:'#1E3A8A',sec:'#7C3AED',cli:'#0E7C6B'};
 const OBJ_DQ=85;
 const OBJ_RECH={pdv:4,bultos:3,hl:2};
@@ -449,9 +520,14 @@ const OBJ_DQI_ANUAL=12;
 const OBJ_DQI_DIAS_OPERATIVOS=293;
 const OBJ_DQI_DIA=OBJ_DQI_ANUAL/OBJ_DQI_DIAS_OPERATIVOS;
 const OBJ_NDS=95;
-const state={unidad:'__all',suc:'__all',mes:'__all',cho:'__all',tab:'mes',sem:null,teamSem:null};
+const state={unidad:'__all',suc:'__all',mes:'__all',fecha:'__all',cho:'__all',tab:'mes',sem:null,teamSem:null};
 const TODAY=new Date(Date.now()-new Date().getTimezoneOffset()*60000).toISOString().slice(0,10);
+const DQI_QUALITY=(DATA.dqi&&DATA.dqi.quality)||{};
+const DQI_YEARS=(DQI_QUALITY.comparison_years||['2024','2025','2026']).map(String).sort();
+const DQI_FOCUS_YEAR=DQI_YEARS[DQI_YEARS.length-1]||TODAY.slice(0,4);
+let dqiHistoryMetric='dqi';
 const MM={'01':'Ene','02':'Feb','03':'Mar','04':'Abr','05':'May','06':'Jun','07':'Jul','08':'Ago','09':'Sep','10':'Oct','11':'Nov','12':'Dic'};
+const FILTER_MESES=[...new Set([...MESES,...DQI.map(r=>r.mes).filter(Boolean),...DQIWQI.map(r=>r.mes).filter(Boolean)])].sort();
 const esc=value=>String(value??'').replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
 const mLbl=m=>MM[m.split('-')[1]]||m;const dLbl=f=>{const p=f.split('-');return p[2]+'/'+p[1]};
 const periodoLbl=()=>{if(!R.length)return'del Palacio S.A. · sin datos cargados';const fs=R.map(r=>r.fecha).sort(),a=fs[0],b=fs[fs.length-1],fmt=f=>{const p=f.split('-');return p[2]+'/'+p[1]+'/'+p[0].slice(2)};return'del Palacio S.A. · '+fmt(a)+' al '+fmt(b)};
@@ -477,9 +553,10 @@ const personaBase=r=>cleanPersona(r.chofer);
 const esRecarga=r=>/\bRECARGA\b/i.test(String(r.chofer||''));
 const personaCorta=s=>String(s||'Sin dato').split(' ').slice(0,2).map((w,i)=>i?w[0]:w).join(' ');
 const PERSONAS=[...new Set([...R.map(personaBase),...DPO.map(r=>cleanPersona(r.chofer))])].filter(v=>v&&v!=='Sin dato').sort();
-refreshSucOptions();opts(fMes,MESES,'Todos');opts(fCho,PERSONAS,'Todos');
+refreshSucOptions();opts(fMes,FILTER_MESES,'Todos');opts(fCho,PERSONAS,'Todos');
+const FECHAS=[...new Set([...R.map(r=>r.fecha),...DQI.map(r=>r.fecha),...DQIWQI.map(r=>r.fecha)].filter(Boolean))].sort();if(FECHAS.length){fFecha.min=FECHAS[0];fFecha.max=FECHAS[FECHAS.length-1]}
 const semData=[...new Set(R.filter(r=>r.usable).map(r=>weekKey(r.fecha)))].sort();
-const anios=[...new Set(R.map(r=>+r.fecha.slice(0,4)))].sort();
+const anios=[...new Set(FECHAS.map(r=>+r.slice(0,4)))].sort();
 const y0=anios[0]||new Date().getUTCFullYear(),y1=anios[anios.length-1]||y0;
 const firstMondayOfYear=y=>{let d=y+'-01-01';while(new Date(d+'T00:00:00Z').getUTCDay()!==1)d=addDaysUTC(d,1);return d};
 let _w=firstMondayOfYear(y0);const _last=weekKey(y1+'-12-31');const WEEKS=[];
@@ -487,20 +564,21 @@ while(_w<=_last){WEEKS.push(_w);_w=addDaysUTC(_w,7);}
 const _conDatos=new Set(semData);
 fSem.innerHTML=WEEKS.map((w,i)=>'<option value="'+w+'">Sem '+(i+1)+' · '+weekLabel(w)+(_conDatos.has(w)?'':' — sin datos')+'</option>').join('');
 state.sem=semData.length?semData[semData.length-1]:WEEKS[WEEKS.length-1];fSem.value=state.sem;
-fSem.addEventListener('change',e=>{state.sem=e.target.value;render()});
+fSem.addEventListener('change',e=>{state.sem=e.target.value;state.teamSem=state.sem;state.mes=state.sem.slice(0,7);state.fecha='__all';syncFilterControls();render()});
 const TEAM_WEEKS=WEEKS;
 fTeamSem.innerHTML=TEAM_WEEKS.map((w,i)=>'<option value="'+w+'">Sem '+(i+1)+' · '+weekLabel(w)+(_conDatos.has(w)?'':' — sin datos')+'</option>').join('');
 state.teamSem=semData.length?semData[semData.length-1]:(TEAM_WEEKS[TEAM_WEEKS.length-1]||null);
 fTeamSem.value=state.teamSem;
-fTeamSem.addEventListener('change',e=>{state.teamSem=e.target.value;render()});
-const base=r=>unidadOk(r)&&(state.suc==='__all'||r.suc===state.suc)&&(state.cho==='__all'||personaBase(r)===state.cho);
-const full=r=>base(r)&&(state.mes==='__all'||r.mes===state.mes);
+fTeamSem.addEventListener('change',e=>{state.teamSem=e.target.value;state.sem=state.teamSem;state.mes=state.teamSem.slice(0,7);state.fecha='__all';syncFilterControls();render()});
+const base=r=>unidadOk(r)&&(state.suc==='__all'||sucNorm(r.suc)===sucNorm(state.suc))&&(state.cho==='__all'||personaBase(r)===state.cho);
+const periodOk=r=>(state.mes==='__all'||r.mes===state.mes)&&(state.fecha==='__all'||r.fecha===state.fecha);
+const full=r=>base(r)&&periodOk(r);
 function weekKey(f){const d=new Date(f+'T00:00:00Z');const g=d.getUTCDay();const diff=(g===0?6:g-1);d.setUTCDate(d.getUTCDate()-diff);return d.toISOString().slice(0,10)}
 function addDaysUTC(f,n){const d=new Date(f+'T00:00:00Z');d.setUTCDate(d.getUTCDate()+n);return d.toISOString().slice(0,10)}
 function weekLabel(m){return dLbl(m)+' al '+dLbl(addDaysUTC(m,5))}
 const WD=['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'];
 const wdLbl=f=>{const d=new Date(f+'T00:00:00Z');const g=d.getUTCDay();return WD[(g===0?6:g-1)]+' '+dLbl(f)};
-const scopeCards=r=>state.tab==='sem'?(base(r)&&weekKey(r.fecha)===state.sem):full(r);
+const scopeCards=r=>state.tab==='sem'?(base(r)&&periodOk(r)&&weekKey(r.fecha)===state.sem):full(r);
 function dispAgg(rows,val,plan,real){const withBase=rows.filter(r=>r[val]!=null&&r[plan]>0&&r[real]!=null);const den=withBase.reduce((s,r)=>s+r[plan],0);if(den>0)return Math.round(withBase.reduce((s,r)=>s+(r[plan]-r[real]),0)/den*1000)/10;return avg(rows.map(r=>r[val]))}
 function aggByKey(scope,keyFn){const g={};scope.forEach(r=>{const k=keyFn(r)||'Sin dato';(g[k]=g[k]||[]).push(r)});
  return Object.keys(g).sort().map(k=>{const u=g[k];return{key:k,n:u.length,tml:avg(u.map(r=>r.tml)),ti:avg(u.map(r=>r.ti)),hr:avg(u.map(r=>r.horas)),as:avg(u.map(r=>r.adhsec)),ac:avg(u.map(r=>r.adhcli)),dk:dispAgg(u,'dispkm','disp_km_plan','disp_km_real'),dh:dispAgg(u,'disphs','disp_hs_plan','disp_hs_real')}})}
@@ -512,6 +590,17 @@ function jornadas(scope){const g={};scope.forEach(r=>{const k=r.fecha+'|'+person
 function aggOperativo(field,scope){const baseAgg=aggBy(field,scope),j=jornadas(scope),jg={};j.forEach(d=>{const k=d[field]||'Sin dato';(jg[k]=jg[k]||[]).push(d)});
  return baseAgg.map(s=>{const u=jg[s.key]||[];return Object.assign({},s,{n:u.length,hr:avg(u.map(d=>d.horas)),recargas:u.reduce((a,d)=>a+d.recargas,0),registros:s.n})})}
 let ch={};
+function weeksForMonth(month){return[...new Set(R.filter(r=>r.mes===month&&r.fecha).map(r=>weekKey(r.fecha)))].sort()}
+function syncWeeksForMonth(month){const weeks=weeksForMonth(month);if(!weeks.length)return;state.sem=weeks[weeks.length-1];state.teamSem=state.sem;fSem.value=state.sem;fTeamSem.value=state.teamSem}
+function restoreFilterStateFromUrl(){const params=new URLSearchParams(location.search),unidad=params.get('unidad'),suc=params.get('suc'),mes=params.get('mes'),fecha=params.get('fecha'),cho=params.get('cho');if(unidad&&UNIDADES[unidad])state.unidad=unidad;if(suc&&DATA.sucursales.includes(suc))state.suc=suc;if(mes&&FILTER_MESES.includes(mes))state.mes=mes;if(fecha&&FECHAS.includes(fecha)){state.fecha=fecha;state.mes=fecha.slice(0,7);state.sem=weekKey(fecha);state.teamSem=state.sem}else if(state.mes!=='__all')syncWeeksForMonth(state.mes);if(cho&&PERSONAS.includes(cho))state.cho=cho}
+function updateFilterUrl(){const url=new URL(location.href);['unidad','suc','mes','fecha','cho'].forEach(key=>url.searchParams.delete(key));[['unidad',state.unidad],['suc',state.suc],['mes',state.mes],['fecha',state.fecha],['cho',state.cho]].forEach(([key,value])=>{if(value&&value!=='__all')url.searchParams.set(key,value)});history.replaceState(null,'',url)}
+function renderFilterContext(){const items=[];if(state.unidad!=='__all')items.push(['unidad','Unidad',UNIDADES[state.unidad]?.label||state.unidad]);if(state.suc!=='__all')items.push(['suc','Sucursal',state.suc]);if(state.mes!=='__all')items.push(['mes','Mes',mLbl(state.mes)+' '+state.mes.slice(0,4)]);if(state.fecha!=='__all')items.push(['fecha','Día',dLbl(state.fecha)+'/'+state.fecha.slice(0,4)]);if(state.cho!=='__all')items.push(['cho','Chofer',state.cho]);const box=document.getElementById('filterContext'),chips=document.getElementById('filterChips');box.classList.toggle('show',items.length>0);chips.innerHTML=items.map(([dim,label,value])=>'<button type="button" class="filter-chip" data-filter="'+dim+'" aria-label="Quitar '+esc(label)+' '+esc(value)+'"><span>'+esc(label)+': '+esc(value)+'</span><b aria-hidden="true">×</b></button>').join('')}
+function syncFilterControls(){fUnidad.value=state.unidad;refreshSucOptions();fSuc.value=state.suc;fMes.value=state.mes;fFecha.value=state.fecha==='__all'?'':state.fecha;fCho.value=state.cho;if(state.sem)fSem.value=state.sem;if(state.teamSem)fTeamSem.value=state.teamSem;renderFilterContext();updateFilterUrl()}
+function clearFilterDimension(dimension){if(dimension==='unidad'){state.unidad='__all';state.suc='__all'}else if(dimension==='mes'){state.mes='__all';state.fecha='__all'}else if(dimension==='fecha'){state.fecha='__all'}else if(dimension==='suc')state.suc='__all';else if(dimension==='cho')state.cho='__all';syncFilterControls();render()}
+function applyChartFilter(dimension,value){if(value==null||value==='')return;if(dimension==='mes'){const next=state.mes===value?'__all':value;state.mes=next;state.fecha='__all';if(next!=='__all')syncWeeksForMonth(next)}else if(dimension==='fecha'){const next=state.fecha===value?'__all':value;state.fecha=next;if(next!=='__all'){state.mes=next.slice(0,7);state.sem=weekKey(next);state.teamSem=state.sem}}else if(dimension==='cho'){state.cho=state.cho===value?'__all':value}else if(dimension==='suc'){const normalized=sucNorm(value),unit=Object.keys(UNIDADES).find(k=>sucNorm(UNIDADES[k].label)===normalized||UNIDADES[k].sucs.map(sucNorm).includes(normalized));if(state.suc!=='__all'&&sucNorm(state.suc)===normalized){state.suc='__all'}else if(unit&&sucNorm(UNIDADES[unit].label)===normalized){state.unidad=unit;state.suc='__all'}else{state.unidad=unit||'__all';state.suc=DATA.sucursales.find(s=>sucNorm(s)===normalized)||'__all'}}syncFilterControls();render()}
+const chartFilter=(dimension,keys,datasets=[0])=>({dimension,keys,datasets});
+function chartInteraction(selection){if(!selection)return{};const accepts=hit=>!selection.datasets||selection.datasets.includes(hit.datasetIndex);return{onHover:(event,elements)=>{const target=event.native?.target;if(target)target.style.cursor=elements.some(accepts)?'pointer':'default'},onClick:(event,elements,chart)=>{const hit=elements.find(accepts);if(!hit)return;const value=typeof selection.keys==='function'?selection.keys(hit,chart):(selection.keys||[])[hit.index];applyChartFilter(selection.dimension,value)}}}
+document.getElementById('filterChips').addEventListener('click',event=>{const button=event.target.closest('[data-filter]');if(button)clearFilterDimension(button.dataset.filter)});
 const chartsReady=()=>typeof Chart!=='undefined';
 const hhmmH=h=>{if(h==null||isNaN(h))return'–';const H=Math.floor(h),M=Math.round((h-H)*60);return M===60?(H+1)+':00':H+':'+String(M).padStart(2,'0')};
 function arcPath(r,d0,d1){const pol=deg=>{const a=(deg-180)*Math.PI/180;return[100+r*Math.cos(a),100+r*Math.sin(a)]};const[x0,y0]=pol(d0),[x1,y1]=pol(d1),lg=(d1-d0)>180?1:0;return 'M'+x0.toFixed(2)+' '+y0.toFixed(2)+' A'+r+' '+r+' 0 '+lg+' 1 '+x1.toFixed(2)+' '+y1.toFixed(2)}
@@ -519,31 +608,32 @@ function gauge(id,value,max,obj,color,txt){const r=80,f=Math.max(0,Math.min(1,(v
 function renderGauges(aTml,aHr,aTi){gauge('ggTml',aTml,58,OBJ.tml,colLow(aTml,OBJ.tml),aTml==null?'–':Math.round(aTml));gauge('ggHr',aHr,8,OBJ.ruta,colRuta(aHr),aHr==null?'–':hhmmH(aHr));gauge('ggTi',aTi,69,OBJ.ti,colLow(aTi,OBJ.ti),aTi==null?'–':Math.round(aTi))}
 function dLabels(idxs){return {id:'dl',afterDatasetsDraw(c){const{ctx}=c;ctx.save();ctx.font='600 10px system-ui';ctx.fillStyle='#26334d';ctx.textAlign='center';
  idxs.forEach(di=>{const m=c.getDatasetMeta(di);m.data.forEach((b,i)=>{const v=c.data.datasets[di].data[i];if(v!=null)ctx.fillText(c.data.datasets[di]._fmt?c.data.datasets[di]._fmt(v):v,b.x,b.y-5)})});ctx.restore()}}}
-function barGen(id,labels,vals,fmt,colorFn,obj,showLbl){if(!chartsReady())return;if(ch[id])ch[id].destroy();
+function barGen(id,labels,vals,fmt,colorFn,obj,showLbl,selection){if(!chartsReady())return;if(ch[id])ch[id].destroy();
  const ds=[{type:'bar',data:vals,backgroundColor:vals.map(colorFn),borderRadius:3,maxBarThickness:34,_fmt:fmt},
   {type:'line',data:vals.map(()=>obj),borderColor:C.obj,borderWidth:2,borderDash:[6,4],pointRadius:0,fill:false}];
- ch[id]=new Chart(document.getElementById(id),{data:{labels,datasets:ds},options:{responsive:true,maintainAspectRatio:false,layout:{padding:{top:16}},
+ ch[id]=new Chart(document.getElementById(id),{data:{labels,datasets:ds},options:{...chartInteraction(selection),responsive:true,maintainAspectRatio:false,layout:{padding:{top:16}},
   plugins:{legend:{display:false},tooltip:{callbacks:{label:x=>x.datasetIndex===1?'Objetivo '+fmt(obj):fmt(x.parsed.y)}}},
   scales:{y:{beginAtZero:true,ticks:{color:'#657085',font:{size:11}},grid:{color:'#eef1f5'}},x:{ticks:{color:'#657085',font:{size:10},maxRotation:60,minRotation:labels.length>12?45:0},grid:{display:false}}}},plugins:showLbl?[dLabels([0])]:[]})}
-function adhChart(id,labels,sV,cV){if(!chartsReady())return;if(ch[id])ch[id].destroy();
+function barMetric(id,labels,vals,fmt,color,showLbl,selection){if(!chartsReady())return;if(ch[id])ch[id].destroy();const colors=vals.map((v,i)=>typeof color==='function'?color(v,i):color),ds=[{type:'bar',data:vals,backgroundColor:colors,borderRadius:3,maxBarThickness:34,_fmt:fmt}];ch[id]=new Chart(document.getElementById(id),{data:{labels,datasets:ds},options:{...chartInteraction(selection),responsive:true,maintainAspectRatio:false,layout:{padding:{top:16}},plugins:{legend:{display:false},tooltip:{callbacks:{label:x=>fmt(x.parsed.y)}}},scales:{y:{beginAtZero:true,ticks:{color:'#657085',font:{size:11}},grid:{color:'#eef1f5'}},x:{ticks:{color:'#657085',font:{size:10},maxRotation:60,minRotation:labels.length>12?45:0},grid:{display:false}}}},plugins:showLbl?[dLabels([0])]:[]})}
+function adhChart(id,labels,sV,cV,selection){if(!chartsReady())return;if(ch[id])ch[id].destroy();
  ch[id]=new Chart(document.getElementById(id),{data:{labels,datasets:[
   {type:'line',label:'Secuencia',data:sV,borderColor:C.sec,borderWidth:2.5,tension:.3,pointRadius:labels.length>15?0:3,fill:false},
   {type:'line',label:'Click',data:cV,borderColor:C.cli,borderWidth:2.5,tension:.3,pointRadius:labels.length>15?0:3,fill:false},
   {type:'line',label:'Objetivo 85%',data:sV.map(()=>OA),borderColor:C.bad,borderWidth:2,borderDash:[6,4],pointRadius:0,fill:false}]},
-  options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:true,labels:{boxWidth:10,font:{size:10}}},tooltip:{callbacks:{label:x=>x.dataset.label+': '+r1(x.parsed.y)+'%'}}},
+  options:{...chartInteraction(selection),responsive:true,maintainAspectRatio:false,plugins:{legend:{display:true,labels:{boxWidth:10,font:{size:10}}},tooltip:{callbacks:{label:x=>x.dataset.label+': '+r1(x.parsed.y)+'%'}}},
   scales:{y:{suggestedMin:40,suggestedMax:100,ticks:{callback:v=>v+'%',color:'#657085',font:{size:11}},grid:{color:'#eef1f5'}},x:{ticks:{color:'#657085',font:{size:10},maxRotation:60,minRotation:labels.length>12?45:0},grid:{display:false}}}}})}
-function dispChart(id,labels,kV,hV){if(!chartsReady())return;if(ch[id])ch[id].destroy();
+function dispChart(id,labels,kV,hV,selection){if(!chartsReady())return;if(ch[id])ch[id].destroy();
  ch[id]=new Chart(document.getElementById(id),{data:{labels,datasets:[
   {type:'bar',label:'Km',data:kV,backgroundColor:kV.map(colDisp),borderRadius:3,maxBarThickness:18},
   {type:'bar',label:'Hs',data:hV,backgroundColor:hV.map(colDisp),borderRadius:3,maxBarThickness:18},
   {type:'line',label:'+10%',data:kV.map(()=>OD),borderColor:C.good,borderWidth:1.5,borderDash:[5,4],pointRadius:0},
   {type:'line',label:'-10%',data:kV.map(()=>-OD),borderColor:C.good,borderWidth:1.5,borderDash:[5,4],pointRadius:0}]},
-  options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:true,labels:{boxWidth:10,font:{size:10},filter:i=>['Km','Hs'].includes(i.text)}},
+  options:{...chartInteraction(selection),responsive:true,maintainAspectRatio:false,plugins:{legend:{display:true,labels:{boxWidth:10,font:{size:10},filter:i=>['Km','Hs'].includes(i.text)}},
    tooltip:{callbacks:{label:x=>x.dataset.label+': '+sgn(x.parsed.y)+(['Km','Hs'].includes(x.dataset.label)?(Math.abs(x.parsed.y)<=OD?' (dentro)':' (fuera)'):'')}}},
    scales:{y:{ticks:{callback:v=>v+'%',color:'#657085',font:{size:11}},grid:{color:'#eef1f5'}},x:{ticks:{color:'#657085',font:{size:10},maxRotation:60,minRotation:labels.length>12?45:0},grid:{display:false}}}}})}
 function rowsHtml(items,keyFmt,withDisp){return items.map(s=>{const cl=(v,o)=>v==null?'':(v<=o?'g':'r'),ca=v=>v==null?'':(v>=OA?'g':'r'),cd=v=>v==null?'':(Math.abs(v)<=OD?'g':'r');
   return '<tr><td>'+esc(keyFmt(s.key))+'</td><td>'+s.n+'</td><td class="'+cl(s.tml,OBJ.tml)+'">'+r1(s.tml)+'</td><td class="'+cl(s.ti,OBJ.ti)+'">'+r1(s.ti)+'</td><td class="'+cl(s.hr,OBJ.ruta)+'">'+hhmmH(s.hr)+'</td><td class="'+ca(s.as)+'">'+(s.as==null?'–':r1(s.as)+'%')+'</td><td class="'+ca(s.ac)+'">'+(s.ac==null?'–':r1(s.ac)+'%')+'</td>'+(withDisp?('<td class="'+cd(s.dk)+'">'+sgn(s.dk)+'</td><td class="'+cd(s.dh)+'">'+sgn(s.dh)+'</td>'):'')+'</tr>'}).join('')}
-function tmlTiSource(scope){const us=scope.filter(r=>r.usable),fy=us.filter(r=>r.tml_ti_origen==='fichaya').length,est=us.length-fy;if(!us.length)return'Sin rutas válidas para TML/TI';if(fy)return'TML/TI: FichaYA '+fy+' · estimadas '+est;return'TML/TI estimados en este filtro'}
+function tmlTiSource(scope){const us=scope.filter(r=>r.usable),fy=us.filter(r=>String(r.tml_ti_origen||'').startsWith('fichaya')).length,ref=us.filter(r=>r.tml_referencia_mensual!=null||r.ti_referencia_mensual!=null).length,est=us.length-fy-ref;if(!us.length)return'Sin rutas válidas para TML/TI';const parts=[];if(ref)parts.push('referencia Casa Central '+ref);if(fy)parts.push('FichaYA '+fy);if(est>0)parts.push('estimadas '+est);return'Promedio por ruta · '+parts.join(' · ')}
 function quality(scope){const total=scope.length,bad=scope.filter(r=>r.alerta).length,good=total-bad,p=total?good/total*100:null;return{total,bad,good,p}}
 function qualityByMonth(scope){const g={};scope.forEach(r=>{(g[r.mes]=g[r.mes]||[]).push(r)});return Object.keys(g).sort().map(k=>{const q=quality(g[k]);return{key:k,total:q.total,bad:q.bad,good:q.good,p:q.p}})}
 function addClientes(set,items){(items||[]).forEach(c=>{const id=typeof c==='string'?c:c?.cliente;if(id)set.add(id)})}
@@ -572,19 +662,19 @@ function foxDetalleTable(rows){if(!rows.length)return emptyRow(13,'No hay horari
  return Object.values(g).sort((a,b)=>b.fecha.localeCompare(a.fecha)||a.persona.localeCompare(b.persona)).map(r=>{const total=(r.carga||0)+(r.recarga||0),grp=r.recarga?' class="warn"':'';return '<tr'+grp+'><td>'+dLbl(r.fecha)+'</td><td>'+mLbl(r.mes)+' '+r.mes.slice(0,4)+'</td><td>'+esc(r.suc)+'</td><td>'+esc(r.camion)+'</td><td>'+esc(r.persona)+'</td><td>'+tLbl(r.cargaIni)+'</td><td>'+tLbl(r.cargaFin)+'</td><td>'+durLbl(r.carga)+'</td><td>'+tLbl(r.recIni)+'</td><td>'+tLbl(r.recFin)+'</td><td>'+durLbl(r.recarga)+'</td><td><b>'+durLbl(total)+'</b></td><td>'+esc(r.tramos.join(' / '))+'</td></tr>'}).join('')}
 function recargaChart(id,items){if(!chartsReady())return;if(ch[id])ch[id].destroy();const labels=items.map(r=>mLbl(r.key)+' '+r.key.slice(0,4)),vals=items.map(r=>r.prom/60);
  ch[id]=new Chart(document.getElementById(id),{type:'bar',data:{labels,datasets:[{label:'Promedio recarga',data:vals,backgroundColor:C.amber,borderRadius:4,maxBarThickness:34}]},
-  options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:x=>hhmmH(x.parsed.y)+' promedio · '+items[x.dataIndex].n+' recargas'}}},
+  options:{...chartInteraction(chartFilter('mes',items.map(r=>r.key))),responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:x=>hhmmH(x.parsed.y)+' promedio · '+items[x.dataIndex].n+' recargas'}}},
   scales:{y:{beginAtZero:true,ticks:{callback:hhmmH,color:'#657085',font:{size:11}},grid:{color:'#eef1f5'}},x:{ticks:{color:'#657085',font:{size:10}},grid:{display:false}}}}})}
-function foxChart(id,items,keyFmt){if(!chartsReady())return;if(ch[id])ch[id].destroy();const labels=items.map(r=>keyFmt(r.key));
+function foxChart(id,items,keyFmt,dimension){if(!chartsReady())return;if(ch[id])ch[id].destroy();const labels=items.map(r=>keyFmt(r.key));
  ch[id]=new Chart(document.getElementById(id),{type:'line',data:{labels,datasets:[
   {label:'Inicio',data:items.map(r=>r.ini),borderColor:C.cli,backgroundColor:C.cli,borderWidth:2.5,tension:.25,pointRadius:3,fill:false},
   {label:'Fin',data:items.map(r=>r.fin),borderColor:C.amber,backgroundColor:C.amber,borderWidth:2.5,tension:.25,pointRadius:3,fill:false}]},
-  options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:true,labels:{boxWidth:10,font:{size:10}}},tooltip:{callbacks:{label:x=>x.dataset.label+': '+tLbl(x.parsed.y)}}},
+  options:{...chartInteraction(chartFilter(dimension,items.map(r=>r.key),[0,1])),responsive:true,maintainAspectRatio:false,plugins:{legend:{display:true,labels:{boxWidth:10,font:{size:10}}},tooltip:{callbacks:{label:x=>x.dataset.label+': '+tLbl(x.parsed.y)}}},
   scales:{y:{min:360,max:1320,ticks:{stepSize:120,callback:tLbl,color:'#657085',font:{size:11}},grid:{color:'#eef1f5'}},x:{ticks:{color:'#657085',font:{size:10},maxRotation:60,minRotation:labels.length>12?45:0},grid:{display:false}}}}})}
 function renderHorarios(){const rows=foxRows(),jRows=foxJornadas(rows),sum=foxJornadaSummary('',jRows),col=C.cli;
  kFoxIni.textContent=tLbl(sum.ini);kFoxFin.textContent=tLbl(sum.fin);kFoxDur.textContent=durLbl(sum.dur);kFoxRutas.textContent=jRows.length;
  [[cFoxIni,bFoxIni,C.cli],[cFoxFin,bFoxFin,C.amber],[cFoxDur,bFoxDur,C.obj],[cFoxRutas,bFoxRutas,C.sec]].forEach(([c,b,x])=>{c.style.setProperty('--accent',x);b.style.background=x;b.style.width='100%'});
  const byMes=foxJornadaAgg(rows,'mes'),byDia=foxJornadaAgg(rows,'fecha'),byPersona=foxPersonaAgg(rows).sort((a,b)=>b.n-a.n||a.key.localeCompare(b.key)),byCamion=foxAgg(rows,'camion').sort((a,b)=>b.n-a.n||a.key.localeCompare(b.key)),byRecarga=recargaMes(rows);
- foxChart('chFoxMes',byMes,m=>mLbl(m)+' '+m.slice(0,4));foxChart('chFoxDia',byDia,dLbl);
+ foxChart('chFoxMes',byMes,m=>mLbl(m)+' '+m.slice(0,4),'mes');foxChart('chFoxDia',byDia,dLbl,'fecha');
  recargaChart('chRecargaMes',byRecarga);tbodyRecargaMes.innerHTML=recargaRows(byRecarga);
  tbodyFoxPersona.innerHTML=foxPersonaTable(byPersona);tbodyFoxCamion.innerHTML=foxTable(byCamion,'Camion');
  tbodyFoxDetalle.innerHTML=foxDetalleTable(rows);}
@@ -602,22 +692,23 @@ function desvioLbl(mins){if(mins==null)return'-';const d=Math.abs(mins),txt=Math
 function topClientesFuera(scope){const g={};scope.forEach(r=>(r.clientes_fuera_ontime||[]).forEach(c=>{const k=c.cliente||'Sin ID',fecha=r.fecha||'',stamp=fecha+' '+(c.visita||''),d=desvioVentana(c.visita,c.ventana),x=g[k]||(g[k]={cliente:k,nombre:c.nombre||'',fuera:0,visita:'',fecha:'',stamp:'',ventana:c.ventana||'',motivo:'',desvio:null});x.fuera+=1;x.nombre=x.nombre||c.nombre||'';x.ventana=x.ventana||c.ventana||'';if(!x.stamp||stamp>x.stamp){x.stamp=stamp;x.fecha=fecha;x.visita=c.visita||'';x.motivo=d.motivo;x.desvio=d.mins}}));return Object.values(g).sort((a,b)=>b.fuera-a.fuera||b.stamp.localeCompare(a.stamp)||a.nombre.localeCompare(b.nombre)).slice(0,30)}
 function topClientesSinVentana(scope){const g={};scope.forEach(r=>(r.clientes_sin_ventana||[]).forEach(c=>{const k=c.cliente||'Sin ID';const x=g[k]||(g[k]={cliente:k,nombre:c.nombre||'',pedidos:0,motivo:c.motivo||'sin ventana cargada'});x.pedidos+=1;x.nombre=x.nombre||c.nombre||'';x.motivo=x.motivo||c.motivo||'sin ventana cargada'}));return Object.values(g).sort((a,b)=>b.pedidos-a.pedidos||a.nombre.localeCompare(b.nombre)).slice(0,30)}
 function otRows(items){return items.length?items.map(s=>'<tr><td>'+esc(s.key)+'</td><td>'+s.ev+'</td><td class="g">'+s.ok+'</td><td class="'+(s.bad?'r':'g')+'">'+s.bad+'</td><td class="'+(s.sin?'r':'g')+'">'+s.sin+'</td><td class="'+(s.p>=85?'g':'r')+'">'+(s.p==null?'–':r1(s.p)+'%')+'</td></tr>').join(''):emptyRow(6,'No hay pedidos para el filtro actual.')}
-function otChart(id,items){if(!chartsReady())return;if(ch[id])ch[id].destroy();const rows=items.filter(s=>s.p!=null).slice(0,14);
+function otChart(id,items,dimension){if(!chartsReady())return;if(ch[id])ch[id].destroy();const rows=items.filter(s=>s.p!=null).slice(0,14);
  ch[id]=new Chart(document.getElementById(id),{data:{labels:rows.map(s=>s.key),datasets:[{type:'bar',data:rows.map(s=>s.p),backgroundColor:rows.map(s=>s.p>=85?C.good:C.bad),borderRadius:4,maxBarThickness:22},{type:'line',data:rows.map(()=>85),borderColor:C.obj,borderWidth:2,borderDash:[6,4],pointRadius:0}]},
-  options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,layout:{padding:{right:28}},plugins:{legend:{display:false},tooltip:{callbacks:{label:x=>x.datasetIndex===1?'Objetivo 85%':r1(x.parsed.x)+'% · '+rows[x.dataIndex].ev+' pedidos eval.'}}},
+  options:{...chartInteraction(dimension?chartFilter(dimension,rows.map(s=>s.key)):null),indexAxis:'y',responsive:true,maintainAspectRatio:false,layout:{padding:{right:28}},plugins:{legend:{display:false},tooltip:{callbacks:{label:x=>x.datasetIndex===1?'Objetivo 85%':r1(x.parsed.x)+'% · '+rows[x.dataIndex].ev+' pedidos eval.'}}},
   scales:{x:{min:0,max:100,ticks:{callback:v=>v+'%',color:'#657085',font:{size:11}},grid:{color:'#eef1f5'}},y:{ticks:{color:'#26334d',font:{size:10}},grid:{display:false}}}},plugins:[hLabels(0,v=>r1(v)+'%')]})}
 function hLabels(di,fmt){return {id:'hl'+di,afterDatasetsDraw(c){const{ctx}=c,m=c.getDatasetMeta(di);ctx.save();ctx.font='600 10px system-ui';ctx.fillStyle='#26334d';ctx.textAlign='left';ctx.textBaseline='middle';m.data.forEach((b,i)=>{const v=c.data.datasets[di].data[i];if(v!=null)ctx.fillText(fmt(v),b.x+6,b.y)});ctx.restore()}}}
-function rechazosScope(){return RECH.filter(r=>rechazoBase(r)&&(state.mes==='__all'||r.fecha.slice(0,7)===state.mes))}
-function rechazosDetalleScope(){return RECHDET.filter(r=>rechazoBase(r)&&(state.mes==='__all'||r.fecha.slice(0,7)===state.mes))}
+function rechazoPeriodOk(r){return(state.mes==='__all'||r.fecha.slice(0,7)===state.mes)&&(state.fecha==='__all'||r.fecha===state.fecha)}
+function rechazosScope(){return RECH.filter(r=>rechazoBase(r)&&rechazoPeriodOk(r))}
+function rechazosDetalleScope(){return RECHDET.filter(r=>rechazoBase(r)&&rechazoPeriodOk(r)&&(state.cho==='__all'||cleanPersona(r.chofer)===state.cho))}
 function rechazosMes(rows){const g={};rows.forEach(r=>{const k=r.fecha.slice(0,7);g[k]=(g[k]||0)+(r.rechazos||0)});return Object.keys(g).sort().map(k=>({key:k,n:g[k]}))}
 function rechazosPctMes(rows){const g={};rows.forEach(r=>{const k=r.fecha.slice(0,7);(g[k]=g[k]||[]).push(r)});return Object.keys(g).sort().map(k=>{const u=g[k],ped=u.reduce((s,r)=>s+(r.pedidos_pdv_atendidos||0),0),rech=u.reduce((s,r)=>s+(r.rechazos||0),0);return{key:k,pdv:ped?rech/ped*100:0,bultos:wavg(u,'pct_rechazo_bultos','bultos')??0,hl:wavg(u,'pct_rechazo_hl','hl')??0,nds:wavg(u,'nds','pedidos_pdv_atendidos')}})}
 function rechazosPctChart(id,items,field,label,color,obj){if(!chartsReady())return;if(ch[id])ch[id].destroy();const labels=items.map(r=>mLbl(r.key)),vals=items.map(r=>r[field]);
  ch[id]=new Chart(document.getElementById(id),{type:'line',data:{labels,datasets:[{label,data:vals,borderColor:color,backgroundColor:color,borderWidth:2.5,tension:.25,pointRadius:4,fill:false,_fmt:rechazoPct},{label:'Objetivo '+fmtPct2(obj),data:vals.map(()=>obj),borderColor:C.obj,borderWidth:2,borderDash:[6,4],pointRadius:0,fill:false}]},
-  options:{responsive:true,maintainAspectRatio:false,layout:{padding:{top:16,right:28}},plugins:{legend:{display:false},tooltip:{callbacks:{label:x=>x.datasetIndex===1?'Objetivo '+fmtPct2(obj):label+': '+rechazoPct(x.parsed.y)}}},
+  options:{...chartInteraction(chartFilter('mes',items.map(r=>r.key))),responsive:true,maintainAspectRatio:false,layout:{padding:{top:16,right:28}},plugins:{legend:{display:false},tooltip:{callbacks:{label:x=>x.datasetIndex===1?'Objetivo '+fmtPct2(obj):label+': '+rechazoPct(x.parsed.y)}}},
   scales:{y:{beginAtZero:true,ticks:{callback:v=>v+'%',color:'#657085',font:{size:11}},grid:{color:'#eef1f5'}},x:{ticks:{color:'#657085',font:{size:10}},grid:{display:false}}}},plugins:[dLabels([0])]})}
 function rechazosNdsChart(id,items){if(!chartsReady())return;if(ch[id])ch[id].destroy();const labels=items.map(r=>mLbl(r.key)),vals=items.map(r=>r.nds);
  ch[id]=new Chart(document.getElementById(id),{type:'line',data:{labels,datasets:[{label:'NDS',data:vals,borderColor:C.good,backgroundColor:C.good,borderWidth:2.5,tension:.25,pointRadius:4,fill:false,_fmt:fmtPct},{label:'Objetivo '+fmtPct(OBJ_NDS),data:vals.map(()=>OBJ_NDS),borderColor:C.obj,borderWidth:2,borderDash:[6,4],pointRadius:0,fill:false}]},
-  options:{responsive:true,maintainAspectRatio:false,layout:{padding:{top:16,right:28}},plugins:{legend:{display:false},tooltip:{callbacks:{label:x=>x.datasetIndex===1?'Objetivo '+fmtPct(OBJ_NDS):'NDS: '+fmtPct(x.parsed.y)}}},
+  options:{...chartInteraction(chartFilter('mes',items.map(r=>r.key))),responsive:true,maintainAspectRatio:false,layout:{padding:{top:16,right:28}},plugins:{legend:{display:false},tooltip:{callbacks:{label:x=>x.datasetIndex===1?'Objetivo '+fmtPct(OBJ_NDS):'NDS: '+fmtPct(x.parsed.y)}}},
   scales:{y:{min:0,max:100,ticks:{callback:v=>v+'%',color:'#657085',font:{size:11}},grid:{color:'#eef1f5'}},x:{ticks:{color:'#657085',font:{size:10}},grid:{display:false}}}},plugins:[dLabels([0])]})}
 function rechazoPedidos(rows){return rows.reduce((s,r)=>s+(r.rechazos||0),0)}
 function rankRechDetalle(rows,field,limit=12){const g={};rows.forEach(r=>{const k=r[field]||'Sin dato',x=g[k]||(g[k]={key:k,pedidos:0,ocurrencias:0,bultos:0,hl:0,pallets:0});x.pedidos+=r.pedidos_rechazo||0;x.ocurrencias+=r.ocurrencias||0;x.bultos+=r.bultos_rechazo||0;x.hl+=r.hl_rechazo||0;x.pallets+=r.pallets_rechazo||0});return Object.values(g).sort((a,b)=>b.pedidos-a.pedidos||b.bultos-a.bultos).slice(0,limit)}
@@ -634,45 +725,77 @@ function fmtPct2(v){return (v==null||isNaN(v))?'–':Number(v).toLocaleString('e
 function rechazoPct(v){return fmtPct2(v==null||isNaN(v)?0:v)}
 function pctPill(v,ok){return '<span class="pill '+(v==null||isNaN(v)?'neutral':(ok?'good':'bad'))+'">'+fmtPct(v)+'</span>'}
 function rechazoPill(v,ok){const x=v==null||isNaN(v)?0:v;return '<span class="pill '+(ok?'good':'bad')+'">'+fmtPct2(x)+'</span>'}
-function dqiScope(){return DQI.filter(r=>state.mes==='__all'||r.mes===state.mes)}
-function dqiDetScope(){return DQIDET.filter(r=>state.mes==='__all'||r.mes===state.mes)}
-function dqiByMonth(rows){const g={};rows.forEach(r=>{(g[r.mes]=g[r.mes]||[]).push(r)});return Object.keys(g).sort().map(k=>({key:k,dqi:g[k].reduce((s,r)=>s+(r.dqi||0),0),dias:g[k].length}))}
+function dqiPeriodOk(r){if(state.fecha!=='__all')return r.fecha===state.fecha;if(state.mes!=='__all')return r.mes===state.mes;return String(r.fecha||'').startsWith(DQI_FOCUS_YEAR+'-')}
+function dqiScope(){return DQI.filter(r=>genericDataBase(r)&&dqiPeriodOk(r))}
+function dqiDetScope(){return DQIDET.filter(r=>genericDataBase(r)&&dqiPeriodOk(r))}
+function dqiByMonth(rows){const g={};rows.forEach(r=>{(g[r.mes]=g[r.mes]||[]).push(r)});return Object.keys(g).sort().map(k=>({key:k,dqi:g[k].reduce((s,r)=>s+(r.dqi||0),0),bultos_real:g[k].reduce((s,r)=>s+(r.bultos_real||0),0),dqi_hl:g[k].reduce((s,r)=>s+(r.dqi_hl||0),0),hl_real:g[k].reduce((s,r)=>s+(r.hl_real||0),0),dias:g[k].length}))}
+const DQI_MONTH_LABELS=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+const DQI_YEAR_COLORS={'2024':'#64748B','2025':'#D97706','2026':'#0E7C6B'};
+function dqiHistoricalSeries(field){const totals={};DQI.filter(genericDataBase).forEach(r=>{const key=r.mes||String(r.fecha||'').slice(0,7);totals[key]=(totals[key]||0)+(r[field]||0)});const from=String(DQI_QUALITY.source_date_from||DQI_YEARS[0]+'-01-01').slice(0,7),to=String(DQI_QUALITY.source_date_to||TODAY).slice(0,7);return DQI_YEARS.map(year=>{const monthly=DQI_MONTH_LABELS.map((_,index)=>{const key=year+'-'+String(index+1).padStart(2,'0');return key<from||key>to?null:(totals[key]||0)});let running=0;const cumulative=monthly.map(value=>value==null?null:(running+=value));return{year,monthly,cumulative}})}
+function dqiHistoryChart(id,series,cumulative){if(!chartsReady())return;if(ch[id])ch[id].destroy();const sourceMonth=String(DQI_QUALITY.source_date_to||'').slice(0,7),partialMonth=sourceMonth===TODAY.slice(0,7)?sourceMonth:'',valuesKey=cumulative?'cumulative':'monthly',selection=chartFilter('mes',(hit,chart)=>{const year=chart.data.datasets[hit.datasetIndex]._year;return year?year+'-'+String(hit.index+1).padStart(2,'0'):null},series.map((_,index)=>index));const datasets=series.map((item,index)=>{const color=DQI_YEAR_COLORS[item.year]||[C.obj,C.amber,C.cli][index%3],values=item[valuesKey];return{label:item.year,data:values,_year:item.year,borderColor:color,backgroundColor:color,borderWidth:item.year===DQI_FOCUS_YEAR?3:2,borderDash:item.year==='2024'?[7,4]:(item.year==='2025'?[2,3]:[]),tension:.2,spanGaps:false,fill:false,pointRadius:values.map((value,monthIndex)=>{const key=item.year+'-'+String(monthIndex+1).padStart(2,'0');return value==null?0:(state.mes===key?7:(partialMonth===key?5:3))}),pointHoverRadius:7,pointBackgroundColor:values.map((value,monthIndex)=>item.year===DQI_FOCUS_YEAR&&partialMonth===item.year+'-'+String(monthIndex+1).padStart(2,'0')?'#FFFFFF':color),pointBorderColor:color,pointBorderWidth:2}});if(dqiHistoryMetric==='dqi'){datasets.push({label:cumulative?'Objetivo acumulado':'Objetivo mensual',data:DQI_MONTH_LABELS.map((_,index)=>OBJ_DQI*(cumulative?index+1:1)),borderColor:C.obj,backgroundColor:C.obj,borderWidth:2,borderDash:[6,4],pointRadius:0,fill:false})}ch[id]=new Chart(document.getElementById(id),{type:'line',data:{labels:DQI_MONTH_LABELS,datasets},options:{...chartInteraction(selection),responsive:true,maintainAspectRatio:false,layout:{padding:{top:4}},plugins:{legend:{position:'top',labels:{usePointStyle:true,boxWidth:8,color:'#26334d'}},tooltip:{callbacks:{label:ctx=>ctx.parsed.y==null?'':ctx.dataset.label+': '+fmt2(ctx.parsed.y),afterLabel:ctx=>{const key=(ctx.dataset._year||'')+'-'+String(ctx.dataIndex+1).padStart(2,'0');return key===partialMonth?'Mes parcial · fuente al '+dqiFullDate(DQI_QUALITY.source_date_to):''}}}},scales:{y:{beginAtZero:true,ticks:{color:'#657085',font:{size:11}},grid:{color:'#eef1f5'}},x:{ticks:{color:'#657085',font:{size:10}},grid:{display:false}}}}})}
+function dqiFullDate(value){const raw=String(value||'');return raw.length>=10?dLbl(raw)+'/'+raw.slice(0,4):'sin fecha'}
+function dqiHistoryContext(){const sourceTo=String(DQI_QUALITY.source_date_to||''),sourceMonth=sourceTo.slice(0,7),focusMonth=sourceMonth.startsWith(DQI_FOCUS_YEAR)?Number(sourceMonth.slice(5,7)):12,isPartial=sourceMonth===TODAY.slice(0,7),closedMonth=Math.max(0,isPartial?focusMonth-1:focusMonth),closedLabel=closedMonth?('Ene-'+DQI_MONTH_LABELS[closedMonth-1]+' '+DQI_FOCUS_YEAR+' cerrados'):'Sin meses cerrados';return{sourceTo,sourceMonth,isPartial,closedLabel,periodLabel:closedLabel+(isPartial?' · '+DQI_MONTH_LABELS[focusMonth-1]+' parcial':'')}}
+function renderDqiHistory(){const series=dqiHistoricalSeries(dqiHistoryMetric),context=dqiHistoryContext(),metricLabel=dqiHistoryMetric==='dqi'?'DQI_WQI_BULTOS':'DQI_WQI_HL',sourceFrom=dqiFullDate(DQI_QUALITY.source_date_from),sourceTo=dqiFullDate(DQI_QUALITY.source_date_to);document.querySelectorAll('[data-dqi-history-metric]').forEach(button=>{const active=button.dataset.dqiHistoryMetric===dqiHistoryMetric;button.classList.toggle('active',active);button.setAttribute('aria-pressed',active?'true':'false')});dqiHistorySummary.textContent=metricLabel+' · fuente Depósito 7 del '+sourceFrom+' al '+sourceTo+'.';noteDqiHistoricoMes.textContent=context.periodLabel+' · comparación mensual 2024, 2025 y 2026.';noteDqiHistoricoAcum.textContent='Acumulado desde enero hasta cada mes'+(dqiHistoryMetric==='dqi'?' · objetivo '+fmt2(OBJ_DQI)+' por mes.':'.');noteDqiHistoricoTabla.textContent=metricLabel+' · valor mensual y acumulado anual.';dqiHistoryChart('chDqiHistoricoMes',series,false);dqiHistoryChart('chDqiHistoricoAcum',series,true);const byYear=Object.fromEntries(series.map(item=>[item.year,item]));tbodyDqiHistorico.innerHTML=DQI_MONTH_LABELS.map((label,index)=>{const key=DQI_FOCUS_YEAR+'-'+String(index+1).padStart(2,'0'),partial=context.isPartial&&key===context.sourceMonth,values=DQI_YEARS.flatMap(year=>{const item=byYear[year],monthly=item&&item.monthly[index],cumulative=item&&item.cumulative[index];return['<td>'+fmt2(monthly)+'</td>','<td>'+fmt2(cumulative)+'</td>']});return'<tr><td>'+label+(partial?'<span class="dqi-partial">Parcial</span>':'')+'</td>'+values.join('')+'</tr>'}).join('')}
 function dpoBase(r){if(state.unidad!=='__all'){const cfg=UNIDADES[state.unidad];if(cfg&&!cfg.sucs.map(sucNorm).includes(sucNorm(r.suc)))return false}if(state.suc!=='__all'&&sucNorm(r.suc)!==sucNorm(state.suc))return false;if(state.cho!=='__all'&&cleanPersona(r.chofer)!==state.cho)return false;return true}
-function dpoScope(){return DPO.filter(r=>dpoBase(r)&&(state.mes==='__all'||r.mes===state.mes))}
+function dpoScope(){return DPO.filter(r=>dpoBase(r)&&(state.mes==='__all'||r.mes===state.mes)&&(state.fecha==='__all'||r.fecha===state.fecha))}
 function pctOk(rows,field){const vals=rows.map(r=>r[field]).filter(v=>v!==null&&v!==undefined);return vals.length?vals.filter(Boolean).length/vals.length*100:null}
 function dpoViajes(rows){const g={};rows.forEach(r=>{const k=[r.fecha,r.suc,r.nro_camion||r.camion,cleanPersona(r.chofer)].join('|'),x=g[k]||(g[k]={fecha:r.fecha,mes:r.mes,suc:r.suc,nro_camion:r.nro_camion||r.camion,camion:r.camion,chofer:cleanPersona(r.chofer),personas:0,up:0,clientes:0,pallets:0,rows:0,recargas:0,cargado_ok:r.cargado_ok,descargado_ok:r.descargado_ok});x.rows++;if(r.recarga)x.recargas++;x.personas=Math.max(x.personas,r.personas||0);x.up+=r.up||0;x.clientes+=r.clientes||0;x.pallets+=r.pallets||0;if(x.cargado_ok==null)x.cargado_ok=r.cargado_ok;if(x.descargado_ok==null)x.descargado_ok=r.descargado_ok});return Object.values(g)}
 function dpoSummary(rows,key){const viajes=dpoViajes(rows),salRec=viajes.filter(r=>r.recargas>0).length,recargas=rows.filter(r=>r.recarga).length;return{key,n:viajes.length,registros:rows.length,salidasRecarga:salRec,recargas,pctRecarga:viajes.length?salRec/viajes.length*100:null,camiones:new Set(viajes.map(r=>r.nro_camion||r.camion)).size,personas:avg(viajes.map(r=>r.personas)),totalPers:viajes.reduce((s,r)=>s+(r.personas||0),0),up:avg(viajes.map(r=>r.up)),clientes:avg(viajes.map(r=>r.clientes)),pallets:avg(viajes.map(r=>r.pallets)),carga:pctOk(viajes,'cargado_ok'),descarga:pctOk(viajes,'descargado_ok')}}
 function dpoCalcTrabajo(rows){if(!rows.length)return{totalPers:0,dias:0,repDia:null,hsProm:null,hsTrab:null};const dotacion=dpoViajes(rows),totalPers=dotacion.reduce((s,r)=>s+(r.personas||0),0),dias=new Set(rows.map(r=>r.fecha)).size,repDia=dias?rows.length/dias:null,routeRows=jornadas(R.filter(r=>r.usable&&full(r))),hsProm=avg(routeRows.map(r=>r.horas)),hsTrab=hsProm==null?null:hsProm*totalPers;return{totalPers,dias,repDia,hsProm,hsTrab}}
 function dpoBy(rows,keyFn){const g={};rows.forEach(r=>{const k=keyFn(r)||'Sin dato';(g[k]=g[k]||[]).push(r)});return Object.keys(g).sort().map(k=>dpoSummary(g[k],k))}
-function dpoChart(id,items,valFn,fmt,color){barGen(id,items.map(r=>mLbl(r.key)+' '+r.key.slice(0,4)),items.map(valFn),fmt,color||(()=>C.cli),0,true)}
+function dpoChart(id,items,valFn,fmt,color){barGen(id,items.map(r=>mLbl(r.key)+' '+r.key.slice(0,4)),items.map(valFn),fmt,color||(()=>C.cli),0,true,chartFilter('mes',items.map(r=>r.key)))}
+function dpoQualityMonthly(){const year='2026',yearRows=DQIWQI.filter(r=>String(r.mes||'').startsWith(year+'-'));if(!yearRows.length)return[];const totals={};yearRows.forEach(r=>{const key=r.mes,x=totals[key]||(totals[key]={dqi_hl:0,wqi_hl:0});x.dqi_hl+=r.dqi_hl||0;x.wqi_hl+=r.wqi_hl||0});const sourceMonth=String(DQI_QUALITY.latest_quality_date||DQI_QUALITY.source_date_to||'').slice(0,7),lastMonth=sourceMonth.startsWith(year+'-')?Number(sourceMonth.slice(5,7)):Math.max(...Object.keys(totals).map(key=>Number(key.slice(5,7))));let accumulated=0;return Array.from({length:lastMonth},(_,index)=>{const key=year+'-'+String(index+1).padStart(2,'0'),values=totals[key]||{dqi_hl:0,wqi_hl:0},total_hl=values.dqi_hl+values.wqi_hl;accumulated+=total_hl;return{key,dqi_hl:values.dqi_hl,wqi_hl:values.wqi_hl,total_hl,accumulated,partial:key===sourceMonth&&sourceMonth===TODAY.slice(0,7)}})}
+function dpoQualityVisible(items){const selected=state.mes!=='__all'?state.mes:(state.fecha!=='__all'?state.fecha.slice(0,7):'');return selected?items.filter(r=>r.key===selected):items}
+function dpoQualityTotalLabels(items){return{id:'dpoQualityTotalLabels',afterDatasetsDraw(chart){const{ctx}=chart,meta=chart.getDatasetMeta(1);ctx.save();ctx.font='650 10px system-ui';ctx.fillStyle='#26334d';ctx.textAlign='center';ctx.textBaseline='bottom';meta.data.forEach((bar,index)=>{const item=items[index];if(item)ctx.fillText(fmt2(item.total_hl),bar.x,bar.y-5)});ctx.restore()}}}
+function dpoQualityStackedChart(id,items){if(!chartsReady())return;if(ch[id])ch[id].destroy();const labels=items.map(r=>mLbl(r.key)+(r.partial?' *':'')),selection=chartFilter('mes',items.map(r=>r.key),[0,1]);ch[id]=new Chart(document.getElementById(id),{type:'bar',data:{labels,datasets:[{label:'DQI HL',data:items.map(r=>r.dqi_hl),backgroundColor:C.amber,borderColor:'#92400E',borderWidth:1,borderRadius:3,maxBarThickness:38,stack:'quality'},{label:'WQI HL',data:items.map(r=>r.wqi_hl),backgroundColor:C.cli,borderColor:'#065F46',borderWidth:1,borderRadius:3,maxBarThickness:38,stack:'quality'}]},options:{...chartInteraction(selection),responsive:true,maintainAspectRatio:false,layout:{padding:{top:18}},plugins:{legend:{position:'top',labels:{usePointStyle:true,boxWidth:9,color:'#26334d'}},tooltip:{callbacks:{label:ctx=>ctx.dataset.label+': '+fmt2(ctx.parsed.y)+' HL',footer:tooltipItems=>{const index=tooltipItems[0]?.dataIndex,item=index==null?null:items[index];return item?'Total: '+fmt2(item.total_hl)+' HL':''}}}},scales:{x:{stacked:true,ticks:{color:'#657085',font:{size:10}},grid:{display:false}},y:{stacked:true,beginAtZero:true,title:{display:true,text:'HL',color:'#657085'},ticks:{color:'#657085',font:{size:11}},grid:{color:'#eef1f5'}}}},plugins:[dpoQualityTotalLabels(items)]})}
+function dpoQualityCumulativeChart(id,items){if(!chartsReady())return;if(ch[id])ch[id].destroy();const labels=items.map(r=>mLbl(r.key)+(r.partial?' *':''));ch[id]=new Chart(document.getElementById(id),{type:'line',data:{labels,datasets:[{label:'DQI + WQI acumulado',data:items.map(r=>r.accumulated),borderColor:C.obj,backgroundColor:C.obj,borderWidth:3,tension:.22,fill:false,pointRadius:items.map(r=>r.partial?5:4),pointHoverRadius:7,pointBackgroundColor:items.map(r=>r.partial?'#FFFFFF':C.obj),pointBorderColor:C.obj,pointBorderWidth:2,_fmt:fmt2}]},options:{...chartInteraction(chartFilter('mes',items.map(r=>r.key),[0])),responsive:true,maintainAspectRatio:false,layout:{padding:{top:20,right:18}},plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>'Acumulado: '+fmt2(ctx.parsed.y)+' HL',afterLabel:ctx=>items[ctx.dataIndex]?.partial?'Mes parcial · fuente al '+dqiFullDate(DQI_QUALITY.latest_quality_date||DQI_QUALITY.source_date_to):''}}},scales:{x:{ticks:{color:'#657085',font:{size:10}},grid:{display:false}},y:{beginAtZero:true,title:{display:true,text:'HL acumulados',color:'#657085'},ticks:{color:'#657085',font:{size:11}},grid:{color:'#eef1f5'}}}},plugins:[dLabels([0])]})}
+function renderDpoQuality(){const allItems=dpoQualityMonthly(),items=dpoQualityVisible(allItems),sourceTo=DQI_QUALITY.latest_quality_date||DQI_QUALITY.source_date_to||'',period=state.mes!=='__all'?(mLbl(state.mes)+' '+state.mes.slice(0,4)):'enero a '+(allItems.length?mLbl(allItems[allItems.length-1].key):'sin datos')+' 2026',partial=items.some(r=>r.partial);noteDpoQuality.textContent=(DATA.dqi&&DATA.dqi.error)?DATA.dqi.error:'Fuente Depósito 7 · TIPO DQI y WQI · solo TIPOMERC MERCADERIA · columna DQI_WQI_HL. Es un indicador mensual y la fuente no discrimina sucursal ni chofer.';noteDpoQualityMes.textContent=period+' · DQI y WQI apilados en HL'+(partial?' · * mes parcial al '+dqiFullDate(sourceTo):'.');noteDpoQualityAcum.textContent='Acumulado desde enero hasta '+period+(partial?' · último mes parcial.':'.');noteDpoQualityTabla.textContent='Valores exactos en HL · acumulado desde enero de 2026'+(state.mes!=='__all'?' hasta el mes seleccionado':'')+'.';dpoQualityStackedChart('chDpoDqiWqiMes',items);dpoQualityCumulativeChart('chDpoDqiWqiAcum',items);tbodyDpoDqiWqi.innerHTML=items.length?items.map(r=>'<tr><td>'+mLbl(r.key)+' '+r.key.slice(0,4)+(r.partial?'<span class="dqi-partial">Parcial</span>':'')+'</td><td>'+fmt2(r.dqi_hl)+'</td><td>'+fmt2(r.wqi_hl)+'</td><td class="g">'+fmt2(r.total_hl)+'</td><td>'+fmtPct(r.total_hl?r.wqi_hl/r.total_hl*100:null)+'</td><td>'+fmt2(r.accumulated)+'</td></tr>').join(''):emptyRow(6,'No hay datos DQI + WQI en HL para el período seleccionado.')}
 function dpoRows(items){return items.length?items.map(r=>'<tr><td>'+esc(r.key)+'</td><td>'+r.n+'</td><td>'+r.camiones+'</td><td>'+fmt2(r.personas)+'</td><td>'+fmt1(r.up)+'</td><td>'+fmt1(r.clientes)+'</td><td>'+fmt2(r.pallets)+'</td><td>'+fmtPct(r.carga)+'</td><td>'+fmtPct(r.descarga)+'</td></tr>').join(''):emptyRow(9,'No hay datos DPO para el filtro actual.')}
 function dpoRankCamion(rows){return dpoBy(rows,r=>r.nro_camion||r.camion).sort((a,b)=>b.n-a.n||a.key.localeCompare(b.key)).slice(0,20)}
 function dpoRankChofer(rows){const g={};rows.forEach(r=>{const k=cleanPersona(r.chofer),x=g[k]||(g[k]={key:k,n:0,cams:new Set(),ups:[],clientes:[]});x.n++;x.cams.add(r.nro_camion||r.camion);if(r.up!=null)x.ups.push(r.up);if(r.clientes!=null)x.clientes.push(r.clientes)});return Object.values(g).map(x=>({key:x.key,n:x.n,camiones:x.cams.size,up:avg(x.ups),clientes:avg(x.clientes)})).sort((a,b)=>b.n-a.n||a.key.localeCompare(b.key)).slice(0,20)}
 function okTxt(v){return v==null?'Sin dato':(v?'OK':'NO')}
 function renderDpo(){const rows=dpoScope(),sum=dpoSummary(rows,''),trab=dpoCalcTrabajo(rows);
- hintDpo.textContent=(DATA.dpo&&DATA.dpo.error)?DATA.dpo.error:'DPO GKPIs analiza solo 2026. Las hojas/filas de recarga se consolidan con la salida del mismo dia, camion y chofer. Formula hs trabajadas en transito: promedio hs reparto Foxtrot x total personal DPO.';
+ hintDpo.textContent=(DATA.dpo&&DATA.dpo.error)?DATA.dpo.error:'DPO GKPIs analiza solo 2026. Las hojas/filas de recarga se consolidan con la salida del mismo dia, camion y chofer. La calidad DQI + WQI se incorpora mes por mes en HL desde el Depósito 7.';
  kDpoSalidas.textContent=fmt0(sum.n);cDpoSalidas.querySelector('.obj').textContent=sum.recargas?('incluye '+fmt0(sum.recargas)+' recargas'):'salidas consolidadas';kDpoTotalPers.textContent=fmt0(trab.totalPers);kDpoUnicos.textContent=fmt0(sum.camiones);kDpoPers.textContent=fmt2(sum.personas);kDpoDias.textContent=fmt0(trab.dias);kDpoRepDia.textContent=fmt2(trab.repDia);kDpoHsProm.textContent=hhmmH(trab.hsProm);kDpoHsTrab.textContent=fmt0(trab.hsTrab);kDpoSalRec.textContent=fmt0(sum.salidasRecarga);kDpoRecargas.textContent=fmt0(sum.recargas);kDpoPctRec.textContent=fmtPct(sum.pctRecarga);kDpoUp.textContent=fmt1(sum.up);kDpoCli.textContent=fmt1(sum.clientes);kDpoPal.textContent=fmt2(sum.pallets);kDpoCarga.textContent=fmtPct(sum.carga);kDpoDesc.textContent=fmtPct(sum.descarga);
  [[cDpoSalidas,bDpoSalidas,C.cli],[cDpoTotalPers,bDpoTotalPers,C.sec],[cDpoUnicos,bDpoUnicos,C.obj],[cDpoPers,bDpoPers,C.sec],[cDpoDias,bDpoDias,C.obj],[cDpoRepDia,bDpoRepDia,C.cli],[cDpoHsProm,bDpoHsProm,C.amber],[cDpoHsTrab,bDpoHsTrab,C.good],[cDpoSalRec,bDpoSalRec,C.amber],[cDpoRecargas,bDpoRecargas,C.amber],[cDpoPctRec,bDpoPctRec,C.amber],[cDpoUp,bDpoUp,C.amber],[cDpoCli,bDpoCli,C.cli],[cDpoPal,bDpoPal,C.obj],[cDpoCarga,bDpoCarga,sum.carga==null?C.obj:(sum.carga>=95?C.good:C.bad)],[cDpoDesc,bDpoDesc,sum.descarga==null?C.obj:(sum.descarga>=95?C.good:C.bad)]].forEach(([c,b,col])=>{c.style.setProperty('--accent',col);b.style.background=col;b.style.width='100%'});
- const byMes=dpoBy(rows,r=>r.mes);dpoChart('chDpoSalidas',byMes,r=>r.n,fmt0,v=>C.cli);dpoChart('chDpoPersonas',byMes,r=>r.personas,fmt2,v=>C.sec);
+ const byMes=dpoBy(rows,r=>r.mes);dpoChart('chDpoSalidas',byMes,r=>r.n,fmt0,v=>C.cli);dpoChart('chDpoPersonas',byMes,r=>r.personas,fmt2,v=>C.sec);renderDpoQuality();
  tbodyDpoSuc.innerHTML=dpoRows(dpoBy(rows,r=>r.suc));
  tbodyDpoCamion.innerHTML=dpoRankCamion(rows).map(r=>'<tr><td>'+esc(r.key)+'</td><td>'+r.n+'</td><td>'+fmt1(r.up)+'</td><td>'+fmt1(r.clientes)+'</td><td>'+fmt2(r.personas)+'</td></tr>').join('')||emptyRow(5,'No hay datos DPO para el filtro actual.');
  tbodyDpoChofer.innerHTML=dpoRankChofer(rows).map(r=>'<tr><td>'+esc(r.key)+'</td><td>'+r.n+'</td><td>'+r.camiones+'</td><td>'+fmt1(r.up)+'</td><td>'+fmt1(r.clientes)+'</td></tr>').join('')||emptyRow(5,'No hay datos DPO para el filtro actual.');
  tbodyDpoDetalle.innerHTML=rows.length?rows.slice().sort((a,b)=>b.fecha.localeCompare(a.fecha)||a.suc.localeCompare(b.suc)).slice(0,250).map(r=>'<tr><td>'+dLbl(r.fecha)+'</td><td>'+esc(r.suc)+'</td><td>'+(r.recarga?'Recarga':'Carga')+'</td><td>'+esc(r.nro_camion)+'</td><td>'+esc(cleanPersona(r.chofer))+'</td><td>'+esc([r.ayudante1,r.ayudante2].filter(Boolean).join(' / '))+'</td><td>'+fmt1(r.personas)+'</td><td>'+fmt1(r.up)+'</td><td>'+fmt1(r.clientes)+'</td><td>'+fmt2(r.pallets)+'</td><td>'+okTxt(r.cargado_ok)+'</td><td>'+okTxt(r.descargado_ok)+'</td></tr>').join(''):emptyRow(12,'No hay detalle DPO para el filtro actual.');}
 function dqiLast30Details(){if(!DQIDET.length)return[];const ds=DQIDET.map(r=>r.fecha).sort(),last=ds[ds.length-1],from=addDaysUTC(last,-29);return DQIDET.filter(r=>r.fecha>=from&&r.fecha<=last)}
-function rankDqi(rows,key,limit=15){const g={};rows.forEach(r=>{const k=r[key]||'Sin dato';const x=g[k]||(g[k]={key:k,bultos:0,articulo:r.articulo||'',descripcion:r.descripcion||''});x.bultos+=(r.bultos||0);if(r.descripcion&&!x.descripcion)x.descripcion=r.descripcion;if(r.articulo&&!x.articulo)x.articulo=r.articulo});return Object.values(g).sort((a,b)=>b.bultos-a.bultos||a.key.localeCompare(b.key)).slice(0,limit)}
-function renderDqi(){const rows=dqiScope(),last=rows.slice().sort((a,b)=>a.fecha.localeCompare(b.fecha)).pop(),mesTotal=rows.reduce((s,r)=>s+(r.dqi||0),0),okLast=!!last,okAvg=rows.length&&mesTotal<=OBJ_DQI,colLast=last?C.obj:C.obj,colAvg=rows.length?(okAvg?C.good:C.bad):C.obj;
- hintDqi.textContent=(DATA.dqi&&DATA.dqi.error)?DATA.dqi.error:'DQI se calcula desde el CSV publicado de roturas. UM: bultos. Objetivo 2026: <= 12 bultos/año · <= '+fmt1(OBJ_DQI)+' bulto/mes · referencia diaria <= '+fmt3(OBJ_DQI_DIA)+' bultos sobre '+OBJ_DQI_DIAS_OPERATIVOS+' dias operativos.';
- kDqiUlt.textContent=last?fmt1(last.dqi):'-';oDqiUlt.textContent=last?('fecha '+dLbl(last.fecha)+' · ref. dia <= '+fmt3(OBJ_DQI_DIA)):'ref. dia <= '+fmt3(OBJ_DQI_DIA);kDqiProm.textContent=fmt1(mesTotal);oDqiProm.textContent='objetivo <= '+fmt1(OBJ_DQI)+' bulto/mes';kDqiDias.textContent=rows.length;
- cDqiUlt.style.setProperty('--accent',colLast);bDqiUlt.style.background=colLast;bDqiUlt.style.width=Math.min(100,(last?last.dqi:0)/Math.max(OBJ_DQI,1)*100)+'%';gDqiUlt.className='badge '+(last?(okLast?'ok':'no'):'');gDqiUlt.textContent=last?(okLast?'OK':'REVISAR'):'SIN DATOS';
- cDqiProm.style.setProperty('--accent',colAvg);bDqiProm.style.background=colAvg;bDqiProm.style.width=Math.min(100,(mesTotal||0)/Math.max(OBJ_DQI,1)*100)+'%';gDqiProm.className='badge '+(rows.length?(okAvg?'ok':'no'):'');gDqiProm.textContent=rows.length?(okAvg?'OK':'REVISAR'):'SIN DATOS';
- cDqiDias.style.setProperty('--accent',C.obj);bDqiDias.style.background=C.obj;bDqiDias.style.width='100%';
- barGen('chDqiDia',rows.map(r=>dLbl(r.fecha)),rows.map(r=>r.dqi),v=>fmt1(v),v=>v<=OBJ_DQI?C.good:C.bad,OBJ_DQI,rows.length<=31);
- const mes=dqiByMonth(DQI);barGen('chDqiMes',mes.map(r=>mLbl(r.key)),mes.map(r=>r.dqi),v=>fmt1(v),v=>v<=OBJ_DQI?C.good:C.bad,OBJ_DQI,true);
- tbodyDqi.innerHTML=rows.length?rows.map(r=>'<tr><td>'+dLbl(r.fecha)+'</td><td>'+mLbl(r.mes)+' '+r.mes.slice(0,4)+'</td><td class="'+(r.dqi<=OBJ_DQI?'g':'r')+'">'+fmt1(r.dqi)+'</td><td>'+(r.dqi<=OBJ_DQI?'OK':'REVISAR')+'</td></tr>').join(''):emptyRow(4,'No hay datos DQI para el filtro actual.');
- const det=dqiDetScope(),cam=rankDqi(det,'camion'),prod=rankDqi(det,'articulo');
- tbodyDqiCamiones.innerHTML=cam.length?cam.map(r=>'<tr><td>'+esc(r.key)+'</td><td class="r">'+fmt1(r.bultos)+'</td></tr>').join(''):emptyRow(2,'No hay detalle de camiones para el filtro actual.');
- tbodyDqiProductos.innerHTML=prod.length?prod.map(r=>'<tr><td>'+esc(r.articulo)+'</td><td>'+esc(r.descripcion)+'</td><td class="r">'+fmt1(r.bultos)+'</td></tr>').join(''):emptyRow(3,'No hay detalle de productos para el filtro actual.');
- const ult30=rankDqi(dqiLast30Details(),'articulo',20);tbodyDqiUlt30Productos.innerHTML=ult30.length?ult30.map(r=>'<tr><td>'+esc(r.articulo)+'</td><td>'+esc(r.descripcion)+'</td><td class="r">'+fmt1(r.bultos)+'</td></tr>').join(''):emptyRow(3,'No hay roturas de los ultimos 30 dias.');}
+function rankDqi(rows,key,sortField='bultos',limit=15){const g={};rows.forEach(r=>{const k=r[key]||'Sin dato',x=g[k]||(g[k]={key:k,bultos:0,bultos_real:0,hl:0,hl_real:0,registros:0,articulo:r.articulo||'',descripcion:r.descripcion||''});x.bultos+=r.bultos||0;x.bultos_real+=r.bultos_real||0;x.hl+=r.hl||0;x.hl_real+=r.hl_real||0;x.registros++;if(r.descripcion&&!x.descripcion)x.descripcion=r.descripcion;if(r.articulo&&!x.articulo)x.articulo=r.articulo});return Object.values(g).sort((a,b)=>(b[sortField]||0)-(a[sortField]||0)||a.key.localeCompare(b.key)).slice(0,limit)}
+function renderDqi(){
+ const rows=dqiScope(),det=dqiDetScope(),sorted=rows.slice().sort((a,b)=>a.fecha.localeCompare(b.fecha)),qualityLast=sorted.filter(r=>(r.dqi||0)>0||(r.dqi_hl||0)>0).pop(),realLast=sorted.filter(r=>(r.bultos_real||0)>0||(r.hl_real||0)>0).pop();
+ const dqiBultos=rows.reduce((s,r)=>s+(r.dqi||0),0),dqiHl=rows.reduce((s,r)=>s+(r.dqi_hl||0),0),realBultos=rows.reduce((s,r)=>s+(r.bultos_real||0),0),realHl=rows.reduce((s,r)=>s+(r.hl_real||0),0),qualityDays=rows.filter(r=>(r.dqi||0)>0||(r.dqi_hl||0)>0).length,realDet=det.filter(r=>(r.bultos_real||0)>0||(r.hl_real||0)>0);
+ const q=DQI_QUALITY,focusSourceMonth=String(q.source_date_to||TODAY).startsWith(DQI_FOCUS_YEAR)?Number(String(q.source_date_to||TODAY).slice(5,7)):12,ytdObjective=OBJ_DQI*Math.max(1,focusSourceMonth),periodObjective=state.fecha!=='__all'?OBJ_DQI_DIA:(state.mes==='__all'?ytdObjective:OBJ_DQI),okLast=!!qualityLast&&qualityLast.dqi<=OBJ_DQI_DIA,okPeriod=qualityDays>0&&dqiBultos<=periodObjective,colLast=qualityLast?(okLast?C.good:C.bad):C.obj,colPeriod=qualityDays?(okPeriod?C.good:C.bad):C.obj,physicalColor='#B45309';
+ hintDqi.textContent=(DATA.dqi&&DATA.dqi.error)?DATA.dqi.error:'Rotura real muestra volumen físico. DQI muestra indicadores ponderados de calidad; el bloque histórico compara 2024, 2025 y 2026.';
+ noteDqiDef.textContent='Fuente: Depósito 7 · TIPO DQI · TIPOMERC '+(q.merchandise_filter||'MERCADERIA')+'. Rotura real: BULTOS_REAL y ROTURA_HL_REAL. Calidad: DQI_WQI_BULTOS y DQI_WQI_HL. Las cuatro medidas se informan por separado.'+(q.duplicates_removed?' Se descartaron '+fmt0(q.duplicates_removed)+' filas duplicadas exactas antes del cálculo.':'');
+
+ kDqiReal.textContent=rows.length?fmt2(realBultos):'-';kDqiRealHl.textContent=rows.length?fmt2(realHl):'-';kDqiRealReg.textContent=fmt0(realDet.length);kDqiRealUlt.textContent=realLast?fmt2(realLast.bultos_real):'-';oDqiRealUlt.textContent=realLast?('fecha '+dLbl(realLast.fecha)+' · '+fmt2(realLast.hl_real)+' HL reales'):'sin roturas reales';
+ [[cDqiReal,bDqiReal,C.amber,rows.length],[cDqiRealHl,bDqiRealHl,physicalColor,rows.length],[cDqiRealReg,bDqiRealReg,C.obj,realDet.length],[cDqiRealUlt,bDqiRealUlt,physicalColor,realLast]].forEach(([card,bar,color,active])=>{card.style.setProperty('--accent',color);bar.style.background=color;bar.style.width=active?'100%':'0%'});
+
+ kDqiProm.textContent=qualityDays?fmt2(dqiBultos):'-';kDqiHl.textContent=qualityDays?fmt2(dqiHl):'-';kDqiDias.textContent=fmt0(qualityDays);kDqiUlt.textContent=qualityLast?fmt2(qualityLast.dqi):'-';oDqiProm.textContent='objetivo <= '+fmt3(periodObjective)+(state.fecha!=='__all'?' bultos/día':(state.mes==='__all'?' bultos acumulados a '+DQI_MONTH_LABELS[Math.max(0,focusSourceMonth-1)]:' bulto/mes'));oDqiUlt.textContent=qualityLast?('fecha '+dLbl(qualityLast.fecha)+' · ref. día <= '+fmt3(OBJ_DQI_DIA)):'ref. día <= '+fmt3(OBJ_DQI_DIA);
+ cDqiProm.style.setProperty('--accent',colPeriod);bDqiProm.style.background=colPeriod;bDqiProm.style.width=Math.min(100,dqiBultos/Math.max(periodObjective,.001)*100)+'%';gDqiProm.className='badge '+(qualityDays?(okPeriod?'ok':'no'):'');gDqiProm.textContent=qualityDays?(okPeriod?'OK':'REVISAR'):'SIN DATOS';
+ cDqiHl.style.setProperty('--accent',C.cli);bDqiHl.style.background=C.cli;bDqiHl.style.width=qualityDays?'100%':'0%';cDqiDias.style.setProperty('--accent',C.obj);bDqiDias.style.background=C.obj;bDqiDias.style.width=qualityDays?'100%':'0%';
+ cDqiUlt.style.setProperty('--accent',colLast);bDqiUlt.style.background=colLast;bDqiUlt.style.width=Math.min(100,(qualityLast?qualityLast.dqi:0)/Math.max(OBJ_DQI_DIA,.001)*100)+'%';gDqiUlt.className='badge '+(qualityLast?(okLast?'ok':'no'):'');gDqiUlt.textContent=qualityLast?(okLast?'OK':'REVISAR'):'SIN DATOS';
+
+ renderDqiHistory();
+
+ const labels=rows.map(r=>dLbl(r.fecha)),showLabels=rows.length<=31,dqiDaySelect=chartFilter('fecha',rows.map(r=>r.fecha));
+ barMetric('chDqiRealBultos',labels,rows.map(r=>r.bultos_real),v=>fmt2(v),C.amber,showLabels,dqiDaySelect);barMetric('chDqiRealHl',labels,rows.map(r=>r.hl_real),v=>fmt2(v),physicalColor,showLabels,dqiDaySelect);
+ barGen('chDqiDia',labels,rows.map(r=>r.dqi),v=>fmt2(v),v=>v<=OBJ_DQI_DIA?C.good:C.bad,OBJ_DQI_DIA,showLabels,dqiDaySelect);barMetric('chDqiHlDia',labels,rows.map(r=>r.dqi_hl),v=>fmt2(v),C.cli,showLabels,dqiDaySelect);
+
+ const months=dqiByMonth(rows);tbodyDqiMesResumen.innerHTML=months.length?months.map(r=>'<tr><td>'+mLbl(r.key)+' '+r.key.slice(0,4)+'</td><td>'+fmt0(r.dias)+'</td><td>'+fmt2(r.bultos_real)+'</td><td>'+fmt2(r.hl_real)+'</td><td class="metric-split">'+fmt2(r.dqi)+'</td><td>'+fmt2(r.dqi_hl)+'</td></tr>').join(''):emptyRow(6,'No hay resumen mensual para el filtro actual.');
+ tbodyDqi.innerHTML=rows.length?rows.map(r=>'<tr><td>'+dLbl(r.fecha)+'</td><td>'+mLbl(r.mes)+' '+r.mes.slice(0,4)+'</td><td>'+fmt2(r.bultos_real)+'</td><td>'+fmt2(r.hl_real)+'</td><td class="metric-split '+(r.dqi<=OBJ_DQI_DIA?'g':'r')+'">'+fmt2(r.dqi)+'</td><td>'+fmt2(r.dqi_hl)+'</td><td>'+(r.dqi<=OBJ_DQI_DIA?'OK':'REVISAR')+'</td></tr>').join(''):emptyRow(7,'No hay datos DQI para el filtro actual.');
+
+ const realCam=rankDqi(realDet,'camion','bultos_real'),realProd=rankDqi(realDet,'articulo','bultos_real'),qualityCam=rankDqi(det,'camion','bultos'),qualityProd=rankDqi(det,'articulo','bultos');
+ tbodyDqiRealCamiones.innerHTML=realCam.length?realCam.map(r=>'<tr><td>'+esc(r.key)+'</td><td>'+fmt2(r.bultos_real)+'</td><td>'+fmt2(r.hl_real)+'</td><td>'+fmt0(r.registros)+'</td></tr>').join(''):emptyRow(4,'No hay roturas reales por camión para el filtro actual.');
+ tbodyDqiRealProductos.innerHTML=realProd.length?realProd.map(r=>'<tr><td>'+esc(r.articulo)+'</td><td>'+esc(r.descripcion)+'</td><td>'+fmt2(r.bultos_real)+'</td><td>'+fmt2(r.hl_real)+'</td></tr>').join(''):emptyRow(4,'No hay roturas reales por producto para el filtro actual.');
+ tbodyDqiCamiones.innerHTML=qualityCam.length?qualityCam.map(r=>'<tr><td>'+esc(r.key)+'</td><td>'+fmt2(r.bultos)+'</td><td>'+fmt2(r.hl)+'</td><td>'+fmt0(r.registros)+'</td></tr>').join(''):emptyRow(4,'No hay indicadores DQI por camión para el filtro actual.');
+ tbodyDqiProductos.innerHTML=qualityProd.length?qualityProd.map(r=>'<tr><td>'+esc(r.articulo)+'</td><td>'+esc(r.descripcion)+'</td><td>'+fmt2(r.bultos)+'</td><td>'+fmt2(r.hl)+'</td></tr>').join(''):emptyRow(4,'No hay indicadores DQI por producto para el filtro actual.');
+ const ult30=rankDqi(dqiLast30Details(),'articulo','bultos_real',20);tbodyDqiUlt30Productos.innerHTML=ult30.length?ult30.map(r=>'<tr><td>'+esc(r.articulo)+'</td><td>'+esc(r.descripcion)+'</td><td>'+fmt2(r.bultos_real)+'</td><td>'+fmt2(r.hl_real)+'</td><td class="metric-split">'+fmt2(r.bultos)+'</td><td>'+fmt2(r.hl)+'</td></tr>').join(''):emptyRow(6,'No hay roturas de los últimos 30 días.');
+}
 function monthRows(){const m=state.mes==='__all'?(MESES[MESES.length-1]||''):state.mes;return R.filter(r=>r.usable&&base(r)&&r.mes===m)}
 function monthRechRows(m){return RECH.filter(r=>r.fecha.slice(0,7)===m)}
 function monthSatRows(m){return SAT.filter(r=>r.mes===m)}
@@ -684,24 +807,24 @@ function inWeek(scope,w){return scope.filter(r=>weekKey(r.fecha)===w)}
 function rechInDay(rows,f){return rows.filter(r=>r.fecha===f)}
 function rechInWeek(rows,w){return rows.filter(r=>weekKey(r.fecha)===w)}
 function satMetric(rows,tipo){const vals=rows.filter(r=>r.tipo===tipo).map(r=>r.resultado).filter(v=>v!=null);return avg(vals)}
-function dqiAvg(rows){return avg(rows.map(r=>r.dqi))}
+function dqiSum(rows,field){return rows.reduce((s,r)=>s+(r[field]||0),0)}
 function genericDataBase(r){const raw=r.sucursal||r.suc||r.unidad||r.sucursal_id||'';if(!raw)return true;const vals=rechSucNorms({sucursal:raw});if(state.unidad!=='__all'){const cfg=UNIDADES[state.unidad];if(cfg&&!cfg.sucs.map(sucNorm).some(s=>vals.includes(s)))return false}if(state.suc!=='__all'&&!vals.includes(sucNorm(state.suc)))return false;return true}
-function teamNoData(key,rr,rej,sat,dqi){if(['dk','dh','click','tml','ti'].includes(key))return !rr.length;if(key==='rech')return !rej.length;if(key==='dqi')return !(dqi||[]).length;if(key==='rmd')return !sat.some(r=>r.tipo==='RMD Puntaje'&&r.resultado!=null);if(key==='resp')return !sat.some(r=>r.tipo==='Rate My Delivery % de respuestas'&&r.resultado!=null);if(key==='nps')return !sat.some(r=>r.tipo==='NPS GRAL'&&r.resultado!=null);if(key==='npsDel')return !sat.some(r=>r.tipo==='NPS DELIVERY (ENTREGA)'&&r.resultado!=null);return false}
-function teamMetrics(routeRows,rechRows,satRows,dqiRows){return{rech:wavg(rechRows,'pct_rechazo_hl','hl'),dk:dispAgg(routeRows,'dispkm','disp_km_plan','disp_km_real'),dh:dispAgg(routeRows,'disphs','disp_hs_plan','disp_hs_real'),click:avg(routeRows.map(r=>r.adhcli)),dqi:dqiAvg(dqiRows||[]),tml:avg(routeRows.map(r=>r.tml)),ti:avg(routeRows.map(r=>r.ti)),rmd:satMetric(satRows,'RMD Puntaje'),resp:satMetric(satRows,'Rate My Delivery % de respuestas'),nps:satMetric(satRows,'NPS GRAL'),npsDel:satMetric(satRows,'NPS DELIVERY (ENTREGA)')}}
-function teamWeird(key,v){if(v==null||isNaN(v))return false;if(['rech','click','resp'].includes(key))return v<0||v>100;if(['dk','dh'].includes(key))return Math.abs(v)>100;if(key==='dqi')return v<0||v>200;if(key==='tml'||key==='ti')return v<0||v>240;if(key==='rmd')return v<0||v>5;if(key==='nps'||key==='npsDel')return v<0||v>100;return false}
-function teamValueClass(key,v){if(v==null||isNaN(v))return'empty';if(teamWeird(key,v))return'w';if(key==='rech')return v<=OBJ_RECH.hl?'g':'r';if(key==='dk'||key==='dh')return Math.abs(v)<=OBJ.disp?'g':'r';if(key==='click')return v>=OBJ.adh?'g':'r';if(key==='dqi')return v<=OBJ_DQI?'g':'r';if(key==='tml'||key==='ti')return v<=OBJ.tml?'g':'r';if(key==='rmd')return v>=OBJ_SAT.score?'g':'r';if(key==='resp')return v>=OBJ_SAT.resp?'g':'r';if(key==='nps'||key==='npsDel')return v>=OBJ_SAT.nps?'g':'r';return''}
-function teamFmt(key,v){if(v==null||isNaN(v))return'';if(teamWeird(key,v))return'<span title="Dato fuera de rango o inconsistente">!</span>';if(key==='rech')return rechazoPct(v);if(['dk','dh','click','resp'].includes(key))return fmtPct(v);if(['tml','ti','nps','npsDel','dqi'].includes(key))return r1(v);if(key==='rmd')return fmt2(v);return v}
+function teamNoData(key,rr,rej,sat,dqi){if(['dk','dh','click','tml','ti'].includes(key))return !rr.length;if(key==='rech')return !rej.length;if(['real_bultos','real_hl','dqi_bultos','dqi_hl'].includes(key))return !(dqi||[]).length;if(key==='rmd')return !sat.some(r=>r.tipo==='RMD Puntaje'&&r.resultado!=null);if(key==='resp')return !sat.some(r=>r.tipo==='Rate My Delivery % de respuestas'&&r.resultado!=null);if(key==='nps')return !sat.some(r=>r.tipo==='NPS GRAL'&&r.resultado!=null);if(key==='npsDel')return !sat.some(r=>r.tipo==='NPS DELIVERY (ENTREGA)'&&r.resultado!=null);return false}
+function teamMetrics(routeRows,rechRows,satRows,dqiRows){const dqi=dqiRows||[];return{rech:wavg(rechRows,'pct_rechazo_hl','hl'),dk:dispAgg(routeRows,'dispkm','disp_km_plan','disp_km_real'),dh:dispAgg(routeRows,'disphs','disp_hs_plan','disp_hs_real'),click:avg(routeRows.map(r=>r.adhcli)),real_bultos:dqiSum(dqi,'bultos_real'),real_hl:dqiSum(dqi,'hl_real'),dqi_bultos:dqiSum(dqi,'dqi'),dqi_hl:dqiSum(dqi,'dqi_hl'),tml:avg(routeRows.map(r=>r.tml)),ti:avg(routeRows.map(r=>r.ti)),rmd:satMetric(satRows,'RMD Puntaje'),resp:satMetric(satRows,'Rate My Delivery % de respuestas'),nps:satMetric(satRows,'NPS GRAL'),npsDel:satMetric(satRows,'NPS DELIVERY (ENTREGA)')}}
+function teamWeird(key,v){if(v==null||isNaN(v))return false;if(['rech','click','resp'].includes(key))return v<0||v>100;if(['dk','dh'].includes(key))return Math.abs(v)>100;if(['real_bultos','real_hl','dqi_bultos','dqi_hl'].includes(key))return v<0;if(key==='tml'||key==='ti')return v<0||v>240;if(key==='rmd')return v<0||v>5;if(key==='nps'||key==='npsDel')return v<0||v>100;return false}
+function teamValueClass(key,v,period=''){if(v==null||isNaN(v))return'empty';if(teamWeird(key,v))return'w';if(key==='rech')return v<=OBJ_RECH.hl?'g':'r';if(key==='dk'||key==='dh')return Math.abs(v)<=OBJ.disp?'g':'r';if(key==='click')return v>=OBJ.adh?'g':'r';if(key==='dqi_bultos'&&period==='day')return v<=OBJ_DQI_DIA?'g':'r';if(key==='dqi_bultos'&&period==='month')return v<=OBJ_DQI?'g':'r';if(key==='tml'||key==='ti')return v<=OBJ.tml?'g':'r';if(key==='rmd')return v>=OBJ_SAT.score?'g':'r';if(key==='resp')return v>=OBJ_SAT.resp?'g':'r';if(key==='nps'||key==='npsDel')return v>=OBJ_SAT.nps?'g':'r';return''}
+function teamFmt(key,v){if(v==null||isNaN(v))return'';if(teamWeird(key,v))return'<span title="Dato fuera de rango o inconsistente">!</span>';if(key==='rech')return rechazoPct(v);if(['dk','dh','click','resp'].includes(key))return fmtPct(v);if(['real_bultos','real_hl','dqi_bultos','dqi_hl'].includes(key))return fmt2(v);if(['tml','ti','nps','npsDel'].includes(key))return r1(v);if(key==='rmd')return fmt2(v);return v}
 function teamDayHead(label,f){return label+'<br><span style="font-size:10px;font-weight:600;color:#cbd5e1">'+dLbl(f)+'</span>'}
 function renderTeamRoom(){const aw=state.teamSem||(TEAM_WEEKS[TEAM_WEEKS.length-1]||''),m=aw?aw.slice(0,7):(state.mes==='__all'?(MESES[MESES.length-1]||''):state.mes),routeRowsAll=R.filter(r=>r.usable&&base(r)),rechRowsAll=RECH.filter(rechazoBase),satRowsAll=SAT.filter(genericDataBase),dqiRowsAll=DQI.filter(genericDataBase),routeRows=routeRowsAll.filter(r=>r.mes===m),rechRows=rechRowsAll.filter(r=>r.fecha.slice(0,7)===m),satRows=satRowsAll.filter(r=>r.mes===m),dqiRows=dqiRowsAll.filter(r=>r.mes===m),starts=monthWeekStarts(m),days=[0,1,2,3,4,5].map(i=>addDaysUTC(aw,i));
  const weekHeads=starts.map((_,i)=>'<th class="'+(i===0?'week-start ':'')+'">S'+(i+1)+'</th>').join('');
- hintTeam.innerHTML='<b>'+mLbl(m)+' '+m.slice(0,4)+'</b> · semana diaria '+weekLabel(aw)+' · acumulados S1-S'+starts.length+' por semanas lunes a sábado · '+tmlTiSource(routeRows)+'.';
+ hintTeam.innerHTML='<b>'+mLbl(m)+' '+m.slice(0,4)+'</b> · semana diaria '+weekLabel(aw)+' · acumulados S1-S'+starts.length+' por semanas lunes a sábado · DQI y roturas: solo MERCADERIA · '+tmlTiSource(routeRows)+'.';
  theadTeam.innerHTML='<tr><th class="meta-start" rowspan="2">Indicador<br>cascadeado</th><th class="meta-mid" rowspan="2">Indicador</th><th class="meta-mid" rowspan="2">UM</th><th class="meta-mid" rowspan="2">Objetivo</th><th class="meta-end" rowspan="2">Gatillo</th><th class="grp day-start day-end" colspan="6">Resultados diarios</th><th class="grp week-start week-end" colspan="'+(starts.length+1)+'">Resultados semanales y mensual</th></tr>'+
   '<tr><th class="day-start">'+teamDayHead('Lun',days[0])+'</th><th>'+teamDayHead('Mar',days[1])+'</th><th>'+teamDayHead('Mier',days[2])+'</th><th>'+teamDayHead('Jue',days[3])+'</th><th>'+teamDayHead('Vie',days[4])+'</th><th class="day-end">'+teamDayHead('Sab',days[5])+'</th>'+weekHeads+'<th class="week-end">Mes</th></tr>';
- const cfg=[['','rech','Rechazos HL','%','<= 2%','alerta > 2%'],['','dk','Disp. KM','%','+/- 10%','alerta fuera +/-10%'],['','dh','Disp. Tiempo','%','+/- 10%','alerta fuera +/-10%'],['','click','Adh. Click','%','>= 85%','alerta < 85%'],['','dqi','DQI','bultos','<=12/año · <=1/mes','día <= '+fmt3(OBJ_DQI_DIA)],['','tml','TML','min','< 30 min','alerta > 30'],['','ti','TI','min','< 30 min','alerta > 30'],['','rmd','RMD','pts','>= 4,75','alerta < 4,75'],['','resp','% Respuestas RMD','%','>= 50%','alerta < 50%'],['','nps','NPS gral','pts','>= 70','alerta < 70'],['','npsDel','NPS delivery','pts','>= 70','alerta < 70']];
+ const cfg=[['','rech','Rechazos HL','%','<= 2%','alerta > 2%'],['','dk','Disp. KM','%','+/- 10%','alerta fuera +/-10%'],['','dh','Disp. Tiempo','%','+/- 10%','alerta fuera +/-10%'],['','click','Adh. Click','%','>= 85%','alerta < 85%'],['Rotura real','real_bultos','Bultos reales','bultos','Informativo','volumen físico'],['','real_hl','HL reales','HL','Informativo','volumen físico'],['Calidad DQI','dqi_bultos','DQI en bultos','índice bultos','<=12/año · <=1/mes','día <= '+fmt3(OBJ_DQI_DIA)],['','dqi_hl','DQI en HL','índice HL','Informativo','indicador ponderado'],['','tml','TML','min','< 30 min','alerta > 30'],['','ti','TI','min','< 30 min','alerta > 30'],['','rmd','RMD','pts','>= 4,75','alerta < 4,75'],['','resp','% Respuestas RMD','%','>= 50%','alerta < 50%'],['','nps','NPS gral','pts','>= 70','alerta < 70'],['','npsDel','NPS delivery','pts','>= 70','alerta < 70']];
  const metric=(key,rr,rej,sat,dqi,start)=>{if(key==='rech'){if(start>TODAY)return null;rej=rej.filter(r=>r.fecha<=TODAY)}if(teamNoData(key,rr,rej,sat,dqi))return null;return teamMetrics(rr,rej,sat,dqi)[key]};
- const cells=(key)=>{const dvals=days.map(d=>metric(key,inDay(routeRowsAll,d),rechInDay(rechRowsAll,d),satRowsAll.filter(r=>r.fecha===d),dqiRowsAll.filter(r=>r.fecha===d),d));const wvals=starts.map(w=>metric(key,inWeek(routeRowsAll,w),rechInWeek(rechRowsAll,w),satRowsAll.filter(r=>weekKey(r.fecha)===w),dqiRowsAll.filter(r=>weekKey(r.fecha)===w),w));const mv=metric(key,routeRows,rechRows,satRows,dqiRows,m+'-01'),last=6+wvals.length;return[...dvals,...wvals,mv].map((v,i)=>{const edge=(i===0?' day-start':'')+(i===5?' day-end':'')+(i===6?' week-start':'')+(i===last?' week-end':'');return'<td class="'+teamValueClass(key,v)+edge+'">'+teamFmt(key,v)+'</td>'}).join('')};
+ const cells=(key)=>{const dvals=days.map(d=>metric(key,inDay(routeRowsAll,d),rechInDay(rechRowsAll,d),satRowsAll.filter(r=>r.fecha===d),dqiRowsAll.filter(r=>r.fecha===d),d));const wvals=starts.map(w=>metric(key,inWeek(routeRowsAll,w),rechInWeek(rechRowsAll,w),satRowsAll.filter(r=>weekKey(r.fecha)===w),dqiRowsAll.filter(r=>weekKey(r.fecha)===w),w));const mv=metric(key,routeRows,rechRows,satRows,dqiRows,m+'-01'),last=6+wvals.length,values=[...dvals.map(v=>[v,'day']),...wvals.map(v=>[v,'week']),[mv,'month']];return values.map(([v,period],i)=>{const edge=(i===0?' day-start':'')+(i===5?' day-end':'')+(i===6?' week-start':'')+(i===last?' week-end':'');return'<td class="'+teamValueClass(key,v,period)+edge+'">'+teamFmt(key,v)+'</td>'}).join('')};
  tbodyTeam.innerHTML=cfg.map(r=>'<tr><td class="meta-start">'+r[0]+'</td><td>'+r[2]+'</td><td>'+r[3]+'</td><td>'+r[4]+'</td><td class="meta-end">'+r[5]+'</td>'+cells(r[1])+'</tr>').join('');}
-function satScope(){return SAT.filter(r=>state.mes==='__all'||r.mes===state.mes)}
+function satScope(){return SAT.filter(r=>genericDataBase(r)&&(state.mes==='__all'||r.mes===state.mes)&&(state.fecha==='__all'||r.fecha===state.fecha))}
 function satLatest(rows,tipo){return rows.filter(r=>r.tipo===tipo&&r.resultado!=null).sort((a,b)=>a.fecha.localeCompare(b.fecha)).pop()}
 function satByMonth(rows){const g={};rows.forEach(r=>{(g[r.mes]=g[r.mes]||[]).push(r)});return Object.keys(g).sort().map(k=>{const u=g[k],score=u.filter(r=>r.tipo==='RMD Puntaje'),resp=u.filter(r=>r.tipo==='Rate My Delivery % de respuestas'),nps=u.filter(r=>r.tipo==='NPS GRAL'),npsDel=u.filter(r=>r.tipo==='NPS DELIVERY (ENTREGA)'),det=u.filter(r=>r.tipo==='% DE DETRACTORES'),dias=new Set(u.map(r=>r.fecha));return{key:k,dias:dias.size,score:avg(score.map(r=>r.resultado)),resp:avg(resp.map(r=>r.resultado)),nps:avg(nps.map(r=>r.resultado)),npsDel:avg(npsDel.map(r=>r.resultado)),det:avg(det.map(r=>r.resultado))}})}
 function satYearSeries(items,field){const years=[...new Set(items.map(r=>r.key.slice(0,4)))].sort(),out={};years.forEach(y=>out[y]=Array(12).fill(null));items.forEach(r=>{const y=r.key.slice(0,4),m=Number(r.key.slice(5,7))-1;if(out[y])out[y][m]=r[field]});return years.map(y=>({year:y,data:out[y]}))}
@@ -709,7 +832,7 @@ function satScoreFmt(field,v){return field==='score'?fmt2(v):fmt1(v)}
 function satPointLabels(field){return {id:'satLabels'+field,afterDatasetsDraw(c){const{ctx}=c;ctx.save();ctx.font='650 10px system-ui';ctx.textAlign='center';ctx.textBaseline='bottom';c.data.datasets.forEach((ds,di)=>{const meta=c.getDatasetMeta(di);ctx.fillStyle=ds.borderColor;meta.data.forEach((p,i)=>{const v=ds.data[i];if(v!=null){const off=7+(di%4)*10;ctx.fillText(field==='resp'||field==='det'?fmtPct(v):satScoreFmt(field,v),p.x,p.y-off)}})});ctx.restore()}}}
 function lineSat(id,items,field,label,min,max){if(!chartsReady())return;if(ch[id])ch[id].destroy();const labels=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'],palette=['#0E7C6B','#7C3AED','#D97706','#1E3A8A','#DC2626','#16A34A','#0891B2','#BE123C','#4D7C0F','#9333EA'],series=satYearSeries(items,field);
  ch[id]=new Chart(document.getElementById(id),{type:'line',data:{labels,datasets:series.map((s,i)=>({label:'Año '+s.year,data:s.data,borderColor:palette[i%palette.length],backgroundColor:palette[i%palette.length],borderWidth:2.5,tension:.25,pointRadius:3,spanGaps:false,fill:false}))},
-  options:{responsive:true,maintainAspectRatio:false,layout:{padding:{top:44,right:28}},plugins:{legend:{display:true,labels:{boxWidth:10,font:{size:10}}},tooltip:{callbacks:{label:x=>x.dataset.label+' · '+label+': '+(field==='resp'||field==='det'?fmtPct(x.parsed.y):satScoreFmt(field,x.parsed.y))}}},
+  options:{...chartInteraction(chartFilter('mes',hit=>series[hit.datasetIndex]?.year+'-'+String(hit.index+1).padStart(2,'0'),null)),responsive:true,maintainAspectRatio:false,layout:{padding:{top:44,right:28}},plugins:{legend:{display:true,labels:{boxWidth:10,font:{size:10}}},tooltip:{callbacks:{label:x=>x.dataset.label+' · '+label+': '+(field==='resp'||field==='det'?fmtPct(x.parsed.y):satScoreFmt(field,x.parsed.y))}}},
   scales:{y:{min,max,ticks:{stepSize:field==='resp'||field==='det'?10:(field==='score'?.2:10),callback:v=>field==='resp'||field==='det'?v+'%':Number(v).toFixed(field==='score'?2:0),color:'#657085',font:{size:11}},grid:{color:'#eef1f5'}},x:{ticks:{color:'#657085',font:{size:10}},grid:{display:false}}}},plugins:[satPointLabels(field)]})}
 function renderSatisfaccion(){const rows=satScope(),months=satByMonth(rows),latestScore=satLatest(rows,'RMD Puntaje'),latestResp=satLatest(rows,'Rate My Delivery % de respuestas'),latestNps=satLatest(rows,'NPS GRAL'),latestNpsDel=satLatest(rows,'NPS DELIVERY (ENTREGA)'),dias=new Set(rows.map(r=>r.fecha));
  hintSat.textContent=(DATA.satisfaccion&&DATA.satisfaccion.error)?DATA.satisfaccion.error:'Datos tomados del Google Sheet publicado de satisfaccion del cliente.';
@@ -728,8 +851,8 @@ function renderRechazos(){const rows=rechazosScope(),total=rows.reduce((s,r)=>s+
  kRPed.textContent=fmt0(pedTotal);kRPdv.textContent=fmt0(pdvTotal);kRNds.textContent=fmtPct(nds);kRBl.textContent=rechazoPct(pctB);kRHl.textContent=rechazoPct(pctHl);
  [cRTotal,cRProm,cRPeak,cRTasa,cRPed,cRPdv,cRNds,cRBl,cRHl].forEach(c=>c.style.setProperty('--accent',C.amber));[bRTotal,bRProm,bRPeak,bRTasa,bRPed,bRPdv,bRNds,bRBl,bRHl].forEach(b=>{b.style.background=C.amber;b.style.width='100%'});
  [[cRTasa,bRTasa,tasa,OBJ_RECH.pdv],[cRBl,bRBl,pctB,OBJ_RECH.bultos],[cRHl,bRHl,pctHl,OBJ_RECH.hl]].forEach(([c,b,v,o])=>{const col=v==null?C.obj:(v<=o?C.good:C.bad);c.style.setProperty('--accent',col);b.style.background=col;b.style.width=Math.min(100,((v||0)/Math.max(o,1))*100)+'%'});
- barGen('chRechDia',rows.map(r=>dLbl(r.fecha)),rows.map(r=>r.rechazos||0),v=>v,()=>C.amber,null,rows.length<=31);
- const mes=rechazosMes(rows);barGen('chRechMes',mes.map(r=>mLbl(r.key)),mes.map(r=>r.n),v=>v,()=>C.amber,null,true);
+ barGen('chRechDia',rows.map(r=>dLbl(r.fecha)),rows.map(r=>r.rechazos||0),v=>v,()=>C.amber,null,rows.length<=31,chartFilter('fecha',rows.map(r=>r.fecha)));
+ const mes=rechazosMes(rows);barGen('chRechMes',mes.map(r=>mLbl(r.key)),mes.map(r=>r.n),v=>v,()=>C.amber,null,true,chartFilter('mes',mes.map(r=>r.key)));
  const pctMes=rechazosPctMes(rows);rechazosPctChart('chRechPctPdvMes',pctMes,'pdv','% rechazo PDV',C.amber,OBJ_RECH.pdv);rechazosPctChart('chRechPctBultosMes',pctMes,'bultos','% rechazo bultos',C.bad,OBJ_RECH.bultos);rechazosPctChart('chRechPctHlMes',pctMes,'hl','% rechazo HL',C.sec,OBJ_RECH.hl);rechazosNdsChart('chRechNdsMes',pctMes);
  const det=rechazosDetalleScope();tbodyRechChofer.innerHTML=rechRankRows(rankRechDetalle(det,'chofer'));tbodyRechMotivo.innerHTML=rechRankRows(rankRechDetalle(det,'motivo'));tbodyRechSector.innerHTML=rechRankRows(rankRechDetalle(det,'sector'));
  tbodyRechDetalle.innerHTML=det.length?det.slice().sort((a,b)=>b.fecha.localeCompare(a.fecha)||(b.pedidos_rechazo||0)-(a.pedidos_rechazo||0)).slice(0,250).map(r=>'<tr><td>'+dLbl(r.fecha)+'</td><td>'+esc(r.sucursal)+'</td><td>'+esc(r.chofer)+'</td><td>'+esc(r.sector)+'</td><td>'+esc(r.motivo)+'</td><td class="r">'+fmt0(r.pedidos_rechazo)+'</td><td>'+fmt0(r.ocurrencias)+'</td><td>'+fmt1(r.bultos_rechazo)+'</td><td>'+fmt1(r.hl_rechazo)+'</td><td>'+fmt1(r.pallets_rechazo)+'</td></tr>').join(''):emptyRow(10,'No hay detalle de rechazos importado para el filtro actual.');
@@ -739,8 +862,8 @@ function renderOtif(){const routeScope=R.filter(scopeCards),rows=rechazosScope()
  cOTIFNoPct.style.setProperty('--accent',noCol);bOTIFNoPct.style.background=noCol;bOTIFNoPct.style.width=Math.min(100,(o.noOtif||0)*20)+'%';gOTIFNoPct.className='badge '+(noOk?'ok':'no');gOTIFNoPct.textContent=o.noOtif==null?'SIN DATOS':(noOk?'OK':'ALTO');
  cOTIF.style.setProperty('--accent',col);bOTIF.style.background=col;bOTIF.style.width=Math.min(100,o.otif||0)+'%';gOTIF.className='badge '+(ok?'ok':'no');gOTIF.textContent=o.otif==null?'SIN DATOS':(ok?'OK':'BAJO');
  [[cOTIFVol,bOTIFVol,C.obj],[cOTIFEnt,bOTIFEnt,C.good],[cOTIFNo,bOTIFNo,o.no?C.bad:C.good]].forEach(([c,b,color])=>{c.style.setProperty('--accent',color);b.style.background=color;b.style.width='100%'});
- const mes=otifMes(routeScope,rows);barGen('chOtifMes',mes.map(r=>mLbl(r.key)),mes.map(r=>r.otif),v=>fmtPct(v),v=>v>=95?C.good:C.bad,95,true);
- barGen('chNoOtifMes',mes.map(r=>mLbl(r.key)),mes.map(r=>r.noOtif),v=>fmtPct(v),v=>v>5?C.bad:C.good,5,true);
+ const mes=otifMes(routeScope,rows),otifMonthSelect=chartFilter('mes',mes.map(r=>r.key));barGen('chOtifMes',mes.map(r=>mLbl(r.key)),mes.map(r=>r.otif),v=>fmtPct(v),v=>v>=95?C.good:C.bad,95,true,otifMonthSelect);
+ barGen('chNoOtifMes',mes.map(r=>mLbl(r.key)),mes.map(r=>r.noOtif),v=>fmtPct(v),v=>v>5?C.bad:C.good,5,true,otifMonthSelect);
  tbodyOtif.innerHTML=mes.length?mes.map(r=>'<tr><td>'+mLbl(r.key)+'</td><td>'+fmt0(r.total)+'</td><td class="g">'+fmt0(r.onTime)+'</td><td class="'+(r.rech?'r':'g')+'">'+fmt0(r.rech)+'</td><td class="g">'+fmt0(r.ok)+'</td><td class="'+((r.noOtif||0)>5?'r':'g')+'">'+fmtPct(r.noOtif)+'</td><td class="'+(r.otif>=95?'g':'r')+'">'+fmtPct(r.otif)+'</td></tr>').join(''):emptyRow(7,'No hay datos OTIF cargados para el filtro actual.');}
 function renderCards(){const cards=R.filter(scopeCards),us=cards.filter(r=>r.usable),jUs=jornadas(us);
  const aTml=avg(us.map(r=>r.tml)),aTi=avg(us.map(r=>r.ti)),aHr=avg(jUs.map(r=>r.horas));
@@ -756,16 +879,17 @@ function renderCards(){const cards=R.filter(scopeCards),us=cards.filter(r=>r.usa
  const bg=(id,ok,v)=>{const el=document.getElementById(id);if(v==null){el.className='badge';el.textContent='';return}el.className='badge '+(ok?'ok':'no');el.textContent=ok?'OK':(id[1]==='D'?'FUERA':'BAJO')};
  bg('gAs',aAs>=OA,aAs);bg('gAc',aAc>=OA,aAc);bg('gDk',Math.abs(aDk)<=OD,aDk);bg('gDh',Math.abs(aDh)<=OD,aDh);
  const ck=us.filter(r=>r.dispkm!=null).length,ch=us.filter(r=>r.disphs!=null).length,cud=us.length||1,dx=us.filter(r=>r.disp_descartada).length,dtxt=dx?' · '+dx+' descart. Foxtrot':'';oDk.textContent='rango ±10% · '+Math.round(100*ck/cud)+'% cob.'+dtxt;oDh.textContent='rango ±10% · '+Math.round(100*ch/cud)+'% cob.'+dtxt;renderGauges(aTml,aHr,aTi);}
-function renderMes(){const usM=R.filter(r=>r.usable&&full(r));const OC=65;const cmp=(k,o)=>{const a=usM.map(r=>r[k]).filter(v=>v!=null);return a.length?a.filter(v=>v<=o).length/a.length*100:null};[["TI","ti",OBJ.ti],["TML","tml",OBJ.tml]].forEach(([p,k,o])=>{const c=cmp(k,o),ok=c!=null&&c>=OC,col=c==null?C.obj:(ok?C.good:C.bad);document.getElementById("c"+p+"cmp").style.setProperty("--accent",col);document.getElementById("k"+p+"cmp").textContent=c==null?"–":r1(c)+"%";const b=document.getElementById("b"+p+"cmp");b.style.background=col;b.style.width=Math.min(100,c||0)+"%";const bg=document.getElementById("g"+p+"cmp");bg.className="badge "+(ok?"ok":"no");bg.textContent=ok?"CUMPLE":"NO";});const ser=aggOperativo('mes',R.filter(r=>r.usable&&base(r)));
+function renderMes(){const usM=R.filter(r=>r.usable&&full(r));const OC=65;const cmp=(k,o)=>{const values=usM.map(r=>r[k]).filter(v=>v!=null),ok=values.filter(v=>v<=o).length;return{value:values.length?ok/values.length*100:null,ok,total:values.length}};[["TI","ti",OBJ.ti],["TML","tml",OBJ.tml]].forEach(([p,k,o])=>{const result=cmp(k,o),c=result.value,ok=c!=null&&c>=OC,col=c==null?C.obj:(ok?C.good:C.bad);document.getElementById("c"+p+"cmp").style.setProperty("--accent",col);document.getElementById("k"+p+"cmp").textContent=c==null?"–":r1(c)+"%";document.getElementById("o"+p+"cmp").textContent=result.total?result.ok+" de "+result.total+" rutas con "+p+" ≤ "+o+" min · objetivo ≥"+OC+"%":"Sin rutas validadas para "+p;const b=document.getElementById("b"+p+"cmp");b.style.background=col;b.style.width=Math.min(100,c||0)+"%";const bg=document.getElementById("g"+p+"cmp");bg.className="badge "+(c==null?"":(ok?"ok":"no"));bg.textContent=c==null?"SIN DATOS":(ok?"CUMPLE":"NO");});const ser=aggOperativo('mes',usM);
  const lab=ser.map(s=>mLbl(s.key));
- barGen('chTml',lab,ser.map(s=>s.tml),v=>r1(v)+'',v=>colLow(v,OBJ.tml),OBJ.tml,true);
- barGen('chHr',lab,ser.map(s=>s.hr),hhmmH,colRuta,OBJ.ruta,true);
- barGen('chTi',lab,ser.map(s=>s.ti),v=>r1(v)+'',v=>colLow(v,OBJ.ti),OBJ.ti,true);
+ const mesSelect=chartFilter('mes',ser.map(s=>s.key));
+ barGen('chTml',lab,ser.map(s=>s.tml),v=>r1(v)+'',v=>colLow(v,OBJ.tml),OBJ.tml,true,mesSelect);
+ barGen('chHr',lab,ser.map(s=>s.hr),hhmmH,colRuta,OBJ.ruta,true,mesSelect);
+ barGen('chTi',lab,ser.map(s=>s.ti),v=>r1(v)+'',v=>colLow(v,OBJ.ti),OBJ.ti,true,mesSelect);
  tbody.innerHTML=rowsHtml(ser,mLbl,false);
- const tot=R.filter(r=>r.usable&&base(r)),jTot=jornadas(tot);
+ const tot=usM,jTot=jornadas(tot);
  tfoot.innerHTML='<tr><td>Total</td><td>'+jTot.length+'</td><td>'+r1(avg(tot.map(r=>r.tml)))+'</td><td>'+r1(avg(tot.map(r=>r.ti)))+'</td><td>'+hhmmH(avg(jTot.map(r=>r.horas)))+'</td><td>'+r1(avg(tot.map(r=>r.adhsec)))+'%</td><td>'+r1(avg(tot.map(r=>r.adhcli)))+'%</td></tr>';
- adhChart('chAdh',lab,ser.map(s=>s.as),ser.map(s=>s.ac));
- dispChart('chDisp',lab,ser.map(s=>s.dk),ser.map(s=>s.dh));
+ adhChart('chAdh',lab,ser.map(s=>s.as),ser.map(s=>s.ac),chartFilter('mes',ser.map(s=>s.key),[0,1]));
+ dispChart('chDisp',lab,ser.map(s=>s.dk),ser.map(s=>s.dh),chartFilter('mes',ser.map(s=>s.key),[0,1]));
  // adherencia y horas x persona
  const cho=aggByKey(R.filter(r=>r.usable&&full(r)),personaBase);
  if(!chartsReady())return;if(ch.adhc)ch.adhc.destroy();const rc=cho.slice().sort((a,b)=>(b.as||0)-(a.as||0));
@@ -773,41 +897,43 @@ function renderMes(){const usM=R.filter(r=>r.usable&&full(r));const OC=65;const 
    {type:'bar',label:'Secuencia',data:rc.map(r=>r.as),backgroundColor:C.sec+'cc',borderRadius:3,maxBarThickness:15},
    {type:'bar',label:'Click',data:rc.map(r=>r.ac),backgroundColor:C.cli+'cc',borderRadius:3,maxBarThickness:15},
    {type:'line',label:'Obj 85%',data:rc.map(()=>OA),borderColor:C.bad,borderWidth:2,borderDash:[6,4],pointRadius:0}]},
-   options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:true,labels:{boxWidth:10,font:{size:10}}},tooltip:{callbacks:{label:x=>x.dataset.label+': '+r1(x.parsed.y)+'%'}}},
+   options:{...chartInteraction(chartFilter('cho',rc.map(r=>r.key),[0,1])),responsive:true,maintainAspectRatio:false,plugins:{legend:{display:true,labels:{boxWidth:10,font:{size:10}}},tooltip:{callbacks:{label:x=>x.dataset.label+': '+r1(x.parsed.y)+'%'}}},
     scales:{y:{suggestedMax:100,ticks:{callback:v=>v+'%',color:'#657085',font:{size:11}},grid:{color:'#eef1f5'}},x:{ticks:{color:'#26334d',font:{size:10},maxRotation:60,minRotation:45},grid:{display:false}}}}});
  const rh=personaDiaHoras(R.filter(r=>r.usable&&full(r))).sort((a,b)=>(b.hr||0)-(a.hr||0));if(ch.cho)ch.cho.destroy();
  ch.cho=new Chart(document.getElementById('chCho'),{data:{labels:rh.map(r=>personaCorta(r.key)),
    datasets:[{type:'bar',data:rh.map(r=>r.hr),backgroundColor:rh.map(r=>colRuta(r.hr)),borderRadius:4,maxBarThickness:22},{type:'line',data:rh.map(()=>OBJ.ruta),borderColor:C.obj,borderWidth:2,borderDash:[6,4],pointRadius:0}]},
-   options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:x=>x.datasetIndex===1?'Objetivo 7:00':hhmmH(x.parsed.x)+' · '+rh[x.dataIndex].jornadas+' jornadas · '+rh[x.dataIndex].recargas+' recargas'}}},
+   options:{...chartInteraction(chartFilter('cho',rh.map(r=>r.key))),indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:x=>x.datasetIndex===1?'Objetivo 7:00':hhmmH(x.parsed.x)+' · '+rh[x.dataIndex].jornadas+' jornadas · '+rh[x.dataIndex].recargas+' recargas'}}},
     scales:{x:{beginAtZero:true,ticks:{callback:v=>r1(v)+'h',color:'#657085',font:{size:11}},grid:{color:'#eef1f5'}},y:{ticks:{color:'#26334d',font:{size:11}},grid:{display:false}}}}});}
 function renderDia(){
- const scope=R.filter(r=>r.usable&&base(r)&&(state.mes==='__all'||r.mes===state.mes));
+ const scope=R.filter(r=>r.usable&&full(r));
  const dd=aggOperativo('fecha',scope);const lab=dd.map(s=>dLbl(s.key));const few=dd.length<=20;
  document.getElementById('hintDia').innerHTML=state.mes==='__all'
    ? '<b>Mostrando todos los días</b> del período · '+tmlTiSource(scope)+'. Elegí un <b>Mes</b> arriba para ver el detalle diario de ese mes.'
    : '<b>Detalle diario de '+mLbl(state.mes)+' 2026</b> · '+dd.length+' días con reparto · '+tmlTiSource(scope)+'.';
- barGen('chTmlD',lab,dd.map(s=>s.tml),v=>r1(v)+'',v=>colLow(v,OBJ.tml),OBJ.tml,few);
- barGen('chHrD',lab,dd.map(s=>s.hr),hhmmH,colRuta,OBJ.ruta,few);
- barGen('chTiD',lab,dd.map(s=>s.ti),v=>r1(v)+'',v=>colLow(v,OBJ.ti),OBJ.ti,few);
- adhChart('chAdhD',lab,dd.map(s=>s.as),dd.map(s=>s.ac));
- dispChart('chDispD',lab,dd.map(s=>s.dk),dd.map(s=>s.dh));
+ const daySelect=chartFilter('fecha',dd.map(s=>s.key));
+ barGen('chTmlD',lab,dd.map(s=>s.tml),v=>r1(v)+'',v=>colLow(v,OBJ.tml),OBJ.tml,few,daySelect);
+ barGen('chHrD',lab,dd.map(s=>s.hr),hhmmH,colRuta,OBJ.ruta,few,daySelect);
+ barGen('chTiD',lab,dd.map(s=>s.ti),v=>r1(v)+'',v=>colLow(v,OBJ.ti),OBJ.ti,few,daySelect);
+ adhChart('chAdhD',lab,dd.map(s=>s.as),dd.map(s=>s.ac),chartFilter('fecha',dd.map(s=>s.key),[0,1]));
+ dispChart('chDispD',lab,dd.map(s=>s.dk),dd.map(s=>s.dh),chartFilter('fecha',dd.map(s=>s.key),[0,1]));
  tbodyD.innerHTML=rowsHtml(dd,dLbl,true);}
 function renderSem(){if(!state.sem&&WEEKS.length)state.sem=WEEKS[WEEKS.length-1];
- const semScope=R.filter(r=>r.usable&&base(r)&&weekKey(r.fecha)===state.sem),dd=aggOperativo('fecha',semScope),lab=dd.map(s=>wdLbl(s.key));
+ const semScope=R.filter(r=>r.usable&&base(r)&&periodOk(r)&&weekKey(r.fecha)===state.sem),dd=aggOperativo('fecha',semScope),lab=dd.map(s=>wdLbl(s.key));
  document.getElementById('hintSem').innerHTML=dd.length?('<b>Semana '+weekLabel(state.sem)+'</b> · '+dd.length+' días con reparto · '+tmlTiSource(semScope)):('<b>Semana '+weekLabel(state.sem)+'</b> · sin datos en esta semana');
- barGen('chTmlS',lab,dd.map(s=>s.tml),v=>r1(v)+'',v=>colLow(v,OBJ.tml),OBJ.tml,true);
- barGen('chHrS',lab,dd.map(s=>s.hr),hhmmH,colRuta,OBJ.ruta,true);
- barGen('chTiS',lab,dd.map(s=>s.ti),v=>r1(v)+'',v=>colLow(v,OBJ.ti),OBJ.ti,true);
- adhChart('chAdhS',lab,dd.map(s=>s.as),dd.map(s=>s.ac));
- dispChart('chDispS',lab,dd.map(s=>s.dk),dd.map(s=>s.dh));
+ const weekDaySelect=chartFilter('fecha',dd.map(s=>s.key));
+ barGen('chTmlS',lab,dd.map(s=>s.tml),v=>r1(v)+'',v=>colLow(v,OBJ.tml),OBJ.tml,true,weekDaySelect);
+ barGen('chHrS',lab,dd.map(s=>s.hr),hhmmH,colRuta,OBJ.ruta,true,weekDaySelect);
+ barGen('chTiS',lab,dd.map(s=>s.ti),v=>r1(v)+'',v=>colLow(v,OBJ.ti),OBJ.ti,true,weekDaySelect);
+ adhChart('chAdhS',lab,dd.map(s=>s.as),dd.map(s=>s.ac),chartFilter('fecha',dd.map(s=>s.key),[0,1]));
+ dispChart('chDispS',lab,dd.map(s=>s.dk),dd.map(s=>s.dh),chartFilter('fecha',dd.map(s=>s.key),[0,1]));
  tbodyS.innerHTML=rowsHtml(dd,wdLbl,true);}
 function renderCalidad(){const scope=R.filter(full),q=quality(scope),ok=q.p!=null&&q.p>=OBJ_DQ,col=q.p==null?C.obj:(ok?C.good:C.bad);
  kDQ.textContent=q.p==null?'–':r1(q.p)+'%';kDQBad.textContent=q.bad;kDQTotal.textContent=q.total;
  cDQ.style.setProperty('--accent',col);bDQ.style.background=col;bDQ.style.width=Math.min(100,q.p||0)+'%';
  bDQBad.style.background=q.bad?C.bad:C.good;bDQBad.style.width=Math.min(100,q.total?100*q.bad/q.total:0)+'%';
  gDQ.className='badge '+(ok?'ok':'no');gDQ.textContent=q.p==null?'':(ok?'OK':'REVISAR');
- const ser=qualityByMonth(R.filter(base)),lab=ser.map(s=>mLbl(s.key));
- barGen('chDQ',lab,ser.map(s=>s.p),v=>r1(v)+'%',v=>v>=OBJ_DQ?C.good:C.bad,OBJ_DQ,true);
+ const ser=qualityByMonth(R.filter(full)),lab=ser.map(s=>mLbl(s.key));
+ barGen('chDQ',lab,ser.map(s=>s.p),v=>r1(v)+'%',v=>v>=OBJ_DQ?C.good:C.bad,OBJ_DQ,true,chartFilter('mes',ser.map(s=>s.key)));
  tbodyQ.innerHTML=ser.map(s=>'<tr><td>'+mLbl(s.key)+'</td><td>'+s.total+'</td><td class="g">'+s.good+'</td><td class="'+(s.bad?'r':'g')+'">'+s.bad+'</td><td class="'+(s.p>=OBJ_DQ?'g':'r')+'">'+r1(s.p)+'%</td></tr>').join('');}
 function renderOnTime(){const scope=R.filter(full),o=onTime(scope),ok=o.p!=null&&o.p>=85,col=o.p==null?C.obj:(ok?C.good:C.bad);
  kOT.textContent=o.p==null?'–':r1(o.p)+'%';kOTOk.textContent=o.ok;kOTBad.textContent=o.bad;kOTNoWin.textContent=o.sin;
@@ -822,11 +948,11 @@ function renderOnTime(){const scope=R.filter(full),o=onTime(scope),ok=o.p!=null&
  cOTCliCon.style.setProperty('--accent',cliCol);bOTCliCon.style.background=cliCol;bOTCliCon.style.width=Math.min(100,o.cliVentanaPct||0)+'%';
  cOTCliSin.style.setProperty('--accent',o.cliSin?C.amber:C.good);bOTCliSin.style.background=o.cliSin?C.amber:C.good;bOTCliSin.style.width=Math.min(100,o.cliTotal?100*o.cliSin/o.cliTotal:0)+'%';
  gOT.className='badge '+(ok?'ok':'no');gOT.textContent=o.p==null?'SIN DATOS':(ok?'OK':'REVISAR');
- const ser=onTimeByMonth(R.filter(base)),lab=ser.map(s=>mLbl(s.key));
- barGen('chOT',lab,ser.map(s=>s.p),v=>v==null?'–':r1(v)+'%',v=>v==null?C.obj:(v>=85?C.good:C.bad),85,true);
+ const ser=onTimeByMonth(R.filter(full)),lab=ser.map(s=>mLbl(s.key));
+ barGen('chOT',lab,ser.map(s=>s.p),v=>v==null?'–':r1(v)+'%',v=>v==null?C.obj:(v>=85?C.good:C.bad),85,true,chartFilter('mes',ser.map(s=>s.key)));
  tbodyOT.innerHTML=ser.length?ser.map(s=>'<tr><td>'+mLbl(s.key)+'</td><td>'+s.ev+'</td><td class="g">'+s.ok+'</td><td class="'+(s.bad?'r':'g')+'">'+s.bad+'</td><td class="'+(s.sin?'r':'g')+'">'+s.sin+'</td><td>'+s.cliTotal+'</td><td>'+s.cliCon+'</td><td class="'+(s.cliSin?'r':'g')+'">'+s.cliSin+'</td><td class="'+(s.cliVentanaPct>=85?'g':'r')+'">'+(s.cliVentanaPct==null?'–':r1(s.cliVentanaPct)+'%')+'</td><td class="'+(s.p>=85?'g':'r')+'">'+(s.p==null?'–':r1(s.p)+'%')+'</td></tr>').join(''):emptyRow(10,'No hay datos on time para mostrar.');
  const byCho=onTimeByKey(R.filter(full),personaBase),byZona=onTimeBy('suc',R.filter(full));
- otChart('chOTCho',byCho);otChart('chOTZona',byZona);
+ otChart('chOTCho',byCho,'cho');otChart('chOTZona',byZona,'suc');
  tbodyOTCho.innerHTML=otRows(byCho);tbodyOTZona.innerHTML=otRows(byZona);
  const fueraRows=topClientesFuera(scope),sinRows=topClientesSinVentana(scope);
  const msgFuera=o.bad?'Hay '+o.bad+' visitas fuera de ventana, pero esta carga no tiene el detalle por cliente. Volvé a subir Route Analytics y visitas Foxtrot para recalcular On time.':'No hay clientes visitados fuera de horario en el filtro actual.';
@@ -834,15 +960,19 @@ function renderOnTime(){const scope=R.filter(full),o=onTime(scope),ok=o.p!=null&
  tbodyOTClientes.innerHTML=fueraRows.length?fueraRows.map(c=>'<tr><td>'+esc(c.cliente)+'</td><td>'+esc(c.nombre)+'</td><td class="r">'+c.fuera+'</td><td>'+dLbl(c.fecha)+'</td><td>'+esc(c.visita)+'</td><td>'+esc(c.ventana)+'</td><td class="r">'+desvioLbl(c.desvio)+' · '+esc(c.motivo)+'</td></tr>').join(''):emptyRow(7,msgFuera);
  tbodyOTClientesSin.innerHTML=sinRows.length?sinRows.map(c=>'<tr><td>'+esc(c.cliente)+'</td><td>'+esc(c.nombre)+'</td><td class="r">'+c.pedidos+'</td><td>'+esc(c.motivo)+'</td></tr>').join(''):emptyRow(4,msgSin);}
 function render(){renderCards();if(state.tab==='mes')renderMes();else if(state.tab==='dia')renderDia();else if(state.tab==='sem')renderSem();else if(state.tab==='calidad')renderCalidad();else if(state.tab==='rechazos')renderRechazos();else if(state.tab==='otif')renderOtif();else if(state.tab==='dqi')renderDqi();else if(state.tab==='satisfaccion')renderSatisfaccion();else if(state.tab==='teamroom')renderTeamRoom();else if(state.tab==='horarios')renderHorarios();else if(state.tab==='dpo')renderDpo();else renderOnTime();}
-fUnidad.addEventListener('change',e=>{state.unidad=e.target.value;refreshSucOptions();render()});
-['fSuc','fMes','fCho'].forEach(id=>document.getElementById(id).addEventListener('change',e=>{state[{fSuc:'suc',fMes:'mes',fCho:'cho'}[id]]=e.target.value;render()}));
-reset.addEventListener('click',()=>{state.unidad=state.suc=state.mes=state.cho='__all';fUnidad.value=fSuc.value=fMes.value=fCho.value='__all';refreshSucOptions();render()});
+fUnidad.addEventListener('change',e=>{state.unidad=e.target.value;state.suc='__all';syncFilterControls();render()});
+fSuc.addEventListener('change',e=>{state.suc=e.target.value;syncFilterControls();render()});
+fMes.addEventListener('change',e=>{state.mes=e.target.value;state.fecha='__all';if(state.mes!=='__all')syncWeeksForMonth(state.mes);syncFilterControls();render()});
+fFecha.addEventListener('change',e=>{state.fecha=e.target.value||'__all';if(state.fecha!=='__all'){state.mes=state.fecha.slice(0,7);state.sem=weekKey(state.fecha);state.teamSem=state.sem}syncFilterControls();render()});
+fCho.addEventListener('change',e=>{state.cho=e.target.value;syncFilterControls();render()});
+reset.addEventListener('click',()=>{state.unidad=state.suc=state.mes=state.fecha=state.cho='__all';syncFilterControls();render()});
 function switchTab(t){state.tab=t;tabMes.classList.toggle('active',t==='mes');tabDia.classList.toggle('active',t==='dia');tabSem.classList.toggle('active',t==='sem');tabHorarios.classList.toggle('active',t==='horarios');tabDpo.classList.toggle('active',t==='dpo');tabOnTime.classList.toggle('active',t==='ontime');tabSatisfaccion.classList.toggle('active',t==='satisfaccion');tabTeamRoom.classList.toggle('active',t==='teamroom');tabDqi.classList.toggle('active',t==='dqi');tabRechazos.classList.toggle('active',t==='rechazos');tabOtif.classList.toggle('active',t==='otif');tabCalidad.classList.toggle('active',t==='calidad');
  document.getElementById('operationalSummary').style.display=(t==='rechazos'||t==='ontime'||t==='otif'||t==='calidad'||t==='satisfaccion'||t==='teamroom'||t==='dqi'||t==='horarios'||t==='dpo')?'none':'';
  document.getElementById('viewMes').style.display=t==='mes'?'':'none';document.getElementById('viewDia').style.display=t==='dia'?'':'none';document.getElementById('viewSem').style.display=t==='sem'?'':'none';document.getElementById('viewHorarios').style.display=t==='horarios'?'':'none';document.getElementById('viewDpo').style.display=t==='dpo'?'':'none';document.getElementById('viewCalidad').style.display=t==='calidad'?'':'none';document.getElementById('viewDqi').style.display=t==='dqi'?'':'none';document.getElementById('viewSatisfaccion').style.display=t==='satisfaccion'?'':'none';document.getElementById('viewTeamRoom').style.display=t==='teamroom'?'':'none';document.getElementById('viewOnTime').style.display=t==='ontime'?'':'none';document.getElementById('viewOtif').style.display=t==='otif'?'':'none';document.getElementById('viewRechazos').style.display=t==='rechazos'?'':'none';
  if(t==='sem'&&!state.sem&&WEEKS.length)state.sem=WEEKS[WEEKS.length-1];render()}
 tabMes.addEventListener('click',()=>switchTab('mes'));tabSem.addEventListener('click',()=>switchTab('sem'));tabDia.addEventListener('click',()=>switchTab('dia'));tabHorarios.addEventListener('click',()=>switchTab('horarios'));tabDpo.addEventListener('click',()=>switchTab('dpo'));tabOnTime.addEventListener('click',()=>switchTab('ontime'));tabTeamRoom.addEventListener('click',()=>switchTab('teamroom'));tabDqi.addEventListener('click',()=>switchTab('dqi'));tabSatisfaccion.addEventListener('click',()=>switchTab('satisfaccion'));tabRechazos.addEventListener('click',()=>switchTab('rechazos'));tabOtif.addEventListener('click',()=>switchTab('otif'));tabCalidad.addEventListener('click',()=>switchTab('calidad'));
-render();
+document.querySelectorAll('[data-dqi-history-metric]').forEach(button=>button.addEventListener('click',()=>{dqiHistoryMetric=button.dataset.dqiHistoryMetric;renderDqiHistory()}));
+restoreFilterStateFromUrl();syncFilterControls();render();
 function loadDashboardCharts(){
  if(typeof Chart!=='undefined')return;
  const chartScript=document.createElement('script');

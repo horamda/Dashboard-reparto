@@ -37,6 +37,25 @@ TI_CENTRO  = 35
 TML_CENTRO = 27.5
 TI_SD, TML_SD = 7, 6
 OBJ = {"tml": 30, "ti": 30, "ruta": 7, "ruta_max": 8, "alerta_h": 12, "adh": 85, "disp": 10, "disp_error": 80}
+DQI_COMPARISON_YEARS = ("2024", "2025", "2026")
+CASA_CENTRAL_TML_REFERENCIA_2026 = {
+    "2026-01": 32,
+    "2026-02": 28,
+    "2026-03": 21,
+    "2026-04": 28,
+    "2026-05": 27,
+    "2026-06": 27,
+    "2026-07": 28,
+}
+CASA_CENTRAL_TI_REFERENCIA_2026 = {
+    "2026-01": 42,
+    "2026-02": 30,
+    "2026-03": 30,
+    "2026-04": 30,
+    "2026-05": 33,
+    "2026-06": 34,
+    "2026-07": 30,
+}
 
 AQUI = os.path.dirname(os.path.abspath(__file__))
 PLANTILLA = os.path.join(AQUI, "plantilla_dashboard.html")
@@ -57,6 +76,12 @@ FICHAYA_API_PASSWORD = os.environ.get("FICHAYA_API_PASSWORD") or os.environ.get(
 FICHAYA_WEB_USERNAME = os.environ.get("FICHAYA_WEB_USERNAME") or FICHAYA_API_USERNAME
 FICHAYA_WEB_PASSWORD = os.environ.get("FICHAYA_WEB_PASSWORD") or FICHAYA_API_PASSWORD
 FICHAYA_TML_TI_DESDE = os.environ.get("FICHAYA_TML_TI_DESDE", "2026-08-01")
+FICHAYA_MANUAL_FIELDS = (
+    "fichada_ingreso",
+    "inicio_foxtrot",
+    "finalizacion_foxtrot",
+    "fichada_salida",
+)
 SATISFACCION_CSV_URL = os.environ.get(
     "SATISFACCION_CSV_URL",
     "https://docs.google.com/spreadsheets/d/e/2PACX-1vQkEVyl9kmmMf5vsi--tz5mf39u80tJoFcBzWFFLWhHuXepY5dBEqmSzXLbD0AXapFPj9DLMBqii7TA/pub?gid=0&single=true&output=csv",
@@ -506,6 +531,11 @@ def cargar_fichadas(desde, hasta, force_live=False):
         except Exception as exc:
             errors.append(f"{label}: {exc}")
 
+    # Un refresco solicitado por el usuario debe informar el fallo real. La capa
+    # de reporte decide si muestra el cache anterior como respaldo identificado.
+    if force_live:
+        raise RuntimeError("; ".join(errors) or "no hay un método FichaYA habilitado")
+
     cached = cargar_fichadas_cache(desde, hasta)
     if cached:
         return cached
@@ -768,6 +798,163 @@ def _minutos_entre(a, b):
     return int(round((datetime.combine(date.today(), b) - datetime.combine(date.today(), a)).total_seconds() / 60))
 
 
+def _fichaya_setting_dict(key):
+    rec = storage.load_setting(key) or {}
+    raw = rec.get("valor") if isinstance(rec, dict) else rec
+    return raw if isinstance(raw, dict) else {}
+
+
+def fichaya_nombre_map():
+    return _fichaya_setting_dict("fichaya_nombre_map")
+
+
+def fichaya_empleados():
+    return _fichaya_setting_dict("fichaya_empleados")
+
+
+def fichaya_ajustes_manuales():
+    return _fichaya_setting_dict("fichaya_ajustes_manuales")
+
+
+def fichaya_lookup_ref(foxtrot_name, mapping=None, empleados=None):
+    mapping = mapping if mapping is not None else fichaya_nombre_map()
+    empleados = empleados if empleados is not None else fichaya_empleados()
+    entry = mapping.get(_norm_persona_key(foxtrot_name))
+    if isinstance(entry, dict):
+        legajo = _norm_id(entry.get("legajo"))
+        nombre = entry.get("nombre") or (empleados.get(legajo) or {}).get("nombre") or ""
+        return {"legajo": legajo, "nombre": nombre or foxtrot_name or ""}
+    if isinstance(entry, str) and entry:
+        emp = empleados.get(_norm_id(entry))
+        if emp:
+            return {"legajo": emp["legajo"], "nombre": emp.get("nombre") or foxtrot_name or ""}
+        return {"legajo": "", "nombre": entry}
+    return {"legajo": "", "nombre": foxtrot_name or ""}
+
+
+def fichaya_override_key(rec):
+    route_id = str(rec.get("rid") or rec.get("route_id") or "").strip()
+    if route_id:
+        return "RID:" + route_id
+    parts = (
+        rec.get("fecha") or "",
+        _norm_persona_key(rec.get("suc") or rec.get("sucursal")),
+        _norm_persona_key(rec.get("chofer") or rec.get("empleado")),
+    )
+    return "ROW:" + "|".join(parts)
+
+
+def calcular_tiempos_fichaya_ruta(
+    rec,
+    fichadas,
+    mapping=None,
+    empleados=None,
+    manual_overrides=None,
+):
+    """Calcula TI/TML con la misma fuente y ajustes para reporte y dashboard."""
+    nombre = rec.get("chofer") or rec.get("empleado") or ""
+    fecha = str(rec.get("fecha") or "")
+    ref = fichaya_lookup_ref(nombre, mapping, empleados)
+    legajo = ref.get("legajo") or ""
+    nombre_fichaya = ref.get("nombre") or nombre
+    item = None
+    if fichadas and legajo:
+        item = fichadas.get((fecha, "LEGAJO:" + legajo))
+    if fichadas and item is None:
+        item = fichadas.get((fecha, _norm_persona_key(nombre_fichaya)))
+
+    sources = {
+        "fichada_ingreso": item.get("ingreso") if item else None,
+        "inicio_foxtrot": _parse_hora_fichaya(rec.get("inicio_foxtrot")),
+        "finalizacion_foxtrot": _parse_hora_fichaya(
+            rec.get("fin_foxtrot") or rec.get("finalizacion_foxtrot")
+        ),
+        "fichada_salida": item.get("egreso") if item else None,
+    }
+    manual_key = fichaya_override_key(rec)
+    manual_overrides = manual_overrides if manual_overrides is not None else fichaya_ajustes_manuales()
+    manual = manual_overrides.get(manual_key) or {}
+    effective = {
+        field: (
+            _parse_hora_fichaya(manual.get(field))
+            if field in manual
+            else sources[field]
+        )
+        for field in FICHAYA_MANUAL_FIELDS
+    }
+    tml = _minutos_entre(effective["fichada_ingreso"], effective["inicio_foxtrot"])
+    ti = _minutos_entre(effective["finalizacion_foxtrot"], effective["fichada_salida"])
+    tml_ok = tml is not None and 0 <= tml <= 240
+    ti_ok = ti is not None and 0 <= ti <= 240
+    return {
+        "legajo": legajo,
+        "nombre": nombre_fichaya,
+        "item_encontrado": item is not None,
+        "manual_key": manual_key,
+        "manual": manual,
+        "sources": sources,
+        "effective": effective,
+        "tml_raw": tml,
+        "ti_raw": ti,
+        "tml": tml if tml_ok else None,
+        "ti": ti if ti_ok else None,
+        "tml_ok": tml_ok,
+        "ti_ok": ti_ok,
+    }
+
+
+def aplicar_tiempos_fichaya_guardados(rutas):
+    """Superpone marcas y ajustes guardados sin alterar los registros persistidos."""
+    candidatas = [
+        rec for rec in rutas
+        if rec.get("usable") and str(rec.get("fecha") or "") >= FICHAYA_TML_TI_DESDE
+    ]
+    if not candidatas:
+        return rutas
+    fechas = sorted(str(rec["fecha"]) for rec in candidatas if rec.get("fecha"))
+    if not fechas:
+        return rutas
+    fichadas = cargar_fichadas_cache(fechas[0], fechas[-1])
+    mapping = fichaya_nombre_map()
+    empleados = fichaya_empleados()
+    manual_overrides = fichaya_ajustes_manuales()
+    for rec in candidatas:
+        calc = calcular_tiempos_fichaya_ruta(
+            rec,
+            fichadas,
+            mapping=mapping,
+            empleados=empleados,
+            manual_overrides=manual_overrides,
+        )
+        if not calc["tml_ok"] and not calc["ti_ok"]:
+            continue
+        if calc["tml_ok"]:
+            rec["tml"] = calc["tml"]
+        if calc["ti_ok"]:
+            rec["ti"] = calc["ti"]
+        rec["tml_ti_origen"] = (
+            "fichaya" if calc["tml_ok"] and calc["ti_ok"] else "fichaya_parcial"
+        )
+        rec["tml_ti_ajuste_manual"] = any(
+            field in calc["manual"] for field in FICHAYA_MANUAL_FIELDS
+        )
+        effective = calc["effective"]
+        if effective["fichada_ingreso"]:
+            rec["fichaya_ingreso"] = effective["fichada_ingreso"].strftime("%H:%M")
+        if effective["fichada_salida"]:
+            rec["fichaya_egreso"] = effective["fichada_salida"].strftime("%H:%M")
+        if effective["inicio_foxtrot"]:
+            rec["inicio_foxtrot"] = effective["inicio_foxtrot"].strftime("%H:%M")
+        if effective["finalizacion_foxtrot"]:
+            rec["fin_foxtrot"] = effective["finalizacion_foxtrot"].strftime("%H:%M")
+        duracion = _minutos_entre(
+            effective["inicio_foxtrot"], effective["finalizacion_foxtrot"]
+        )
+        if duracion is not None and 0 < duracion <= 14 * 60:
+            rec["horas"] = round(duracion / 60, 3)
+    return rutas
+
+
 def _tml_ti_desde_fichadas(fichadas, fecha, chofer, fox_ini, fox_fin):
     item = fichadas.get((fecha, _norm_persona_key(chofer))) if fichadas else None
     if not item or pd.isna(fox_ini) or pd.isna(fox_fin):
@@ -953,15 +1140,35 @@ def cargar_dqi():
         df = pd.read_csv(StringIO(raw), dtype=str).fillna("")
     except Exception:
         return {"rows": [], "error": "No se pudo leer el CSV publicado de DQI."}
+    source_rows = len(df)
+    df = df.drop_duplicates().copy()
+    duplicates_removed = source_rows - len(df)
+
+    def exact_col(name):
+        return next((c for c in df.columns if str(c).strip() == name), None)
+
     fecha_col = _pick_col(df, ["Fecha Mvto", "Fecha Movimiento", "Fecha"])
     unids_col = _pick_col(df, ["Unids", "Unidades"])
     bultos_col = _pick_col(df, ["Bultos"])
+    uxb_col = _pick_col(df, ["UXB", "Unidades por bulto"])
+    dqi_bultos_col = _pick_col(df, ["DQI_WQI_BULTOS", "DQI WQI Bultos"])
     bultos_real_col = _pick_col(df, ["BULTOS_REAL", "Bultos Real", "Bultos reales"])
+    dqi_hl_col = _pick_col(df, ["DQI_WQI_HL", "DQI WQI HL"])
     hl_real_col = _pick_col(df, ["ROTURA_HL_REAL", "Rotura HL Real", "HL Real"])
     deposito_col = _pick_col(df, ["Depósito", "Deposito"])
     articulo_col = _pick_col(df, ["Artículo", "Articulo"])
     articulo_descripcion_col = _pick_col(df, ["Descripción Artículo", "Descripcion Articulo"])
-    sector_col = _pick_col(df, ["SECTOR", "Sector"])
+    tipo_dqi_col = exact_col("TIPO")
+    tipo_dqi_values = (
+        {_norm_persona_key(v) for v in df[tipo_dqi_col].unique()}
+        if tipo_dqi_col is not None else set()
+    )
+    if not tipo_dqi_values.intersection({"DQI", "WQI"}):
+        tipo_dqi_col = None
+    tipo_mercaderia_col = exact_col("TIPOMERC") or _pick_col(
+        df, ["Tipo mercadería", "Tipo mercaderia"]
+    )
+    sector_col = exact_col("SECTOR") or _pick_col(df, ["Sector"])
     transporte_col = _pick_col(df, ["Transporte"])
     transporte_descripcion_cols = list(dict.fromkeys(
         c for c in [
@@ -971,29 +1178,23 @@ def cargar_dqi():
             _pick_col(df, ["Descripción", "Descripcion"]),
         ] if c is not None
     ))
-    movimiento_col = _pick_col(df, ["Descripción Movimiento", "Descripcion Movimiento"])
-    transporte_cols = list(dict.fromkeys(
-        c for c in [transporte_col, *transporte_descripcion_cols, movimiento_col]
-        if c is not None
-    ))
     has_fallback_volume = bultos_col is not None or unids_col is not None
-    if fecha_col is None or (bultos_real_col is None and not has_fallback_volume):
+    has_volume = dqi_bultos_col is not None or bultos_real_col is not None or has_fallback_volume
+    if fecha_col is None or not has_volume:
         return {"rows": [], "error": "El CSV de DQI no trae fecha ni volumen de roturas utilizables."}
+    if tipo_mercaderia_col is None:
+        return {"rows": [], "error": "El CSV de DQI no trae la columna TIPOMERC para filtrar mercadería."}
     articulos = storage.load_articulos()
 
-    def es_entrega(row):
+    def tipo_calidad(row):
+        if tipo_dqi_col is not None:
+            tipo = _norm_persona_key(row.get(tipo_dqi_col))
+            return tipo if tipo in {"DQI", "WQI"} else ""
         if sector_col is not None:
             sector = _norm_persona_key(row.get(sector_col))
             if sector:
-                return sector in {"REPARTO", "DISTRIBUCION", "ENTREGA"}
-        if not transporte_cols:
-            return True
-        txt = " ".join(str(row.get(c, "")) for c in transporte_cols).lower()
-        if "camion" in txt or "camión" in txt:
-            return True
-        if any(x in txt for x in ("roturas acarreo", "iveco", "entrega")):
-            return True
-        return False
+                return "DQI" if sector in {"REPARTO", "DISTRIBUCION", "ENTREGA"} else ""
+        return "DQI"
 
     def bultos_equivalentes(row):
         if bultos_real_col is not None:
@@ -1003,24 +1204,58 @@ def cargar_dqi():
         bultos = _to_float(row.get(bultos_col)) if bultos_col is not None else 0.0
         unids = _to_float(row.get(unids_col)) if unids_col is not None else 0.0
         articulo = _norm_id(row.get(articulo_col)) if articulo_col is not None else ""
-        upb = (articulos.get(articulo) or {}).get("unidades_por_bulto")
+        upb = _to_float(row.get(uxb_col)) if uxb_col is not None else 0.0
+        if upb <= 0:
+            upb = (articulos.get(articulo) or {}).get("unidades_por_bulto")
         extra = (unids / upb) if upb and upb > 0 else 0.0
         return bultos + extra
 
+    def valor_metrica(row, column, fallback):
+        if column is not None:
+            raw_value = str(row.get(column, "")).strip()
+            if raw_value:
+                return max(0.0, _to_float(raw_value))
+        return max(0.0, fallback)
+
     daily = {}
+    quality_daily = {}
+    source_dates = []
     detalles = []
+    included_wqi_rows = 0
     for _, r in df.iterrows():
         if deposito_col is not None and _norm_id(r.get(deposito_col)) != "7":
             continue
-        if not es_entrega(r):
+        if (
+            tipo_mercaderia_col is not None
+            and _norm_persona_key(r.get(tipo_mercaderia_col)) != "MERCADERIA"
+        ):
+            continue
+        quality_type = tipo_calidad(r)
+        if not quality_type:
             continue
         fecha = _parse_fecha_ar(r.get(fecha_col, ""))
         if not fecha:
             continue
-        if fecha[:4] != "2026":
+        if fecha[:4] not in DQI_COMPARISON_YEARS:
             continue
-        bultos_eq = bultos_equivalentes(r)
-        if bultos_eq <= 0:
+        source_dates.append(fecha)
+        bultos_real = bultos_equivalentes(r)
+        dqi_bultos = valor_metrica(r, dqi_bultos_col, bultos_real)
+        hl_real = valor_metrica(r, hl_real_col, 0.0)
+        dqi_hl = valor_metrica(r, dqi_hl_col, hl_real)
+        if max(dqi_bultos, bultos_real, dqi_hl, hl_real) <= 0:
+            continue
+        quality_day = quality_daily.setdefault(fecha, {
+            "dqi_bultos": 0.0,
+            "wqi_bultos": 0.0,
+            "dqi_hl": 0.0,
+            "wqi_hl": 0.0,
+        })
+        quality_key = quality_type.lower()
+        quality_day[f"{quality_key}_bultos"] += dqi_bultos
+        quality_day[f"{quality_key}_hl"] += dqi_hl
+        if quality_type == "WQI":
+            included_wqi_rows += 1
             continue
         articulo = _norm_id(r.get(articulo_col)) if articulo_col is not None else ""
         art = articulos.get(articulo) or {}
@@ -1036,7 +1271,16 @@ def cargar_dqi():
         ))
         if not camion:
             camion = "Sin camion"
-        daily[fecha] = daily.get(fecha, 0.0) + bultos_eq
+        day = daily.setdefault(fecha, {
+            "dqi": 0.0,
+            "bultos_real": 0.0,
+            "dqi_hl": 0.0,
+            "hl_real": 0.0,
+        })
+        day["dqi"] += dqi_bultos
+        day["bultos_real"] += bultos_real
+        day["dqi_hl"] += dqi_hl
+        day["hl_real"] += hl_real
         detalles.append({
             "fecha": fecha,
             "mes": fecha[:7],
@@ -1046,14 +1290,57 @@ def cargar_dqi():
                 str(r.get(articulo_descripcion_col, "")).strip()
                 if articulo_descripcion_col is not None else ""
             ),
-            "bultos": round(bultos_eq, 2),
-            "hl": round(_to_float(r.get(hl_real_col)), 4) if hl_real_col is not None else 0.0,
+            "tipo_mercaderia": "MERCADERIA",
+            "bultos": round(dqi_bultos, 4),
+            "bultos_real": round(bultos_real, 4),
+            "hl": round(dqi_hl, 4),
+            "hl_real": round(hl_real, 4),
         })
     rows = [
-        {"fecha": fecha, "mes": fecha[:7], "dqi": round(valor, 1)}
-        for fecha, valor in sorted(daily.items())
+        {
+            "fecha": fecha,
+            "mes": fecha[:7],
+            "dqi": round(values["dqi"], 4),
+            "bultos_real": round(values["bultos_real"], 4),
+            "dqi_hl": round(values["dqi_hl"], 4),
+            "hl_real": round(values["hl_real"], 4),
+        }
+        for fecha, values in sorted(daily.items())
     ]
-    return {"rows": rows, "detalles": detalles, "error": ""}
+    dqi_wqi_rows = [
+        {
+            "fecha": fecha,
+            "mes": fecha[:7],
+            "dqi_bultos": round(values["dqi_bultos"], 4),
+            "wqi_bultos": round(values["wqi_bultos"], 4),
+            "total_bultos": round(values["dqi_bultos"] + values["wqi_bultos"], 4),
+            "dqi_hl": round(values["dqi_hl"], 4),
+            "wqi_hl": round(values["wqi_hl"], 4),
+            "total_hl": round(values["dqi_hl"] + values["wqi_hl"], 4),
+        }
+        for fecha, values in sorted(quality_daily.items())
+    ]
+    return {
+        "rows": rows,
+        "detalles": detalles,
+        "dqi_wqi_rows": dqi_wqi_rows,
+        "quality": {
+            "source_rows": source_rows,
+            "duplicates_removed": duplicates_removed,
+            "included_rows": len(detalles),
+            "included_wqi_rows": included_wqi_rows,
+            "comparison_years": list(DQI_COMPARISON_YEARS),
+            "source_date_from": min(source_dates) if source_dates else "",
+            "source_date_to": max(source_dates) if source_dates else "",
+            "latest_dqi_date": max(daily) if daily else "",
+            "latest_quality_date": max(quality_daily) if quality_daily else "",
+            "merchandise_filter": "MERCADERIA",
+            "metric": "DQI_WQI_BULTOS" if dqi_bultos_col is not None else "BULTOS_REAL",
+            "quality_hl_metric": "DQI_WQI_HL" if dqi_hl_col is not None else "ROTURA_HL_REAL",
+            "physical_metric": "BULTOS_REAL" if bultos_real_col is not None else "calculado",
+        },
+        "error": "",
+    }
 
 
 def _pick_col_norm(df, candidates):
@@ -1885,8 +2172,49 @@ def _dashboard_route(rec):
     return _descartar_dispersion_anomala(projected)
 
 
+def _calibrar_metrica_historica_casa_central(rutas, campo, referencias):
+    por_mes = {}
+    for rec in rutas:
+        mes = str(rec.get("mes") or "")
+        if (
+            mes not in referencias
+            or not rec.get("usable")
+            or rec.get(campo) is None
+            or str(rec.get("tml_ti_origen") or "").lower() == "fichaya"
+            or _norm_logistics_branch(rec.get("suc")) != "CASA CENTRAL"
+        ):
+            continue
+        por_mes.setdefault(mes, []).append(rec)
+
+    for mes, rows in por_mes.items():
+        objetivo = float(referencias[mes])
+        promedio_actual = sum(float(rec[campo]) for rec in rows) / len(rows)
+        ajuste = objetivo - promedio_actual
+        for rec in rows:
+            rec[campo] = round(float(rec[campo]) + ajuste, 3)
+            rec[f"{campo}_referencia_mensual"] = objetivo
+
+        # Compensa el redondeo para que el promedio del mes sea exactamente el objetivo.
+        diferencia = objetivo * len(rows) - sum(float(rec[campo]) for rec in rows)
+        rows[-1][campo] = round(float(rows[-1][campo]) + diferencia, 3)
+    return rutas
+
+
+def _calibrar_tiempos_historicos_casa_central(rutas):
+    """Alinea TML y TI simulados con las referencias mensuales de Casa Central."""
+    _calibrar_metrica_historica_casa_central(
+        rutas, "tml", CASA_CENTRAL_TML_REFERENCIA_2026
+    )
+    _calibrar_metrica_historica_casa_central(
+        rutas, "ti", CASA_CENTRAL_TI_REFERENCIA_2026
+    )
+    return rutas
+
+
 def _data_desde_base(base):
     rutas = sorted((_dashboard_route(r) for r in base.values()), key=lambda r: (r["fecha"], r["suc"], r["chofer"]))
+    _calibrar_tiempos_historicos_casa_central(rutas)
+    aplicar_tiempos_fichaya_guardados(rutas)
     rechazos_base = storage.load_rechazos()
     if rutas and not rechazos_base:
         try:

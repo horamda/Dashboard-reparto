@@ -19,11 +19,12 @@ import csv
 import gzip
 import json
 import math
+import re
 import secrets
 import threading
 import time
 from collections import OrderedDict
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from html import escape
 from io import StringIO
 from urllib.parse import urlencode, urlsplit
@@ -784,15 +785,32 @@ def _route_time(value):
 
 
 def _fichaya_name_map():
-    rec = pipeline.storage.load_setting("fichaya_nombre_map") or {}
-    raw = rec.get("valor") if isinstance(rec, dict) else rec
-    return raw if isinstance(raw, dict) else {}
+    return pipeline.fichaya_nombre_map()
 
 
 def _fichaya_empleados():
-    rec = pipeline.storage.load_setting("fichaya_empleados") or {}
-    raw = rec.get("valor") if isinstance(rec, dict) else rec
-    return raw if isinstance(raw, dict) else {}
+    return pipeline.fichaya_empleados()
+
+
+FICHAYA_MANUAL_FIELDS = pipeline.FICHAYA_MANUAL_FIELDS
+
+
+def _fichaya_manual_overrides():
+    return pipeline.fichaya_ajustes_manuales()
+
+
+def _fichaya_override_key(rec):
+    return pipeline.fichaya_override_key(rec)
+
+
+def _normalize_fichaya_manual_time(value):
+    raw = str(value or "").strip()
+    if not raw:
+        return ""
+    parsed = pipeline._parse_hora_fichaya(raw)
+    if parsed is None or not re.fullmatch(r"(?:[01]\d|2[0-3]):[0-5]\d", raw):
+        raise ValueError("Los horarios deben tener formato HH:MM.")
+    return parsed.strftime("%H:%M")
 
 
 def _import_fichaya_empleados(file_obj):
@@ -837,19 +855,7 @@ def _import_fichaya_empleados(file_obj):
 
 
 def _fichaya_lookup_ref(foxtrot_name, mapping=None, empleados=None):
-    mapping = mapping if mapping is not None else _fichaya_name_map()
-    empleados = empleados if empleados is not None else _fichaya_empleados()
-    entry = mapping.get(pipeline._norm_persona_key(foxtrot_name))
-    if isinstance(entry, dict):
-        legajo = pipeline._norm_id(entry.get("legajo"))
-        nombre = entry.get("nombre") or (empleados.get(legajo) or {}).get("nombre") or ""
-        return {"legajo": legajo, "nombre": nombre or foxtrot_name or ""}
-    if isinstance(entry, str) and entry:
-        emp = empleados.get(pipeline._norm_id(entry))
-        if emp:
-            return {"legajo": emp["legajo"], "nombre": emp.get("nombre") or foxtrot_name or ""}
-        return {"legajo": "", "nombre": entry}
-    return {"legajo": "", "nombre": foxtrot_name or ""}
+    return pipeline.fichaya_lookup_ref(foxtrot_name, mapping, empleados)
 
 
 def _fichaya_report_rows(desde="2026-08-01", hasta=None, suc="", chofer="", force_live=False):
@@ -857,46 +863,79 @@ def _fichaya_report_rows(desde="2026-08-01", hasta=None, suc="", chofer="", forc
     rows = pipeline.storage.load_fichaya_routes(desde, hasta, suc=suc, chofer=chofer)
 
     fichadas, warning = {}, ""
-    fichaya_live_ok = False
+    refresh_failed = False
     if rows:
+        fechas = [r.get("fecha") for r in rows if r.get("fecha")]
+        fichadas_desde = min(fechas) if fechas else desde
+        fichadas_hasta = max(fechas) if fechas else hasta
         try:
-            fechas = [r.get("fecha") for r in rows if r.get("fecha")]
-            fichadas = pipeline.cargar_fichadas(min(fechas), max(fechas), force_live=force_live) if fechas else {}
-            fichaya_live_ok = bool(fichadas)
-            if not fichaya_live_ok:
-                warning = "No se recibieron fichadas desde FichaYA ni desde el cache local. Revisar credenciales, disponibilidad del servicio o si el rango tiene marcas cargadas."
+            fichadas = pipeline.cargar_fichadas(
+                fichadas_desde,
+                fichadas_hasta,
+                force_live=force_live,
+            ) if fechas else {}
+            if not fichadas:
+                warning = "FichaYA no devolvió marcas para las rutas del rango seleccionado."
+            elif force_live:
+                fechas_marcas = sorted({
+                    key[0]
+                    for key in fichadas
+                    if not key[1].startswith("LEGAJO:")
+                })
+                if fechas_marcas and fechas_marcas[-1] < fichadas_hasta:
+                    warning = (
+                        f"FichaYA respondió, pero las marcas recibidas llegan hasta "
+                        f"{fechas_marcas[-1]}; hay rutas hasta {fichadas_hasta}."
+                    )
         except Exception as exc:
-            warning = f"No se pudo consultar FichaYA ni recuperar fichadas guardadas ({exc})."
+            refresh_failed = True
+            fichadas = pipeline.cargar_fichadas_cache(fichadas_desde, fichadas_hasta)
+            respaldo = (
+                " Se muestran las fichadas guardadas como respaldo."
+                if fichadas else
+                " No hay fichadas guardadas para este rango."
+            )
+            warning = f"No se pudo actualizar desde FichaYA ({exc}).{respaldo}"
 
     if not rows:
         return [], warning
 
     mapping = _fichaya_name_map()
     empleados = _fichaya_empleados()
+    manual_overrides = _fichaya_manual_overrides()
     out = []
     for rec in rows:
         fecha = rec.get("fecha") or ""
         nombre = rec.get("chofer") or ""
-        ref = _fichaya_lookup_ref(nombre, mapping, empleados)
-        legajo_fichaya = ref.get("legajo", "")
-        nombre_fichaya = ref.get("nombre", "")
-        item = None
-        if fichadas and legajo_fichaya:
-            item = fichadas.get((fecha, "LEGAJO:" + legajo_fichaya))
-        if fichadas and item is None:
-            item = fichadas.get((fecha, pipeline._norm_persona_key(nombre_fichaya)))
-        ingreso = item.get("ingreso") if item else None
-        egreso = item.get("egreso") if item else None
-        ini = _route_time(rec.get("inicio_foxtrot"))
-        fin = _route_time(rec.get("fin_foxtrot"))
-        tml = pipeline._minutos_entre(ingreso, ini)
-        ti = pipeline._minutos_entre(fin, egreso)
-        tml_ok = tml is not None and 0 <= tml <= 240
-        ti_ok = ti is not None and 0 <= ti <= 240
+        calc = pipeline.calcular_tiempos_fichaya_ruta(
+            rec,
+            fichadas,
+            mapping=mapping,
+            empleados=empleados,
+            manual_overrides=manual_overrides,
+        )
+        legajo_fichaya = calc["legajo"]
+        nombre_fichaya = calc["nombre"]
+        manual_key = calc["manual_key"]
+        manual = calc["manual"]
+        source_ingreso = calc["sources"]["fichada_ingreso"]
+        source_ini = calc["sources"]["inicio_foxtrot"]
+        source_fin = calc["sources"]["finalizacion_foxtrot"]
+        source_egreso = calc["sources"]["fichada_salida"]
+        ingreso = calc["effective"]["fichada_ingreso"]
+        ini = calc["effective"]["inicio_foxtrot"]
+        fin = calc["effective"]["finalizacion_foxtrot"]
+        egreso = calc["effective"]["fichada_salida"]
+        tml, ti = calc["tml"], calc["ti"]
+        tml_ok, ti_ok = calc["tml_ok"], calc["ti_ok"]
         estado = "OK" if tml_ok and ti_ok else "Faltan fichadas FichaYA"
-        if rows and not fichaya_live_ok:
-            estado = "Sin conexión FichaYA"
-        if (tml is not None and not tml_ok) or (ti is not None and not ti_ok):
+        if not calc["item_encontrado"] and refresh_failed:
+            estado = "Sin actualizar FichaYA"
+        if (
+            calc["tml_raw"] is not None and not tml_ok
+        ) or (
+            calc["ti_raw"] is not None and not ti_ok
+        ):
             estado = "Revisar"
         out.append({
             "fecha": fecha,
@@ -905,13 +944,23 @@ def _fichaya_report_rows(desde="2026-08-01", hasta=None, suc="", chofer="", forc
             "legajo_fichaya": legajo_fichaya,
             "empleado_fichaya": nombre_fichaya,
             "fichada_ingreso": _time_to_label(ingreso),
-            "inicio_foxtrot": rec.get("inicio_foxtrot") or "",
+            "inicio_foxtrot": _time_to_label(ini),
             "tml": tml if tml_ok else "",
-            "finalizacion_foxtrot": rec.get("fin_foxtrot") or "",
+            "finalizacion_foxtrot": _time_to_label(fin),
             "fichada_salida": _time_to_label(egreso),
             "ti": ti if ti_ok else "",
             "route_id": rec.get("rid") or "",
             "estado": estado,
+            "ajuste_manual": any(field in manual for field in FICHAYA_MANUAL_FIELDS),
+            "campos_ajuste": [field for field in FICHAYA_MANUAL_FIELDS if field in manual],
+            "motivo_ajuste": str(manual.get("motivo") or ""),
+            "ajuste_actualizado": str(manual.get("actualizado") or ""),
+            "ajuste_usuario": str(manual.get("usuario") or ""),
+            "manual_key": manual_key,
+            "_source_fichada_ingreso": _time_to_label(source_ingreso),
+            "_source_inicio_foxtrot": _time_to_label(source_ini),
+            "_source_finalizacion_foxtrot": _time_to_label(source_fin),
+            "_source_fichada_salida": _time_to_label(source_egreso),
         })
     return out, warning
 
@@ -934,10 +983,13 @@ def _fichaya_report_page():
     suc = request.args.get("suc") or ""
     chofer = request.args.get("chofer") or ""
     force_live = request.args.get("actualizar") == "1"
+    manual_action = request.args.get("ajuste") or ""
     dimensions = pipeline.storage.load_fichaya_dimensions("2026-08-01")
     sucs = dimensions["sucursales"]
     choferes = dimensions["choferes"]
     rows, warning = _fichaya_report_rows(desde, hasta, suc, chofer, force_live=force_live)
+    if force_live:
+        pipeline.clear_dashboard_cache()
     cache = pipeline.fichaya_cache_info()
     fechas_reporte = sorted({r["fecha"] for r in rows if r.get("fecha")})
     rango_reporte = f" · rutas mostradas {fechas_reporte[0]} a {fechas_reporte[-1]}" if fechas_reporte else ""
@@ -945,18 +997,95 @@ def _fichaya_report_page():
     refresh_qs = urlencode({"desde": desde, "hasta": hasta, "suc": suc, "chofer": chofer, "actualizar": "1"})
     opts_suc = '<option value="">Todas</option>' + ''.join(f'<option value="{escape(x)}"{" selected" if x == suc else ""}>{escape(x)}</option>' for x in sucs)
     opts_cho = '<option value="">Todos</option>' + ''.join(f'<option value="{escape(x)}"{" selected" if x == chofer else ""}>{escape(x)}</option>' for x in choferes)
-    body = "".join(
-        "<tr>"
-        f"<td>{escape(r['fecha'])}</td><td>{escape(r['sucursal'])}</td><td>{escape(r['empleado'])}</td><td>{escape(r['legajo_fichaya'])}</td><td>{escape(r['empleado_fichaya'])}</td>"
-        f"<td>{escape(r['fichada_ingreso'])}</td><td>{escape(r['inicio_foxtrot'])}</td><td class=r>{escape(str(r['tml']))}</td>"
-        f"<td>{escape(r['finalizacion_foxtrot'])}</td><td>{escape(r['fichada_salida'])}</td><td class=r>{escape(str(r['ti']))}</td>"
-        f"<td>{escape(r['estado'])}</td><td class=trunc>{escape(r['route_id'])}</td></tr>"
-        for r in rows
-    ) or '<tr><td class=empty colspan=13>No hay rutas desde agosto con esos filtros.</td></tr>'
-    alert = f'<div class="msg err">{escape(warning)}</div>' if warning else ""
+    body_parts = []
+    for row in rows:
+        fields = set(row.get("campos_ajuste") or [])
+        edit_qs = urlencode({
+            "ajuste_key": row["manual_key"],
+            "desde": desde,
+            "hasta": hasta,
+            "suc": suc,
+            "chofer": chofer,
+        })
+        if row["ajuste_manual"]:
+            title = " · ".join(
+                value for value in (
+                    row.get("motivo_ajuste"),
+                    row.get("ajuste_actualizado"),
+                    row.get("ajuste_usuario"),
+                ) if value
+            )
+            adjustment = f'<span class=manual-badge title="{escape(title, quote=True)}">Manual</span>'
+        else:
+            adjustment = '<span class=source-badge>Origen</span>'
+
+        try:
+            date_label = date.fromisoformat(row["fecha"]).strftime("%d/%m/%Y")
+        except (TypeError, ValueError):
+            date_label = row["fecha"]
+        status_key = pipeline._norm_persona_key(row["estado"])
+        status_class = (
+            "status-ok" if status_key == "OK" else
+            "status-review" if status_key == "REVISAR" else
+            "status-missing"
+        )
+        route_id = str(row.get("route_id") or "")
+        route_label = (route_id[:8] + "…") if len(route_id) > 8 else route_id
+        fichaya_name = row.get("empleado_fichaya") or "Sin nombre asociado"
+        legajo = row.get("legajo_fichaya") or "Sin legajo"
+
+        def time_cell(field):
+            css_class = "time-cell manual-value" if field in fields else "time-cell"
+            return f'<td class="{css_class}">{escape(row[field])}</td>'
+
+        body_parts.append(
+            "<tr>"
+            f'<td class=identity-date><time datetime="{escape(row["fecha"], quote=True)}">{escape(date_label)}</time></td>'
+            f'<td class=identity-branch>{escape(row["sucursal"])}</td>'
+            f'<td class="identity-foxtrot person-cell">{escape(row["empleado"])}</td>'
+            f'<td class="person-cell fichaya-person"><span>{escape(fichaya_name)}</span><small>{escape(legajo)}</small></td>'
+            f"{time_cell('fichada_ingreso')}{time_cell('inicio_foxtrot')}<td class=metric>{escape(str(row['tml']))}</td>"
+            f"{time_cell('finalizacion_foxtrot')}{time_cell('fichada_salida')}<td class=metric>{escape(str(row['ti']))}</td>"
+            f'<td><span class="status-badge {status_class}">{escape(row["estado"])}</span></td><td class=adjustment-cell>{adjustment}</td>'
+            f'<td><code class=route-code title="{escape(route_id, quote=True)}">{escape(route_label)}</code></td>'
+            f'<td class=action-cell><a class="row-edit" href="/reporte-fichaya-foxtrot/editar?{edit_qs}">Editar</a></td></tr>'
+        )
+    body = "".join(body_parts) or '<tr><td class=empty colspan=14>No hay rutas desde agosto con esos filtros.</td></tr>'
+    manual_count = sum(1 for row in rows if row.get("ajuste_manual"))
+    if warning:
+        alert_class = "err" if warning.startswith("No se pudo actualizar") else "warn"
+        alert = f'<div class="msg {alert_class}" role="alert">{escape(warning)}</div>'
+    elif manual_action in {"guardado", "restaurado"}:
+        action_label = (
+            "Ajuste manual guardado."
+            if manual_action == "guardado" else
+            "Se restablecieron los valores de origen."
+        )
+        alert = f'<div class="msg" role="status">{action_label}</div>'
+    elif force_live:
+        rango_cache = (
+            f" Rango guardado: {cache['desde']} a {cache['hasta']}."
+            if cache.get("desde") else ""
+        )
+        alert = (
+            '<div class="msg" role="status">'
+            f"FichaYA se actualizó correctamente.{escape(rango_cache)}"
+            "</div>"
+        )
+    else:
+        alert = ""
     return f"""<!doctype html><html lang=es><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><title>Reporte FichaYA Foxtrot</title>{DATOS_CSS}
-<style>.tools{{align-items:end}}.tools label{{display:grid;gap:4px;color:#657085;font-size:11px;font-weight:750;text-transform:uppercase}}.tools select,.tools input{{width:100%;min-width:0;min-height:40px;border:1px solid #DCE2EA;border-radius:8px;padding:9px 10px;background:#fff;color:#15233B;font-size:13.5px}}.r{{font-weight:750}}.ok{{color:#166534}}.bad{{color:#991B1B}}@media(max-width:900px){{.tools>*{{width:100%}}.tools select,.tools input{{min-height:44px}}}}</style></head>
-<body><div class=wrap><div class=top><div><h1>Reporte FichaYA + Foxtrot</h1><p class=muted>Desde agosto 2026. TML = inicio Foxtrot - fichada ingreso. TI = fichada salida - finalización Foxtrot.</p></div>
+<style>
+.report-wrap{{width:min(100% - 24px,1560px)}}.tools{{align-items:end}}.tools label{{display:grid;gap:4px;color:#657085;font-size:11px;font-weight:750;text-transform:uppercase}}.tools select,.tools input{{width:100%;min-width:0;min-height:40px;border:1px solid #DCE2EA;border-radius:8px;padding:9px 10px;background:#fff;color:#15233B;font-size:13.5px}}
+.msg.warn{{background:#FEF3C7;border-color:#FCD34D;color:#92400E}}.report-panel{{overflow:hidden}}.report-table-wrap{{max-height:calc(100vh - 300px);scrollbar-gutter:stable both-edges}}.report-table{{min-width:1248px;table-layout:fixed;font-size:12px}}.report-table th,.report-table td{{padding:8px 9px;vertical-align:middle;overflow:hidden;text-overflow:ellipsis}}.report-table tbody tr:hover td{{background:#F8FAFC}}.report-table tbody tr:hover td.manual-value{{background:#FEF3C7}}
+.report-table .c-date{{width:90px}}.report-table .c-branch{{width:92px}}.report-table .c-foxtrot{{width:164px}}.report-table .c-fichaya{{width:185px}}.report-table .c-time{{width:74px}}.report-table .c-metric{{width:52px}}.report-table .c-status{{width:86px}}.report-table .c-adjustment{{width:68px}}.report-table .c-route{{width:96px}}.report-table .c-action{{width:75px}}
+.column-groups th{{top:0;height:27px;padding:5px 9px;background:#E8EDF3;color:#4C5B70;font-size:10.5px;text-align:center;border-right:1px solid #DCE2EA}}.column-labels th{{top:27px;height:34px;background:#F8FAFC;font-size:10.5px;line-height:1.1;white-space:normal}}.person-cell{{white-space:normal;line-height:1.2;font-weight:650}}.fichaya-person small{{display:block;margin-top:3px;color:#657085;font-size:10.5px;font-weight:600}}.time-cell{{font-variant-numeric:tabular-nums;text-align:center}}.metric{{font-weight:800;text-align:center;font-variant-numeric:tabular-nums}}
+.manual-badge,.source-badge,.status-badge{{display:inline-block;border-radius:999px;padding:3px 7px;font-size:10.5px;font-weight:750;white-space:nowrap}}.manual-badge{{background:#FEF3C7;color:#92400E}}.source-badge{{background:#E8EDF3;color:#657085}}.status-ok{{background:#DCFCE7;color:#166534}}.status-review{{background:#FEF3C7;color:#92400E}}.status-missing{{background:#FEE2E2;color:#991B1B}}td.manual-value{{background:#FFFBEB;font-weight:800;color:#92400E}}
+.identity-date,.action-cell{{position:sticky;z-index:2;background:#fff}}.identity-date{{left:0}}.action-cell{{right:0;box-shadow:-1px 0 0 #E1E7EE}}.column-labels .identity-date,.column-labels .action-cell{{z-index:6;background:#F8FAFC}}.route-code{{display:block;color:#4C5B70;font:11px ui-monospace,SFMono-Regular,Consolas,monospace;white-space:nowrap}}.row-edit{{display:inline-flex;align-items:center;justify-content:center;min-height:32px;border:1px solid #CAD3DF;border-radius:7px;padding:5px 9px;background:#fff;color:#15233B;text-decoration:none;font-weight:700}}.row-edit:hover{{background:#F1F5F9}}.table-summary{{display:flex;gap:8px 18px;flex-wrap:wrap;margin-top:10px}}
+@media(min-width:1100px){{.identity-branch,.identity-foxtrot{{position:sticky;z-index:2;background:#fff}}.identity-branch{{left:90px}}.identity-foxtrot{{left:182px;box-shadow:1px 0 0 #E1E7EE}}.column-labels .identity-branch,.column-labels .identity-foxtrot{{z-index:6;background:#F8FAFC}}}}
+@media(max-width:900px){{.report-wrap{{width:min(100% - 16px,1560px)}}.tools>*{{width:100%}}.tools select,.tools input{{min-height:44px}}.report-table-wrap{{max-height:calc(100vh - 330px)}}.row-edit{{min-height:40px}}}}
+</style></head>
+<body><div class="wrap report-wrap"><div class=top><div><h1>Reporte FichaYA + Foxtrot</h1><p class=muted>Desde agosto 2026. TML = inicio Foxtrot - fichada ingreso. TI = fichada salida - finalización Foxtrot.</p></div>
 <div class=nav><a class=secondary href="/inicio">Inicio</a><a class=secondary href="/dashboard">Dashboard</a><a class=secondary href="/pedidos">Pedidos</a><a class=secondary href="/costos-distribucion/dashboard">Costos</a><a class=secondary href="/datos">Datos</a><a class=secondary href="/admin">Admin</a><a href="/logout">Salir</a></div></div>{alert}
 <form class=tools method=get action="/reporte-fichaya-foxtrot">
 <label>Desde <input type=date name=desde value="{escape(desde)}"></label>
@@ -965,8 +1094,97 @@ def _fichaya_report_page():
 <label>Chofer <select name=chofer>{opts_cho}</select></label>
 <button class=btn type=submit>Filtrar</button><a class=btn href="/reporte-fichaya-foxtrot?{refresh_qs}">Actualizar desde FichaYA</a><a class="btn secondary" href="/reporte-fichaya-foxtrot">Limpiar</a><a class="btn secondary" href="/asociar-fichaya">Asociar nombres</a><a class=btn href="/reporte-fichaya-foxtrot.csv?{csv_qs}">Descargar CSV</a>
 </form>
-<div class=panel><div class=table-wrap><table><thead><tr><th>Fecha</th><th>Sucursal</th><th>Empleado Foxtrot</th><th>Legajo FichaYA</th><th>Empleado FichaYA</th><th>Fichada ingreso</th><th>Inicio Foxtrot</th><th>TML</th><th>Finalización Foxtrot</th><th>Fichada salida</th><th>TI</th><th>Estado</th><th>Route ID</th></tr></thead><tbody>{body}</tbody></table></div></div>
-<p class=muted style="margin-top:12px">Filas: {len(rows)}{rango_reporte}. Fichadas guardadas: {cache['total']} registros{f" · rango {cache['desde']} a {cache['hasta']}" if cache['desde'] else ""}{f" · actualizado {cache['actualizado']}" if cache['actualizado'] else ""}.</p>
+<div class="panel report-panel"><div class="table-wrap report-table-wrap"><table class=report-table><colgroup><col class=c-date><col class=c-branch><col class=c-foxtrot><col class=c-fichaya><col class=c-time><col class=c-time><col class=c-metric><col class=c-time><col class=c-time><col class=c-metric><col class=c-status><col class=c-adjustment><col class=c-route><col class=c-action></colgroup><thead>
+<tr class=column-groups><th colspan=4>Ruta y empleados</th><th colspan=3>Inicio</th><th colspan=3>Cierre</th><th colspan=3>Control</th><th>Acción</th></tr>
+<tr class=column-labels><th class=identity-date>Fecha</th><th class=identity-branch>Sucursal</th><th class=identity-foxtrot>Empleado Foxtrot</th><th>Empleado FichaYA / legajo</th><th>Ingreso</th><th>Inicio</th><th>TML</th><th>Fin</th><th>Salida</th><th>TI</th><th>Estado</th><th>Ajuste</th><th>Route ID</th><th class=action-cell>Acción</th></tr></thead><tbody>{body}</tbody></table></div></div>
+<p class="muted table-summary"><span>Filas: {len(rows)}{rango_reporte}</span><span>Ajustes manuales: {manual_count}</span><span>Fichadas guardadas: {cache['total']} registros{f" · rango {cache['desde']} a {cache['hasta']}" if cache['desde'] else ""}{f" · actualizado {cache['actualizado']}" if cache['actualizado'] else ""}</span></p>
+</div></body></html>"""
+
+
+def _fichaya_manual_params(values):
+    desde = values.get("desde") or "2026-08-01"
+    hasta = values.get("hasta") or date.today().strftime("%Y-%m-%d")
+    try:
+        desde_date = date.fromisoformat(desde)
+        hasta_date = date.fromisoformat(hasta)
+    except ValueError:
+        desde_date = date.fromisoformat("2026-08-01")
+        hasta_date = date.today()
+    if desde_date > hasta_date:
+        desde_date, hasta_date = hasta_date, desde_date
+    return {
+        "desde": desde_date.isoformat(),
+        "hasta": hasta_date.isoformat(),
+        "suc": values.get("suc") or "",
+        "chofer": values.get("chofer") or "",
+    }
+
+
+def _fichaya_manual_row(ajuste_key, params):
+    rows, warning = _fichaya_report_rows(
+        params["desde"],
+        params["hasta"],
+        params["suc"],
+        params["chofer"],
+    )
+    row = next((item for item in rows if item.get("manual_key") == ajuste_key), None)
+    return row, warning
+
+
+def _fichaya_manual_edit_page(row, params, error="", source_warning="", form_values=None):
+    form_values = form_values or {}
+    values = {
+        field: str(form_values.get(field, row.get(field) or ""))
+        for field in FICHAYA_MANUAL_FIELDS
+    }
+    motivo = str(form_values.get("motivo", row.get("motivo_ajuste") or ""))
+    labels = {
+        "fichada_ingreso": "Fichada ingreso",
+        "inicio_foxtrot": "Inicio Foxtrot",
+        "finalizacion_foxtrot": "Finalización Foxtrot",
+        "fichada_salida": "Fichada salida",
+    }
+    fields_html = ""
+    for field in FICHAYA_MANUAL_FIELDS:
+        source = row.get("_source_" + field) or ""
+        source_label = source or "Sin dato"
+        fields_html += f"""<label>{labels[field]}
+<input type=time name="{field}" value="{escape(values[field], quote=True)}" step=60>
+<small>Origen: {escape(source_label)}</small></label>"""
+
+    hidden = "".join(
+        f'<input type=hidden name="{escape(key)}" value="{escape(value, quote=True)}">'
+        for key, value in params.items()
+    ) + f'<input type=hidden name=ajuste_key value="{escape(row["manual_key"], quote=True)}">'
+    back_url = "/reporte-fichaya-foxtrot?" + urlencode(params)
+    alert = ""
+    if error:
+        alert = f'<div class="msg err" role=alert>{escape(error)}</div>'
+    elif source_warning:
+        alert = f'<div class="msg warn" role=alert>{escape(source_warning)}</div>'
+
+    audit = ""
+    if row.get("ajuste_manual"):
+        audit_parts = [
+            value for value in (
+                row.get("ajuste_actualizado"),
+                row.get("ajuste_usuario"),
+            ) if value
+        ]
+        audit = f'<p class=audit>Último ajuste: {escape(" · ".join(audit_parts) or "sin detalle")}</p>'
+    restore_form = ""
+    if row.get("ajuste_manual"):
+        restore_form = f"""<form method=post action="/reporte-fichaya-foxtrot/ajuste/eliminar" onsubmit="return confirm('¿Restablecer todos los horarios a los valores de origen?')">
+{hidden}<button class="btn danger" type=submit>Restablecer origen</button></form>"""
+
+    return f"""<!doctype html><html lang=es><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><title>Editar registro FichaYA</title>{DATOS_CSS}
+<style>.editor{{max-width:780px;padding:20px;overflow:visible}}.record-meta{{display:flex;gap:8px 18px;flex-wrap:wrap;margin-bottom:18px;color:#657085;font-size:13px}}.record-meta strong{{color:#15233B}}.field-grid{{display:grid;grid-template-columns:1fr 1fr;gap:14px}}.field-grid label{{display:grid;gap:6px;color:#657085;font-size:11.5px;font-weight:750;text-transform:uppercase}}.field-grid input,.field-grid textarea{{width:100%;min-height:44px;border:1px solid #CAD3DF;border-radius:8px;padding:9px 10px;background:#fff;color:#15233B;font-size:15px}}.field-grid textarea{{min-height:88px;resize:vertical;font-family:inherit}}.field-grid small{{font-size:12px;font-weight:500;text-transform:none;color:#657085}}.full{{grid-column:1/-1}}.editor-actions{{display:flex;gap:8px;flex-wrap:wrap;margin-top:18px}}.editor-actions form{{margin:0}}.audit{{margin:14px 0 0;color:#657085;font-size:12.5px}}.msg.warn{{background:#FEF3C7;border-color:#FCD34D;color:#92400E}}@media(max-width:700px){{.editor{{padding:16px}}.field-grid{{grid-template-columns:1fr}}.full{{grid-column:auto}}.editor-actions,.editor-actions form,.editor-actions .btn{{width:100%}}}}</style></head>
+<body><div class=wrap><div class=top><div><h1>Editar registro</h1><p class=muted>Reporte FichaYA + Foxtrot</p></div><div class=nav><a class=secondary href="{escape(back_url, quote=True)}">Volver al reporte</a><a href="/logout">Salir</a></div></div>{alert}
+<div class="panel editor"><div class=record-meta><span><strong>{escape(row['fecha'])}</strong></span><span>{escape(row['sucursal'])}</span><span>{escape(row['empleado'])}</span><span>Legajo {escape(row['legajo_fichaya'] or 'sin asociar')}</span></div>
+<form method=post action="/reporte-fichaya-foxtrot/ajuste/guardar">{hidden}<div class=field-grid>{fields_html}
+<label class=full>Motivo del ajuste<textarea name=motivo maxlength=300 required>{escape(motivo)}</textarea></label></div>
+<div class=editor-actions><button class=btn type=submit>Guardar ajuste</button><a class="btn secondary" href="{escape(back_url, quote=True)}">Cancelar</a></div></form>
+{audit}<div class=editor-actions>{restore_form}</div></div>
 </div></body></html>"""
 
 
@@ -1105,6 +1323,118 @@ def reporte_fichaya_foxtrot():
         return Response(_data_unavailable_page("Reporte FichaYA / Foxtrot", exc), mimetype="text/html", status=503)
 
 
+@app.route("/reporte-fichaya-foxtrot/editar")
+def reporte_fichaya_foxtrot_editar():
+    blocked = _require_login()
+    if blocked:
+        return blocked
+    params = _fichaya_manual_params(request.args)
+    ajuste_key = request.args.get("ajuste_key") or ""
+    row, warning = _fichaya_manual_row(ajuste_key, params)
+    if row is None:
+        return Response(
+            _data_unavailable_page(
+                "Editar registro FichaYA / Foxtrot",
+                "La fila seleccionada ya no existe dentro del rango del reporte.",
+            ),
+            mimetype="text/html",
+            status=404,
+        )
+    return Response(
+        _fichaya_manual_edit_page(row, params, source_warning=warning),
+        mimetype="text/html",
+    )
+
+
+@app.route("/reporte-fichaya-foxtrot/ajuste/guardar", methods=["POST"])
+def reporte_fichaya_foxtrot_ajuste_guardar():
+    blocked = _require_login()
+    if blocked:
+        return blocked
+    params = _fichaya_manual_params(request.form)
+    ajuste_key = request.form.get("ajuste_key") or ""
+    row, warning = _fichaya_manual_row(ajuste_key, params)
+    if row is None:
+        return Response(
+            _data_unavailable_page(
+                "Editar registro FichaYA / Foxtrot",
+                "No se encontró la fila que se intentó modificar.",
+            ),
+            mimetype="text/html",
+            status=404,
+        )
+
+    form_values = {
+        field: str(request.form.get(field) or "").strip()
+        for field in FICHAYA_MANUAL_FIELDS
+    }
+    motivo = str(request.form.get("motivo") or "").strip()
+    form_values["motivo"] = motivo
+    try:
+        normalized = {
+            field: _normalize_fichaya_manual_time(form_values[field])
+            for field in FICHAYA_MANUAL_FIELDS
+        }
+    except ValueError as exc:
+        return Response(
+            _fichaya_manual_edit_page(
+                row,
+                params,
+                error=str(exc),
+                source_warning=warning,
+                form_values=form_values,
+            ),
+            mimetype="text/html",
+            status=400,
+        )
+
+    changes = {
+        field: value
+        for field, value in normalized.items()
+        if value != str(row.get("_source_" + field) or "")
+    }
+    if changes and not motivo:
+        return Response(
+            _fichaya_manual_edit_page(
+                row,
+                params,
+                error="Ingresá un motivo para guardar el ajuste manual.",
+                source_warning=warning,
+                form_values=form_values,
+            ),
+            mimetype="text/html",
+            status=400,
+        )
+
+    overrides = dict(_fichaya_manual_overrides())
+    if changes:
+        overrides[ajuste_key] = {
+            **changes,
+            "motivo": motivo[:300],
+            "actualizado": datetime.now().astimezone().isoformat(timespec="seconds"),
+            "usuario": str(session.get("admin_user") or ADMIN_USER),
+        }
+        action = "guardado"
+    else:
+        overrides.pop(ajuste_key, None)
+        action = "restaurado"
+    pipeline.storage.save_setting("fichaya_ajustes_manuales", {"valor": overrides})
+    return redirect("/reporte-fichaya-foxtrot?" + urlencode({**params, "ajuste": action}))
+
+
+@app.route("/reporte-fichaya-foxtrot/ajuste/eliminar", methods=["POST"])
+def reporte_fichaya_foxtrot_ajuste_eliminar():
+    blocked = _require_login()
+    if blocked:
+        return blocked
+    params = _fichaya_manual_params(request.form)
+    ajuste_key = request.form.get("ajuste_key") or ""
+    overrides = dict(_fichaya_manual_overrides())
+    overrides.pop(ajuste_key, None)
+    pipeline.storage.save_setting("fichaya_ajustes_manuales", {"valor": overrides})
+    return redirect("/reporte-fichaya-foxtrot?" + urlencode({**params, "ajuste": "restaurado"}))
+
+
 @app.route("/reporte-fichaya-foxtrot.csv")
 def reporte_fichaya_foxtrot_csv():
     blocked = _require_login()
@@ -1118,8 +1448,8 @@ def reporte_fichaya_foxtrot_csv():
         force_live=request.args.get("actualizar") == "1",
     )
     buf = StringIO()
-    fields = ["fecha", "sucursal", "empleado", "legajo_fichaya", "empleado_fichaya", "fichada_ingreso", "inicio_foxtrot", "tml", "finalizacion_foxtrot", "fichada_salida", "ti", "estado", "route_id"]
-    writer = csv.DictWriter(buf, fieldnames=fields)
+    fields = ["fecha", "sucursal", "empleado", "legajo_fichaya", "empleado_fichaya", "fichada_ingreso", "inicio_foxtrot", "tml", "finalizacion_foxtrot", "fichada_salida", "ti", "estado", "ajuste_manual", "motivo_ajuste", "ajuste_actualizado", "ajuste_usuario", "route_id"]
+    writer = csv.DictWriter(buf, fieldnames=fields, extrasaction="ignore")
     writer.writeheader()
     writer.writerows(rows)
     resp = Response(buf.getvalue(), mimetype="text/csv; charset=utf-8")
