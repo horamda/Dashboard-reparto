@@ -197,10 +197,14 @@ class TabletLayoutTests(unittest.TestCase):
         self.assertIn("function dpoQualityCumulativeChart(id,items)", html)
         self.assertIn("renderDpoQuality();", html)
         self.assertIn("solo TIPOMERC MERCADERIA", html)
+        self.assertIn("function sucAliases(raw)", html)
+        self.assertIn("DQIWQI.filter(genericDataBase)", html)
 
     def test_team_room_sums_and_separates_dqi_metrics(self):
         html = (ROOT / "plantilla_dashboard.html").read_text(encoding="utf-8")
 
+        self.assertIn('class="tab active" id="tabTeamRoom"', html)
+        self.assertIn("tab:'teamroom'", html)
         self.assertIn("function dqiSum(rows,field)", html)
         self.assertNotIn("function dqiAvg(rows)", html)
         self.assertIn("'real_bultos','Bultos reales'", html)
@@ -210,6 +214,11 @@ class TabletLayoutTests(unittest.TestCase):
         self.assertIn("DQI y roturas: solo MERCADERIA", html)
         self.assertIn("key==='dqi_bultos'&&period==='day'", html)
         self.assertIn("key==='dqi_bultos'&&period==='month'", html)
+        self.assertIn("function teamDqiRows()", html)
+        self.assertIn("teamDqiRows().filter(genericDataBase)", html)
+        self.assertIn("x._realData=true", html)
+        self.assertIn("x._dqiData=true", html)
+        self.assertIn("tblscroll team-scroll", html)
 
 
 class DqiSheetTests(unittest.TestCase):
@@ -271,6 +280,30 @@ class DqiSheetTests(unittest.TestCase):
         self.assertEqual(result["quality"]["included_wqi_rows"], 1)
         self.assertEqual(result["quality"]["latest_quality_date"], "2026-08-13")
         self.assertEqual(result["quality"]["merchandise_filter"], "MERCADERIA")
+
+    def test_dqi_keeps_branch_dimension_when_sheet_has_sucursal(self):
+        csv_data = (
+            "DepÃ³sito,Sucursal,Fecha Mvto,Transporte,ArtÃ­culo,Bultos,Unids,UXB,"
+            "DQI_WQI_BULTOS,BULTOS_REAL,DQI_WQI_HL,ROTURA_HL_REAL,TIPOMERC,TIPO\n"
+            '7,2,13/8/2026,1100,20433,0,2,8,"1,00","0,10","0,20","0,02",MERCADERIA,DQI\n'
+            '2,1,13/8/2026,1200,20434,0,2,8,"2,00","0,20","0,30","0,03",MERCADERIA,WQI\n'
+        )
+        response = MagicMock()
+        response.__enter__.return_value.read.return_value = csv_data.encode("utf-8")
+        pipeline.cargar_dqi.cache_clear()
+        with patch.object(pipeline, "urlopen", return_value=response), patch.object(
+            pipeline.storage, "load_articulos", return_value={}
+        ):
+            result = pipeline.cargar_dqi()
+
+        self.assertEqual(
+            [(row["sucursal"], row["sucursal_id"], row["dqi"], row["dqi_hl"]) for row in result["rows"]],
+            [("Dolores", "2", 1.0, 0.2)],
+        )
+        self.assertEqual(
+            [(row["sucursal"], row["sucursal_id"], row["dqi_hl"], row["wqi_hl"], row["total_hl"]) for row in result["dqi_wqi_rows"]],
+            [("Dolores", "2", 0.2, 0.0, 0.2), ("Mar de Ajo", "1", 0.0, 0.3, 0.3)],
+        )
         self.assertEqual(result["quality"]["metric"], "DQI_WQI_BULTOS")
         self.assertEqual(result["quality"]["quality_hl_metric"], "DQI_WQI_HL")
 

@@ -1155,6 +1155,8 @@ def cargar_dqi():
     bultos_real_col = _pick_col(df, ["BULTOS_REAL", "Bultos Real", "Bultos reales"])
     dqi_hl_col = _pick_col(df, ["DQI_WQI_HL", "DQI WQI HL"])
     hl_real_col = _pick_col(df, ["ROTURA_HL_REAL", "Rotura HL Real", "HL Real"])
+    sucursal_col = _pick_col(df, ["Sucursal", "SUCURSAL", "Suc", "SUC", "Zona", "Centro", "Unidad", "Branch"])
+    sucursal_id_col = _pick_col(df, ["sucursal_id", "Sucursal ID", "ID Sucursal", "SucursalId", "Id Sucursal"])
     deposito_col = _pick_col(df, ["Depósito", "Deposito"])
     articulo_col = _pick_col(df, ["Artículo", "Articulo"])
     articulo_descripcion_col = _pick_col(df, ["Descripción Artículo", "Descripcion Articulo"])
@@ -1185,6 +1187,22 @@ def cargar_dqi():
     if tipo_mercaderia_col is None:
         return {"rows": [], "error": "El CSV de DQI no trae la columna TIPOMERC para filtrar mercadería."}
     articulos = storage.load_articulos()
+
+    def parse_sucursal(row):
+        raw = str(row.get(sucursal_col, "")).strip() if sucursal_col is not None else ""
+        raw_id = str(row.get(sucursal_id_col, "")).strip() if sucursal_id_col is not None else ""
+        sid = raw_id or (raw if _norm_id(raw) in {"1", "2"} else "")
+        if _norm_id(sid) == "1":
+            return "Mar de Ajo", "1"
+        if _norm_id(sid) == "2":
+            return "Dolores", "2"
+        return raw, raw_id
+
+    def include_dqi_branch(row):
+        if sucursal_col is not None or sucursal_id_col is not None:
+            _, sid = parse_sucursal(row)
+            return not sid or _norm_id(sid) in {"1", "2"}
+        return deposito_col is None or _norm_id(row.get(deposito_col)) == "7"
 
     def tipo_calidad(row):
         if tipo_dqi_col is not None:
@@ -1223,7 +1241,7 @@ def cargar_dqi():
     detalles = []
     included_wqi_rows = 0
     for _, r in df.iterrows():
-        if deposito_col is not None and _norm_id(r.get(deposito_col)) != "7":
+        if not include_dqi_branch(r):
             continue
         if (
             tipo_mercaderia_col is not None
@@ -1245,7 +1263,12 @@ def cargar_dqi():
         dqi_hl = valor_metrica(r, dqi_hl_col, hl_real)
         if max(dqi_bultos, bultos_real, dqi_hl, hl_real) <= 0:
             continue
-        quality_day = quality_daily.setdefault(fecha, {
+        sucursal, sucursal_id = parse_sucursal(r)
+        quality_day = quality_daily.setdefault((fecha, sucursal, sucursal_id), {
+            "fecha": fecha,
+            "suc": sucursal,
+            "sucursal": sucursal,
+            "sucursal_id": sucursal_id,
             "dqi_bultos": 0.0,
             "wqi_bultos": 0.0,
             "dqi_hl": 0.0,
@@ -1271,7 +1294,11 @@ def cargar_dqi():
         ))
         if not camion:
             camion = "Sin camion"
-        day = daily.setdefault(fecha, {
+        day = daily.setdefault((fecha, sucursal, sucursal_id), {
+            "fecha": fecha,
+            "suc": sucursal,
+            "sucursal": sucursal,
+            "sucursal_id": sucursal_id,
             "dqi": 0.0,
             "bultos_real": 0.0,
             "dqi_hl": 0.0,
@@ -1284,6 +1311,9 @@ def cargar_dqi():
         detalles.append({
             "fecha": fecha,
             "mes": fecha[:7],
+            "suc": sucursal,
+            "sucursal": sucursal,
+            "sucursal_id": sucursal_id,
             "camion": camion,
             "articulo": articulo,
             "descripcion": art.get("descripcion") or (
@@ -1298,19 +1328,35 @@ def cargar_dqi():
         })
     rows = [
         {
-            "fecha": fecha,
-            "mes": fecha[:7],
+            "fecha": values["fecha"],
+            "mes": values["fecha"][:7],
+            **(
+                {
+                    "suc": values["suc"],
+                    "sucursal": values["sucursal"],
+                    "sucursal_id": values["sucursal_id"],
+                }
+                if values["sucursal"] or values["sucursal_id"] else {}
+            ),
             "dqi": round(values["dqi"], 4),
             "bultos_real": round(values["bultos_real"], 4),
             "dqi_hl": round(values["dqi_hl"], 4),
             "hl_real": round(values["hl_real"], 4),
         }
-        for fecha, values in sorted(daily.items())
+        for _, values in sorted(daily.items(), key=lambda item: item[0])
     ]
     dqi_wqi_rows = [
         {
-            "fecha": fecha,
-            "mes": fecha[:7],
+            "fecha": values["fecha"],
+            "mes": values["fecha"][:7],
+            **(
+                {
+                    "suc": values["suc"],
+                    "sucursal": values["sucursal"],
+                    "sucursal_id": values["sucursal_id"],
+                }
+                if values["sucursal"] or values["sucursal_id"] else {}
+            ),
             "dqi_bultos": round(values["dqi_bultos"], 4),
             "wqi_bultos": round(values["wqi_bultos"], 4),
             "total_bultos": round(values["dqi_bultos"] + values["wqi_bultos"], 4),
@@ -1318,7 +1364,7 @@ def cargar_dqi():
             "wqi_hl": round(values["wqi_hl"], 4),
             "total_hl": round(values["dqi_hl"] + values["wqi_hl"], 4),
         }
-        for fecha, values in sorted(quality_daily.items())
+        for _, values in sorted(quality_daily.items(), key=lambda item: item[0])
     ]
     return {
         "rows": rows,
@@ -1332,8 +1378,8 @@ def cargar_dqi():
             "comparison_years": list(DQI_COMPARISON_YEARS),
             "source_date_from": min(source_dates) if source_dates else "",
             "source_date_to": max(source_dates) if source_dates else "",
-            "latest_dqi_date": max(daily) if daily else "",
-            "latest_quality_date": max(quality_daily) if quality_daily else "",
+            "latest_dqi_date": max((values["fecha"] for values in daily.values()), default=""),
+            "latest_quality_date": max((values["fecha"] for values in quality_daily.values()), default=""),
             "merchandise_filter": "MERCADERIA",
             "metric": "DQI_WQI_BULTOS" if dqi_bultos_col is not None else "BULTOS_REAL",
             "quality_hl_metric": "DQI_WQI_HL" if dqi_hl_col is not None else "ROTURA_HL_REAL",
