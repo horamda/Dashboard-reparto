@@ -596,6 +596,10 @@ if BACKEND == "postgres":
             if query:
                 clauses.append("rec::text ILIKE %s")
                 params.append(f"%{query}%")
+            fecha = str(filters.get("fecha") or "").strip()
+            if fecha:
+                clauses.append("fecha = %s::date")
+                params.append(fecha)
             for column in columns:
                 mode = str(filters.get(column) or "")
                 if mode == "empty":
@@ -2086,9 +2090,12 @@ else:
             for column in columns
         }
         query = str(q or "").strip().lower()
+        fecha = str(filters.get("fecha") or "").strip()
         rows = []
         for rec in all_rows:
             raw = rec.get("raw_foxtrot") or {}
+            if fecha and str(rec.get("fecha") or "") != fecha:
+                continue
             if query and query not in json.dumps(rec, ensure_ascii=False, default=str).lower():
                 continue
             if any(

@@ -196,6 +196,9 @@ class TabletLayoutTests(unittest.TestCase):
         self.assertIn("function dpoQualityStackedChart(id,items)", html)
         self.assertIn("function dpoQualityCumulativeChart(id,items)", html)
         self.assertIn("function dpoQualityValueLabels(id)", html)
+        self.assertIn("function dqiHistoryValueLabels(id)", html)
+        self.assertIn("showLabels=true", html)
+        self.assertIn("dqi-product-table", html)
         self.assertIn("function dpoQualityBranchMatrix()", html)
         self.assertIn("renderDpoQualityBranchMatrix()", html)
         self.assertIn('id="tbodyDpoBranchMatrix"', html)
@@ -224,6 +227,7 @@ class TabletLayoutTests(unittest.TestCase):
         self.assertIn("x._realData=true", html)
         self.assertIn("x._dqiData=true", html)
         self.assertIn("tblscroll team-scroll", html)
+        self.assertIn(".team-table tbody td:nth-child(n+6){background-color:#FFFBEB}", html)
         self.assertIn("value==null&&d<=TODAY?0:value", html)
 
 

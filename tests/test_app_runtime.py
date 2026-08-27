@@ -178,14 +178,16 @@ class AppRuntimeTests(unittest.TestCase):
             "missing": {column: 0 for column in app_module.FOXTROT_AUDIT_COLUMNS},
             "rows": [],
         }
-        with app_module.app.test_request_context("/foxtrot-calidad"), patch.object(
+        with app_module.app.test_request_context("/foxtrot-calidad?fecha=2026-08-24"), patch.object(
             app_module.pipeline.storage, "load_foxtrot_quality", return_value=quality
         ) as projected, patch.object(app_module.pipeline.storage, "load_all") as load_all:
-            html = app_module._foxtrot_calidad_page()
+            html = app_module._foxtrot_calidad_page(fecha="2026-08-24")
 
         projected.assert_called_once()
+        self.assertEqual(projected.call_args.kwargs["filters"]["fecha"], "2026-08-24")
         load_all.assert_not_called()
         self.assertIn("Calidad de columnas Foxtrot", html)
+        self.assertIn('type=date name=fecha value="2026-08-24"', html)
 
     def test_fichaya_empty_report_does_not_fetch_external_marks(self):
         with patch.object(

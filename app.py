@@ -642,8 +642,9 @@ def _raw_filter_select(col, value):
     )
 
 
-def _foxtrot_calidad_page(q="", msg="", err=False):
+def _foxtrot_calidad_page(q="", fecha="", msg="", err=False):
     filters = {col: request.args.get(f"raw__{col}", "") for col in FOXTROT_AUDIT_COLUMNS}
+    filters["fecha"] = str(fecha or "").strip()
     quality = pipeline.storage.load_foxtrot_quality(
         FOXTROT_AUDIT_COLUMNS,
         filters=filters,
@@ -695,7 +696,7 @@ def _foxtrot_calidad_page(q="", msg="", err=False):
 .filter-panel summary{{padding:12px 14px;border:0;list-style:none;display:flex;justify-content:space-between;gap:12px;align-items:center}}
 .filter-panel summary::-webkit-details-marker{{display:none}}.filter-panel summary b{{font-size:13px}}.filter-panel summary span{{color:#657085;font-size:12.5px}}
 .tools.raw{{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));align-items:end;padding:0 14px 14px;margin:0}}
-.tools.raw label{{font-size:11px;font-weight:800;color:#657085;text-transform:uppercase}}.tools.raw select{{width:100%;min-height:38px;border:1px solid #DCE2EA;border-radius:8px;padding:8px;background:#fff}}
+.tools.raw label{{font-size:11px;font-weight:800;color:#657085;text-transform:uppercase}}.tools.raw select,.tools.raw input[type=date]{{width:100%;min-height:38px;border:1px solid #DCE2EA;border-radius:8px;padding:8px;background:#fff}}
 .tools.raw .filter-actions{{display:flex;gap:8px;flex-wrap:wrap;align-items:center}}
 .table-wrap.foxtrot{{max-height:68vh}}.table-wrap.foxtrot table{{font-size:12px}}
 .table-wrap.foxtrot th,.table-wrap.foxtrot td{{padding:7px 8px}}
@@ -717,7 +718,7 @@ td input{{width:150px;border:1px solid #DCE2EA;border-radius:7px;padding:7px 8px
   <button class="btn autofill" type=submit>Autocompletar vacíos Foxtrot</button>
  </form></div>
 <details class=filter-panel open><summary><b>Filtros</b><span>Buscar rutas y elegir campos vacíos o con dato</span></summary>
-<form class="tools raw" method=get action="/foxtrot-calidad"><label>Buscar<input name=q value="{escape(q)}" placeholder="Chofer, fecha, ruta..."></label>{filter_controls}<div class=filter-actions><button class=btn type=submit>Filtrar</button><a class="btn secondary" href="/foxtrot-calidad">Limpiar</a></div></form></details>
+<form class="tools raw" method=get action="/foxtrot-calidad"><label>Buscar<input name=q value="{escape(q)}" placeholder="Chofer, fecha, ruta..."></label><label>Fecha<input type=date name=fecha value="{escape(filters['fecha'])}"></label>{filter_controls}<div class=filter-actions><button class=btn type=submit>Filtrar</button><a class="btn secondary" href="/foxtrot-calidad">Limpiar</a></div></form></details>
 <div class=panel><div class="table-wrap foxtrot"><table><thead><tr><th>Fecha</th><th>Sucursal</th><th>Chofer</th><th>Route ID</th>{header_inputs}<th>Acción</th></tr></thead><tbody>{body}</tbody></table></div></div>
 <p class=muted style="margin-top:12px">Se muestran hasta 300 rutas. Para tiempos usá el formato que viene de Foxtrot o un timestamp reconocible, por ejemplo 2026-01-12 14:36:00.</p>
 </div></div></body></html>"""
@@ -1306,6 +1307,7 @@ def foxtrot_calidad():
         return Response(
             _foxtrot_calidad_page(
                 q=request.args.get("q", ""),
+                fecha=request.args.get("fecha", ""),
                 msg=request.args.get("msg", ""),
                 err=request.args.get("err") == "1",
             ),
