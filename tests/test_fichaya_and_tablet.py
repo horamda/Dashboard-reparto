@@ -195,6 +195,11 @@ class TabletLayoutTests(unittest.TestCase):
         self.assertIn("function dpoQualityMonthly()", html)
         self.assertIn("function dpoQualityStackedChart(id,items)", html)
         self.assertIn("function dpoQualityCumulativeChart(id,items)", html)
+        self.assertIn("function dpoQualityValueLabels(id)", html)
+        self.assertIn("function dpoQualityBranchMatrix()", html)
+        self.assertIn("renderDpoQualityBranchMatrix()", html)
+        self.assertIn('id="tbodyDpoBranchMatrix"', html)
+        self.assertIn("Total general", html)
         self.assertIn("renderDpoQuality();", html)
         self.assertIn("solo TIPOMERC MERCADERIA", html)
         self.assertIn("function sucAliases(raw)", html)
@@ -219,6 +224,7 @@ class TabletLayoutTests(unittest.TestCase):
         self.assertIn("x._realData=true", html)
         self.assertIn("x._dqiData=true", html)
         self.assertIn("tblscroll team-scroll", html)
+        self.assertIn("value==null&&d<=TODAY?0:value", html)
 
 
 class DqiSheetTests(unittest.TestCase):
@@ -250,22 +256,22 @@ class DqiSheetTests(unittest.TestCase):
         self.assertEqual(result["rows"], [{
             "fecha": "2026-08-13",
             "mes": "2026-08",
-            "dqi": 1.25,
-            "bultos_real": 0.25,
-            "dqi_hl": 0.07,
-            "hl_real": 0.02,
+            "dqi": 1.5,
+            "bultos_real": 0.33,
+            "dqi_hl": 0.1,
+            "hl_real": 0.03,
         }])
         self.assertEqual(result["dqi_wqi_rows"], [{
             "fecha": "2026-08-13",
             "mes": "2026-08",
-            "dqi_bultos": 1.25,
+            "dqi_bultos": 1.5,
             "wqi_bultos": 9.0,
-            "total_bultos": 10.25,
-            "dqi_hl": 0.07,
+            "total_bultos": 10.5,
+            "dqi_hl": 0.1,
             "wqi_hl": 0.9,
-            "total_hl": 0.97,
+            "total_hl": 1.0,
         }])
-        self.assertEqual(len(result["detalles"]), 2)
+        self.assertEqual(len(result["detalles"]), 3)
         self.assertIn("1403", result["detalles"][0]["camion"])
         self.assertIn("IVECO TECTOR", result["detalles"][0]["camion"])
         self.assertTrue(any("MERCEDES ATEGO" in row["camion"] for row in result["detalles"]))
@@ -275,8 +281,9 @@ class DqiSheetTests(unittest.TestCase):
         self.assertEqual(result["detalles"][0]["hl_real"], 0.01)
         self.assertTrue(all(row["tipo_mercaderia"] == "MERCADERIA" for row in result["detalles"]))
         self.assertEqual(result["quality"]["source_rows"], 7)
-        self.assertEqual(result["quality"]["duplicates_removed"], 1)
-        self.assertEqual(result["quality"]["included_rows"], 2)
+        self.assertEqual(result["quality"]["duplicates_removed"], 0)
+        self.assertEqual(result["quality"]["duplicates_detected"], 1)
+        self.assertEqual(result["quality"]["included_rows"], 3)
         self.assertEqual(result["quality"]["included_wqi_rows"], 1)
         self.assertEqual(result["quality"]["latest_quality_date"], "2026-08-13")
         self.assertEqual(result["quality"]["merchandise_filter"], "MERCADERIA")

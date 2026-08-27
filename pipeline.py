@@ -1141,8 +1141,8 @@ def cargar_dqi():
     except Exception:
         return {"rows": [], "error": "No se pudo leer el CSV publicado de DQI."}
     source_rows = len(df)
-    df = df.drop_duplicates().copy()
-    duplicates_removed = source_rows - len(df)
+    df = df.copy()
+    duplicates_detected = int(df.duplicated(keep="first").sum())
 
     def exact_col(name):
         return next((c for c in df.columns if str(c).strip() == name), None)
@@ -1372,7 +1372,8 @@ def cargar_dqi():
         "dqi_wqi_rows": dqi_wqi_rows,
         "quality": {
             "source_rows": source_rows,
-            "duplicates_removed": duplicates_removed,
+            "duplicates_removed": 0,
+            "duplicates_detected": duplicates_detected,
             "included_rows": len(detalles),
             "included_wqi_rows": included_wqi_rows,
             "comparison_years": list(DQI_COMPARISON_YEARS),

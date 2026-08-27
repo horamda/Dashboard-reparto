@@ -448,6 +448,41 @@ if BACKEND == "postgres":
             "jsonb_strip_nulls(jsonb_build_object(" + ",".join(f"'{field}', rec->'{field}'" for field in fields) + "))"
             if fields else "rec - 'raw_foxtrot'"
         )
+        dispersion_fields = {
+            "disp_km_plan": "Planned Foxtrot Driving Meters",
+            "disp_km_real": "Total Driven Meters",
+            "disp_hs_plan": "Planned Foxtrot Driving Seconds",
+            "disp_hs_real": "Total Driven Seconds",
+        }
+        requested_raw = {field: raw for field, raw in dispersion_fields.items() if not fields or field in fields}
+        if requested_raw:
+            numeric_pattern = r"^-?[0-9]+([.][0-9]+)?$"
+
+            def raw_number(raw_field):
+                path = raw_field.replace("'", "''")
+                value = f"BTRIM(rec #>> '{{raw_foxtrot,{path}}}')"
+                return f"CASE WHEN {value} ~ '{numeric_pattern}' THEN ({value})::double precision END"
+
+            derived = [
+                f"'{field}', to_jsonb({raw_number(raw)})"
+                for field, raw in requested_raw.items()
+            ]
+            for field, plan_raw, real_raw in (
+                ("dispkm", "Planned Foxtrot Driving Meters", "Total Driven Meters"),
+                ("disphs", "Planned Foxtrot Driving Seconds", "Total Driven Seconds"),
+            ):
+                if fields and field not in fields:
+                    continue
+                plan = raw_number(plan_raw)
+                real = raw_number(real_raw)
+                value = (
+                    f"CASE WHEN ({plan}) > 0 AND ({real}) IS NOT NULL "
+                    f"THEN ROUND((((({real}) - ({plan})) / ({plan})) * 100)::numeric, 1)::double precision END"
+                )
+                derived.append(f"'{field}', to_jsonb({value})")
+            if derived:
+                # Raw Foxtrot values are authoritative when old derived fields were not refreshed.
+                projection = f"({projection}) || jsonb_strip_nulls(jsonb_build_object({','.join(derived)}))"
         with _conn() as cn, cn.cursor() as cur:
             cur.execute(f"SELECT rid, {projection} FROM rutas_dashboard;")
             return _cache_set(cache_key, {rid: rec for rid, rec in cur.fetchall()})
@@ -1974,13 +2009,27 @@ else:
 
     def load_dashboard_routes(fields=None):
         fields = set(fields or ())
-        return {
-            rid: {
+        out = {}
+        for rid, original in load_all().items():
+            rec = dict(original)
+            raw = rec.get("raw_foxtrot") or {}
+            pairs = (
+                ("km", "Planned Foxtrot Driving Meters", "Total Driven Meters"),
+                ("hs", "Planned Foxtrot Driving Seconds", "Total Driven Seconds"),
+            )
+            for suffix, plan_key, real_key in pairs:
+                plan = _safe_float(raw.get(plan_key))
+                real = _safe_float(raw.get(real_key))
+                rec[f"disp_{suffix}_plan"] = plan or None
+                rec[f"disp_{suffix}_real"] = real or None
+                rec["dispkm" if suffix == "km" else "disphs"] = (
+                    round((real - plan) / plan * 100, 1) if plan > 0 and real > 0 else None
+                )
+            out[rid] = {
                 key: value for key, value in rec.items()
                 if (key in fields if fields else key != "raw_foxtrot")
             }
-            for rid, rec in load_all().items()
-        }
+        return out
 
     def load_fichaya_dimensions(desde="2026-08-01"):
         rows = [
