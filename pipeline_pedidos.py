@@ -24,22 +24,14 @@ FRANJAS = [
     "08-09",
     "09-10",
     "10-11",
-    "11:00-11:15",
-    "11:15-11:30",
-    "11:30-11:45",
-    "11:45-12:00",
-    "12:00-12:15",
-    "12:15-12:30",
-    "12:30-12:45",
-    "12:45-13:00",
-    "13:00-13:15",
-    "13:15-13:30",
-    "13:30-13:45",
-    "13:45-14:00",
-    "14:00-14:15",
-    "14:15-14:30",
-    "14:30-14:45",
-    "14:45-15:00",
+    "11:00-11:30",
+    "11:30-12:00",
+    "12:00-12:30",
+    "12:30-13:00",
+    "13:00-13:30",
+    "13:30-14:00",
+    "14:00-14:30",
+    "14:30-15:00",
     "15+",
 ]
 DIAS = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"]
@@ -83,11 +75,12 @@ def _split_cod_nombre(v):
 
 
 def _localidad_de_ruta(ruta):
-    """'523 - DOLORES' -> 'DOLORES'. None/'' -> 'SIN RUTA'."""
+    """Obtiene el nombre aunque la ruta venga como '523 - DOLORES' o al revés."""
     if ruta is None or str(ruta).strip() == "":
         return "SIN RUTA"
-    _cod, nombre = _split_cod_nombre(ruta)
-    return (nombre or "SIN RUTA").upper()
+    parts = [part.strip() for part in str(ruta).split(" - ") if part.strip()]
+    nombres = [part for part in parts if not part.isdigit()]
+    return (nombres[-1] if nombres else "SIN RUTA").upper()
 
 
 def _si_no(v):
@@ -138,9 +131,9 @@ def _franja(dt):
     if hour < 11:
         return f"{hour:02d}-{hour + 1:02d}"
     if hour < 15:
-        start_min = (dt.minute // 15) * 15
+        start_min = (dt.minute // 30) * 30
         end_hour = hour
-        end_min = start_min + 15
+        end_min = start_min + 30
         if end_min == 60:
             end_hour += 1
             end_min = 0

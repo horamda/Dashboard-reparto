@@ -178,7 +178,7 @@ a{{color:#1E3A8A;font-size:13.5px}}hr{{border:0;border-top:1px solid #DCE2EA;mar
     <input type=checkbox name=reset value=1 style="width:auto;margin-right:6px">Rehacer la base de cero (borra lo guardado)</label>
   <button class=btn type=submit>Actualizar</button>
 </form>
-<p style="margin-top:18px"><a href="/inicio">Panel principal</a> · <a href="/dashboard">Dashboard</a> · <a href="/datos">Revisar datos cargados</a> · <a href="/foxtrot-calidad">Calidad Foxtrot</a> · <a href="/reporte-fichaya-foxtrot">Reporte FichaYA/Foxtrot</a> · <a href="/pedidos">Ingreso de pedidos</a> · <a href="/costos-distribucion">Costos</a> · <a href="/logout">Cerrar sesión</a></p>
+<p style="margin-top:18px"><a href="/inicio">Panel principal</a> · <a href="/dashboard">Dashboard</a> · <a href="/datos">Revisar datos cargados</a> · <a href="/foxtrot-calidad">Calidad Foxtrot</a> · <a href="/reporte-fichaya-foxtrot">Reporte FichaYA/Foxtrot</a> · <a href="/pedidos">Análisis de pedidos</a> · <a href="/costos-distribucion">Costos</a> · <a href="/logout">Cerrar sesión</a></p>
 <hr>
 <h1>Importar rechazos</h1>
 <p>Consume el endpoint CSV de rechazos diarios de Dolores y lo guarda en la base.</p>
@@ -426,7 +426,7 @@ def _main_page():
             ("Dashboard operativo", "Indicadores principales, Team Room, DPO, rechazos, OTIF y calidad.", "/dashboard", "Abrir"),
             ("Costos de distribución", "Costo por ruta, kilómetro, entrega y cliente con asignación configurable.", "/costos-distribucion", "Calcular"),
             ("Dashboard de costos", "Histórico vigente, comparaciones y rankings logísticos.", "/costos-distribucion/dashboard", "Analizar"),
-            ("Ingreso de pedidos", "Importación y análisis por franja horaria, corte, canal, vendedor y bultos estimados.", "/pedidos", "Abrir"),
+            ("Análisis de pedidos", "Importación y análisis por franja horaria, corte, canal, vendedor y bultos estimados.", "/pedidos", "Abrir"),
             ("Reporte FichaYA / Foxtrot", "Empleado, fichada de ingreso, inicio Foxtrot, TML, fin Foxtrot, salida y TI.", "/reporte-fichaya-foxtrot", "Abrir"),
         ]),
         ("Datos y calidad", [

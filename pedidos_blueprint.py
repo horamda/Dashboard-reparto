@@ -2,7 +2,7 @@
 """
 pedidos_blueprint.py
 --------------------
-Página independiente "Ingreso de pedidos" para sumar al proyecto dashboard-reparto.
+Página independiente "Análisis de pedidos" para sumar al proyecto dashboard-reparto.
 
 Se registra como Blueprint en tu app.py existente:
 

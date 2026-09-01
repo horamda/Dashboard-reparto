@@ -154,6 +154,25 @@ class TabletLayoutTests(unittest.TestCase):
             '<script src="https://cdn.jsdelivr.net/npm/chart.js', html
         )
 
+    def test_orders_customer_analysis_uses_joined_client_location_and_cut_window(self):
+        html = (ROOT / "templates" / "plantilla_pedidos.html").read_text(
+            encoding="utf-8"
+        )
+
+        self.assertIn("function localidadValida(v)", html)
+        self.assertIn("function localidadDeRuta(v)", html)
+        self.assertIn("return localidadValida(r.cliente_localidad) || localidadDeRuta(r.ruta) || localidadValida(r.localidad) || 'Sin dato';", html)
+        self.assertIn("fill('fLocalidad', uniqFn(pedidoLocalidad));", html)
+        self.assertIn("if(loc && pedidoLocalidad(r)!==loc) return false;", html)
+        self.assertIn("renderCat(rows,'chLocalidad',pedidoLocalidad,10,true,'fLocalidad')", html)
+        self.assertIn("const target = rows.filter(esEntre14y1430);", html)
+        self.assertIn("principales_clientes_14_00_a_14_30: topClientes(ventana1430, 8)", html)
+        self.assertIn("client-analysis-table", html)
+        self.assertIn('data-label="Pedidos 14:00-14:30"', html)
+        self.assertIn("#clienteAnalisis { max-height:none; overflow:visible;", html)
+        self.assertIn(".client-analysis-table td:nth-child(n+3) { text-align:center; }", html)
+        self.assertIn(".client-analysis-table tr { grid-template-columns:1fr; }", html)
+
     def test_dqi_view_separates_physical_breakage_from_quality_indicators(self):
         html = (ROOT / "plantilla_dashboard.html").read_text(encoding="utf-8")
 

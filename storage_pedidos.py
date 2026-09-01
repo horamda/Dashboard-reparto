@@ -44,6 +44,56 @@ def _json_path():
     return os.path.join(storage.DATA_DIR, "pedidos_dashboard.json")
 
 
+def _cliente_key(value):
+    """Normaliza '000123 - Razon social' a '123' para cruzar con clientes."""
+    if value is None:
+        return ""
+    text = str(value).strip()
+    if not text:
+        return ""
+    code = text.split(" - ", 1)[0].strip()
+    normalized = code.lstrip("0")
+    return normalized or code
+
+
+def _cliente_projection(cliente):
+    if not cliente:
+        return {}
+    localidad = str(cliente.get("localidad") or "").strip()
+    if localidad.isdigit():
+        localidad = ""
+    return {
+        "cliente_codigo": cliente.get("cliente"),
+        "cliente_sucursal": cliente.get("sucursal"),
+        "cliente_razon_social": cliente.get("razon_social"),
+        "cliente_nombre": cliente.get("nombre"),
+        "cliente_localidad": localidad or None,
+        "cliente_horario_entrega": cliente.get("horario_entrega"),
+        "cliente_ventanas": cliente.get("ventanas") or [],
+        "cliente_latitud": cliente.get("latitud"),
+        "cliente_longitud": cliente.get("longitud"),
+        "cliente_direccion": cliente.get("direccion"),
+    }
+
+
+def _enrich_with_clientes(rows):
+    try:
+        clientes = storage.load_clientes()
+    except Exception:
+        clientes = {}
+    if not clientes:
+        return rows
+    by_key = {_cliente_key(key): rec for key, rec in clientes.items()}
+    enriched = []
+    for rec in rows:
+        item = dict(rec)
+        cliente = by_key.get(_cliente_key(item.get("cliente")))
+        if cliente:
+            item.update(_cliente_projection(cliente))
+        enriched.append(item)
+    return enriched
+
+
 def init_db():
     global _INIT_DONE
     if _INIT_DONE:
@@ -163,9 +213,35 @@ def fetch_dashboard():
             for rec in _load_json().values()
         ]
         rows.sort(key=lambda rec: rec.get("fecha_alta") or "")
-        return _cache_set("dashboard", rows)
+        return _cache_set("dashboard", _enrich_with_clientes(rows))
     with storage._conn() as conn, conn.cursor() as cur:
-        cur.execute("SELECT rec - 'raw_pedido' FROM pedidos_dashboard ORDER BY rec->>'fecha_alta';")
+        cur.execute("""
+            SELECT
+                (p.rec - 'raw_pedido') ||
+                COALESCE(
+                    jsonb_strip_nulls(jsonb_build_object(
+                        'cliente_codigo', c.rec->'cliente',
+                        'cliente_sucursal', c.rec->'sucursal',
+                        'cliente_razon_social', c.rec->'razon_social',
+                        'cliente_nombre', c.rec->'nombre',
+                        'cliente_localidad', CASE
+                            WHEN COALESCE(c.rec->>'localidad', '') ~ '^\\s*[0-9]+\\s*$' THEN NULL
+                            ELSE c.rec->'localidad'
+                        END,
+                        'cliente_horario_entrega', c.rec->'horario_entrega',
+                        'cliente_ventanas', COALESCE(c.rec->'ventanas', '[]'::jsonb),
+                        'cliente_latitud', c.rec->'latitud',
+                        'cliente_longitud', c.rec->'longitud',
+                        'cliente_direccion', c.rec->'direccion'
+                    )),
+                    '{}'::jsonb
+                )
+            FROM pedidos_dashboard p
+            LEFT JOIN clientes_dashboard c
+              ON regexp_replace(c.cliente, '^0+', '') =
+                 regexp_replace(split_part(p.rec->>'cliente', ' - ', 1), '^0+', '')
+            ORDER BY p.rec->>'fecha_alta';
+        """)
         return _cache_set("dashboard", [row[0] for row in cur.fetchall()])
 
 

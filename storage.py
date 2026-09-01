@@ -1240,6 +1240,11 @@ if BACKEND == "postgres":
                     page_size=DB_INSERT_PAGE_SIZE,
                 )
         clear_cache("clientes:")
+        try:
+            import storage_pedidos
+            storage_pedidos.clear_cache()
+        except Exception:
+            pass
         return len(recs)
 
     def load_rechazos():
@@ -2328,6 +2333,11 @@ else:
     def replace_clientes(recs):
         os.makedirs(DATA_DIR, exist_ok=True)
         json.dump({"clientes": recs}, open(CLIENTES_JSON_PATH, "w", encoding="utf-8"), ensure_ascii=False)
+        try:
+            import storage_pedidos
+            storage_pedidos.clear_cache()
+        except Exception:
+            pass
         return len(recs)
 
     def load_rechazos():

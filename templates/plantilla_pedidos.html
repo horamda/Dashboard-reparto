@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Ingreso de pedidos - Del Palacio S.A.</title>
+<title>Análisis de pedidos - Del Palacio S.A.</title>
 <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
 <style>
   :root { --brand:#15233b; --accent:#c77d1a; --ink:#1f2937; --muted:#6b7280; }
@@ -35,6 +35,22 @@
   .daily-report th { position:sticky; top:0; background:#f8fafc; z-index:1; font-size:.68rem; text-transform:uppercase; color:#64748b; }
   .daily-report td, .daily-report th { white-space:nowrap; vertical-align:middle; padding:.45rem .7rem; }
   .daily-report .num { text-align:right; font-variant-numeric:tabular-nums; }
+  .client-analysis-table { width:100%; min-width:900px!important; table-layout:fixed; }
+  .client-analysis-table th { text-align:center; }
+  .client-analysis-table .client-col, .client-analysis-table .delivery-col { text-align:left; }
+  .client-analysis-table .client-col { width:20%; }
+  .client-analysis-table .delivery-col { width:20%; }
+  .client-analysis-table .entry-split-col { width:16%; }
+  .client-analysis-table .entry-range-col { width:14%; }
+  .client-analysis-table .metric-col { width:10%; }
+  .client-analysis-table td { height:54px; }
+  .client-analysis-table td:nth-child(n+3) { text-align:center; }
+  .client-primary { display:block; overflow:hidden; text-overflow:ellipsis; font-weight:650; color:#172033; }
+  .client-secondary { display:block; margin-top:2px; overflow:hidden; text-overflow:ellipsis; color:#64748b; font-size:.7rem; }
+  .entry-pair { display:grid; grid-template-columns:1fr 1fr; gap:5px; width:100%; max-width:190px; min-width:116px; margin:0 auto; }
+  .entry-pair span { display:flex; justify-content:space-between; gap:5px; padding:3px 6px; border:1px solid #e2e8f0; border-radius:4px; background:#f8fafc; font-variant-numeric:tabular-nums; }
+  .entry-pair small { color:#64748b; }
+  .entry-range { font-variant-numeric:tabular-nums; }
   .daily-chart { position:relative; height:330px; border:1px solid #e5ebf2; border-radius:8px; padding:10px 12px 8px; }
   .ai-panel { border-left:3px solid var(--accent); background:#f8fbff; }
   .data-status { border-left:4px solid var(--brand); }
@@ -84,6 +100,8 @@
     .filters .filter-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
     .filters .switch-panel { grid-template-columns:1fr; }
     .filters .filter-action { width:100%; }
+    .client-analysis-table { min-width:820px!important; font-size:.76rem!important; }
+    .client-analysis-table td, .client-analysis-table th { padding-left:.5rem; padding-right:.5rem; }
   }
   @media (min-width: 769px) and (max-width: 1024px) {
     .app-shell { padding-left:12px!important; padding-right:12px!important; }
@@ -109,6 +127,18 @@
     .filters .filter-grid { grid-template-columns:1fr; }
     .daily-layout { grid-template-columns:1fr; }
     .daily-report table { min-width:520px; }
+    #clienteAnalisis { max-height:none; overflow:visible; border:0; border-radius:0; }
+    .client-analysis-table { display:block; min-width:0!important; table-layout:auto; }
+    .client-analysis-table thead { display:none; }
+    .client-analysis-table tbody { display:grid; gap:10px; }
+    .client-analysis-table tr { display:grid; grid-template-columns:1fr 1fr; border:1px solid #dbe3ed; border-radius:6px; overflow:hidden; background:#fff; }
+    .client-analysis-table td { display:block; min-width:0; padding:8px 10px; border:0; border-bottom:1px solid #edf1f5; white-space:normal; text-align:left!important; }
+    .client-analysis-table td::before { content:attr(data-label); display:block; margin-bottom:2px; color:#64748b; font-size:.62rem; font-weight:700; text-transform:uppercase; }
+    .client-analysis-table td:nth-child(1), .client-analysis-table td:nth-child(2) { grid-column:1 / -1; }
+    .client-analysis-table td:nth-last-child(-n+2) { border-bottom:0; }
+    .client-primary, .client-secondary { white-space:normal; }
+    .entry-pair { min-width:0; }
+    .client-analysis-table td:nth-child(n+3) { text-align:center!important; }
     .daily-chart { height:300px; }
     .chart-wrap, .chart-wrap.tall { height:300px; }
     #kpis { grid-template-columns:repeat(2,minmax(0,1fr)); }
@@ -117,6 +147,12 @@
     .app-shell { padding-left:9px!important; padding-right:9px!important; }
     #kpis { gap:8px; }
     .kpi .val { font-size:1.18rem; }
+    .daily-card .card-body { padding:12px 10px 14px!important; }
+    .client-analysis-table tr { grid-template-columns:1fr; }
+    .client-analysis-table td { grid-column:1 / -1; }
+    .client-analysis-table td:nth-last-child(-n+2) { border-bottom:1px solid #edf1f5; }
+    .client-analysis-table td:last-child { border-bottom:0; }
+    .entry-pair { max-width:none; }
   }
   @media (prefers-reduced-motion: reduce) { * { scroll-behavior:auto!important; transition:none!important; } }
 </style>
@@ -155,7 +191,7 @@
 
   <div class="page-head d-flex flex-wrap align-items-center justify-content-between mb-2">
     <div class="page-title">
-      <h5 class="mb-0">Ingreso de pedidos por franja horaria</h5>
+      <h5 class="mb-0">Análisis de pedidos por franja horaria</h5>
       <small class="text-muted">
         Base: <b>{{ resumen.total }}</b> pedidos
         {% if resumen.desde %}· {{ resumen.desde }} → {{ resumen.hasta }}{% endif %}
@@ -252,6 +288,19 @@
     <div class="card-body">
       <div class="daily-head d-flex flex-wrap align-items-center justify-content-between gap-2">
         <div>
+          <h6>Análisis de clientes</h6>
+          <small class="text-muted">Clientes con pedidos ingresados entre 14:00 y 14:30, cruzados con la tabla clientes.</small>
+        </div>
+        <small id="clienteAnalisisResumen" class="text-muted"></small>
+      </div>
+      <div id="clienteAnalisis" class="daily-report"></div>
+    </div>
+  </div>
+
+  <div class="card daily-card mb-3">
+    <div class="card-body">
+      <div class="daily-head d-flex flex-wrap align-items-center justify-content-between gap-2">
+        <div>
           <h6>Reporte diario 14:00 a 14:30</h6>
           <small class="text-muted">Pedidos ingresados en la ventana previa al corte.</small>
         </div>
@@ -301,7 +350,7 @@
   <div class="row g-3 mt-0">
     <div class="col-lg-5">
       <div class="card h-100"><div class="card-body">
-        <h6 class="mb-2">Por franja horaria</h6><div class="text-muted small mb-2">Hasta las 11 por hora; de 11 a 15 cada 15 minutos.</div>
+        <h6 class="mb-2">Por franja horaria</h6><div class="text-muted small mb-2">Hasta las 11 por hora; de 11 a 15 cada 30 minutos.</div>
         <div class="chart-wrap"><canvas id="chFranja"></canvas></div>
       </div></div>
     </div>
@@ -356,6 +405,18 @@ const PALETTE = ['#0d6efd','#6610f2','#20c997','#fd7e14','#dc3545','#0dcaf0','#6
 const escapeAttr = s => String(s).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
 
 function currentMetric(){ return document.querySelector('input[name=metric]:checked').value; }
+function localidadValida(v){
+  const text = String(v || '').trim();
+  return text && !/^\d+$/.test(text) ? text : '';
+}
+function localidadDeRuta(v){
+  const parts = String(v || '').split(/\s+-\s+/).map(p=>p.trim()).filter(Boolean);
+  const nombres = parts.filter(localidadValida);
+  return nombres.length ? nombres[nombres.length - 1].toUpperCase() : '';
+}
+function pedidoLocalidad(r){
+  return localidadValida(r.cliente_localidad) || localidadDeRuta(r.ruta) || localidadValida(r.localidad) || 'Sin dato';
+}
 function bultosEstimados(r){ return (r.total||0) / VALOR_BULTO_ESTIMADO; }
 function metricVal(r, m){
   if(m==='total') return r.total||0;
@@ -405,8 +466,8 @@ function pedidoFranja(r){
   if(h < 7) return 'Antes 07';
   if(h < 11) return String(h).padStart(2,'0')+'-'+String(h+1).padStart(2,'0');
   if(h < 15){
-    const sm = Math.floor(m/15)*15;
-    let eh = h, em = sm + 15;
+    const sm = Math.floor(m/30)*30;
+    let eh = h, em = sm + 30;
     if(em === 60){ eh += 1; em = 0; }
     return String(h).padStart(2,'0')+':'+String(sm).padStart(2,'0')+'-'+String(eh).padStart(2,'0')+':'+String(em).padStart(2,'0');
   }
@@ -430,9 +491,10 @@ fetch('/pedidos/data').then(async response=>{
 });
 
 function buildFilterOptions(){
-  const uniq = (k)=>[...new Set(RAW.map(r=>r[k]).filter(v=>v!==null&&v!==undefined))].sort();
+  const uniq = (k)=>[...new Set(RAW.map(r=>r[k]).filter(v=>v!==null&&v!==undefined&&v!=='').map(v=>String(v)))].sort();
+  const uniqFn = (fn)=>[...new Set(RAW.map(fn).filter(v=>v!==null&&v!==undefined&&v!==''))].sort();
   fill('fSucursal', uniq('sucursal'));
-  fill('fLocalidad', uniq('localidad'));
+  fill('fLocalidad', uniqFn(pedidoLocalidad));
   fill('fVendedor', uniq('vendedor'));
   fill('fCanal', uniq('origen'));
   fill('fFranja', FRANJAS);
@@ -475,10 +537,10 @@ function filtered(){
     const fechaIngreso = ingresoFecha(r);
     if(fechaDesde && fechaIngreso < fechaDesde) return false;
     if(fechaHasta && fechaIngreso > fechaHasta) return false;
-    if(suc && r.sucursal!==suc) return false;
-    if(loc && r.localidad!==loc) return false;
-    if(ven && r.vendedor!==ven) return false;
-    if(can && r.origen!==can) return false;
+    if(suc && String(r.sucursal||'')!==suc) return false;
+    if(loc && pedidoLocalidad(r)!==loc) return false;
+    if(ven && String(r.vendedor||'')!==ven) return false;
+    if(can && String(r.origen||'')!==can) return false;
     if(corte==='fuera' && !esFueraDeCorte(r)) return false;
     if(corte==='dentro' && esFueraDeCorte(r)) return false;
     if(franja && pedidoFranja(r)!==franja) return false;
@@ -526,13 +588,14 @@ function render(){
   renderFilterSummary(rows);
   renderChartScopes(rows);
   renderKPIs(rows);
+  renderClientes(rows);
   renderReporte1430(rows);
   renderHeatmap(rows);
   if(typeof Chart !== 'undefined'){
     renderHora(rows);
     renderFranja(rows);
     renderAcum(rows);
-    renderCat(rows,'chLocalidad','localidad',10,true);
+    renderCat(rows,'chLocalidad',pedidoLocalidad,10,true,'fLocalidad');
     renderCat(rows,'chVendedor','vendedor',10,true);
     renderCanal(rows);
   }
@@ -647,6 +710,14 @@ function renderReporte1430Chart(data){
   const labels = data.map(r=>r.fecha.slice(5));
   const values = data.map(r=> metric==='total' ? r.total : (metric==='bultos' ? r.bultos : r.pedidos));
   const options = barOpts();
+  options.onClick = (evt, elements)=>{
+    if(!elements.length) return;
+    const fecha = data[elements[0].index]?.fecha;
+    if(!fecha) return;
+    document.getElementById('fFechaDesde').value = fecha;
+    document.getElementById('fFechaHasta').value = fecha;
+    render();
+  };
   baseChart('chReporte1430', {
     type:'bar',
     data:{
@@ -670,6 +741,104 @@ function topBy(rows, key, limit){
     item.metrica += metricVal(r, metric);
   });
   return [...m.values()].sort((a,b)=>b.metrica-a.metrica).slice(0, limit);
+}
+
+function clienteDisplay(r){
+  const nombre = String(r.cliente_nombre || '').trim();
+  const razon = String(r.cliente_razon_social || '').trim();
+  return nombre || razon || String(r.cliente || 'Sin cliente').trim() || 'Sin cliente';
+}
+
+function clienteKey(r){
+  return String(r.cliente_codigo || r.cliente || 'Sin cliente');
+}
+
+function topClientes(rows, limit){
+  const metric = currentMetric();
+  const m = new Map();
+  rows.forEach(r=>{
+    const k = clienteKey(r);
+    if(!m.has(k)){
+      m.set(k, {
+        codigo: r.cliente_codigo || String(r.cliente || ''),
+        nombre: clienteDisplay(r),
+        razon_social: r.cliente_razon_social || '',
+        localidad: pedidoLocalidad(r),
+        horario_entrega: r.cliente_horario_entrega || '',
+        pedidos: 0,
+        ingreso_14_00_14_15: 0,
+        ingreso_14_15_14_30: 0,
+        primer_ingreso: '',
+        ultimo_ingreso: '',
+        total: 0,
+        bultos: 0,
+        metrica: 0,
+        unido_cliente: Boolean(r.cliente_codigo)
+      });
+    }
+    const item = m.get(k);
+    item.pedidos += 1;
+    if(r.hora === 14 && Number(r.minuto || 0) < 15) item.ingreso_14_00_14_15 += 1;
+    if(r.hora === 14 && Number(r.minuto || 0) >= 15 && Number(r.minuto || 0) < 30) item.ingreso_14_15_14_30 += 1;
+    const ingreso = r.fecha_alta ? String(r.fecha_alta).slice(11,16) : '';
+    if(ingreso && (!item.primer_ingreso || ingreso < item.primer_ingreso)) item.primer_ingreso = ingreso;
+    if(ingreso && (!item.ultimo_ingreso || ingreso > item.ultimo_ingreso)) item.ultimo_ingreso = ingreso;
+    item.total += r.total || 0;
+    item.bultos += bultosEstimados(r);
+    item.metrica += metricVal(r, metric);
+    item.unido_cliente = item.unido_cliente || Boolean(r.cliente_codigo);
+  });
+  return [...m.values()].sort((a,b)=>b.metrica-a.metrica).slice(0, limit);
+}
+
+function renderClientes(rows){
+  const el = document.getElementById('clienteAnalisis');
+  const summary = document.getElementById('clienteAnalisisResumen');
+  const target = rows.filter(esEntre14y1430);
+  const unidos = target.filter(r=>r.cliente_codigo).length;
+  summary.textContent = `${fmtInt(unidos)} de ${fmtInt(target.length)} pedidos 14:00-14:30 unidos a clientes`;
+  const data = topClientes(target, 12);
+  if(!data.length){
+    el.innerHTML = '<div class="text-muted small py-2">Sin pedidos entre 14:00 y 14:30 para los filtros activos.</div>';
+    return;
+  }
+  el.innerHTML = `
+    <table class="table table-sm table-hover align-middle client-analysis-table">
+      <thead>
+        <tr>
+          <th class="client-col">Cliente</th>
+          <th class="delivery-col">Entrega</th>
+          <th class="entry-split-col">Ingresos por tramo</th>
+          <th class="entry-range-col">Rango ingreso</th>
+          <th class="num metric-col">Pedidos</th>
+          <th class="num metric-col">$ Total</th>
+          <th class="num metric-col">Bultos est.</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${data.map(r=>`
+          <tr>
+            <td data-label="Cliente">
+              <span class="client-primary">${escapeAttr(r.nombre)}</span>
+              <span class="client-secondary">Código ${escapeAttr(r.codigo || 'Sin código')}</span>
+            </td>
+            <td data-label="Entrega">
+              <span class="client-primary">${escapeAttr(r.localidad)}</span>
+              <span class="client-secondary">${escapeAttr(r.horario_entrega || 'Sin horario de entrega')}</span>
+            </td>
+            <td data-label="Ingresos por tramo">
+              <span class="entry-pair">
+                <span><small>14:00</small><b>${fmtInt(r.ingreso_14_00_14_15)}</b></span>
+                <span><small>14:15</small><b>${fmtInt(r.ingreso_14_15_14_30)}</b></span>
+              </span>
+            </td>
+            <td data-label="Primer / último ingreso" class="entry-range">${escapeAttr(r.primer_ingreso || 'Sin hora')} - ${escapeAttr(r.ultimo_ingreso || 'Sin hora')}</td>
+            <td data-label="Pedidos 14:00-14:30" class="num">${fmtInt(r.pedidos)}</td>
+            <td data-label="Total" class="num">${fmtMoney(r.total)}</td>
+            <td data-label="Bultos estimados" class="num">${fmtBultos(r.bultos)}</td>
+          </tr>`).join('')}
+      </tbody>
+    </table>`;
 }
 
 function buildAiResumen(rows){
@@ -732,7 +901,8 @@ function buildAiResumen(rows){
     },
     principales_sucursales: topBy(rows, 'sucursal', 5),
     principales_canales: topBy(rows, 'origen', 5),
-    principales_vendedores: topBy(rows, 'vendedor', 5)
+    principales_vendedores: topBy(rows, 'vendedor', 5),
+    principales_clientes_14_00_a_14_30: topClientes(ventana1430, 8)
   };
 }
 
@@ -899,14 +1069,15 @@ function renderAcum(rows){
   });
 }
 
-function renderCat(rows, id, key, topN, horizontal){
-  const m = sumBy(rows, r=>r[key]||'—');
+function renderCat(rows, id, key, topN, horizontal, filterIdOverride){
+  const keyFn = typeof key === 'function' ? key : (r=>r[key]||'—');
+  const m = sumBy(rows, keyFn);
   let arr=[...m.entries()].sort((a,b)=>b[1]-a[1]);
   if(topN && arr.length>topN){
     const rest=arr.slice(topN).reduce((a,[,v])=>a+v,0);
     arr=arr.slice(0,topN); if(rest>0) arr.push(['Otros',rest]);
   }
-  const filterId = key === 'localidad' ? 'fLocalidad' : (key === 'vendedor' ? 'fVendedor' : null);
+  const filterId = filterIdOverride || (key === 'localidad' ? 'fLocalidad' : (key === 'vendedor' ? 'fVendedor' : null));
   baseChart(id, {
     type:'bar',
     data:{labels:arr.map(a=>a[0]),
