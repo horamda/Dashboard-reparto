@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Análisis de pedidos - Del Palacio S.A.</title>
+<link rel="icon" type="image/png" href="/static/logot2.png">
 <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
 <style>
   :root { --brand:#15233b; --accent:#c77d1a; --ink:#1f2937; --muted:#6b7280; }
@@ -14,7 +15,8 @@
   .btn-outline-primary { --bs-btn-color:var(--brand); --bs-btn-border-color:#aeb9c8; --bs-btn-hover-bg:var(--brand); --bs-btn-hover-border-color:var(--brand); --bs-btn-active-bg:var(--brand); --bs-btn-active-border-color:var(--brand); }
   :focus-visible { outline:2px solid var(--accent)!important; outline-offset:2px; }
   .app-shell { max-width:1320px; margin:0 auto; }
-  .navbar-brand { font-weight:700; white-space:nowrap; }
+  .navbar-brand { display:inline-flex; align-items:center; gap:9px; font-weight:700; white-space:nowrap; }
+  .brand-logo { width:38px; height:38px; border-radius:8px; object-fit:contain; background:#fff; }
   .navbar .container-fluid { gap:14px; }
   .navbar-nav { gap:10px; }
   .navbar-nav .nav-link { white-space:nowrap; }
@@ -118,6 +120,7 @@
   }
   @media (max-width: 768px) {
     .navbar .container-fluid { align-items:flex-start; gap:8px; }
+    .brand-logo { width:34px; height:34px; border-radius:7px; }
     .navbar-nav { flex-direction:row; flex-wrap:wrap; gap:4px 10px; }
     .navbar-nav .nav-link { padding:2px 0; }
     .upload-form { width:100%; flex-wrap:wrap; }
@@ -161,7 +164,7 @@
 
 <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
   <div class="container-fluid">
-    <span class="navbar-brand">Del Palacio S.A. · Reparto</span>
+    <span class="navbar-brand"><img class="brand-logo" src="/static/logot2.png" alt="T2">Del Palacio S.A. · Reparto</span>
     <div class="navbar-nav me-auto">
       <a class="nav-link" href="/inicio">Inicio</a>
       <a class="nav-link" href="/dashboard">Tiempos</a>

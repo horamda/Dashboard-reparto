@@ -1942,6 +1942,22 @@ if BACKEND == "postgres":
         def blank_expr(path):
             return f"(NULLIF(BTRIM(COALESCE(rec #>> '{{raw_foxtrot,{path}}}', '')), '') IS NULL OR LOWER(BTRIM(COALESCE(rec #>> '{{raw_foxtrot,{path}}}', ''))) IN ('nan','none','null','nat'))"
 
+        numeric_pattern = r"^-?[0-9]+([.][0-9]+)?$"
+
+        def raw_value(path):
+            return f"BTRIM(rec #>> '{{raw_foxtrot,{path}}}')"
+
+        def raw_number(path):
+            value = f"REPLACE({raw_value(path)}, ',', '.')"
+            return f"CASE WHEN {value} ~ '{numeric_pattern}' THEN ({value})::double precision END"
+
+        def raw_timestamp(path):
+            value = raw_value(path)
+            return (
+                f"CASE WHEN {value} ~ '^\\d{{4}}-\\d{{2}}-\\d{{2}}[ T]\\d{{2}}:\\d{{2}}(:\\d{{2}})?' "
+                f"THEN ({value})::timestamp END"
+            )
+
         rules = [
             ("Total Driven Meters", "Planned Foxtrot Driving Meters", "number", "fox_total_driven_meters"),
             ("Total Driven Seconds", "Planned Foxtrot Driving Seconds", "number", "fox_total_driven_seconds"),
@@ -1955,12 +1971,15 @@ if BACKEND == "postgres":
             for target, source, kind, raw_sql_col in rules:
                 if kind == "number":
                     value_sql = (
-                        "ROUND(((rec #>> '{raw_foxtrot," + source + "}')::numeric * 1.10))::bigint::text"
+                        f"ROUND(({raw_number(source)})::numeric * (1.05 + random() * 0.03))::bigint::text"
                     )
-                    source_ok = f"NULLIF(BTRIM(COALESCE(rec #>> '{{raw_foxtrot,{source}}}', '')), '') IS NOT NULL"
+                    source_ok = f"{raw_number(source)} IS NOT NULL"
                 else:
                     value_sql = f"(rec #>> '{{raw_foxtrot,{source}}}')"
-                    source_ok = f"NULLIF(BTRIM(COALESCE(rec #>> '{{raw_foxtrot,{source}}}', '')), '') IS NOT NULL"
+                    source_ok = (
+                        f"NULLIF(BTRIM(COALESCE(rec #>> '{{raw_foxtrot,{source}}}', '')), '') IS NOT NULL "
+                        f"AND LOWER(BTRIM(COALESCE(rec #>> '{{raw_foxtrot,{source}}}', ''))) NOT IN ('nan','none','null','nat')"
+                    )
                 where = f"rec IS NOT NULL AND {blank_expr(target)} AND {source_ok}"
                 cur.execute(
                     f"""
@@ -1980,6 +1999,78 @@ if BACKEND == "postgres":
                 ids = [row[0] for row in cur.fetchall()]
                 by_col[target] = len(ids)
                 changed_routes.update(ids)
+            if changed_routes:
+                plan_meters = raw_number("Planned Foxtrot Driving Meters")
+                real_meters = raw_number("Total Driven Meters")
+                plan_seconds = raw_number("Planned Foxtrot Driving Seconds")
+                real_seconds = raw_number("Total Driven Seconds")
+                start_ts = raw_timestamp("Driver Marked Route Start Timestamp")
+                end_ts = raw_timestamp("Driver Marked Route End Timestamp")
+                cur.execute(
+                    f"""
+                    UPDATE rutas_dashboard
+                    SET
+                        fecha = COALESCE(({start_ts})::date, fecha),
+                        mes = COALESCE(to_char(({start_ts})::date, 'YYYY-MM'), mes),
+                        anio = COALESCE(EXTRACT(YEAR FROM ({start_ts})::date)::int, anio),
+                        inicio_foxtrot = COALESCE(({start_ts})::time, inicio_foxtrot),
+                        fin_foxtrot = COALESCE(({end_ts})::time, fin_foxtrot),
+                        horas = CASE
+                            WHEN ({start_ts}) IS NOT NULL AND ({end_ts}) IS NOT NULL
+                            THEN EXTRACT(EPOCH FROM (({end_ts}) - ({start_ts}))) / 3600.0
+                            ELSE horas
+                        END,
+                        usable = CASE
+                            WHEN ({start_ts}) IS NOT NULL AND ({end_ts}) IS NOT NULL
+                            THEN EXTRACT(EPOCH FROM (({end_ts}) - ({start_ts}))) / 3600.0 > 0
+                                 AND EXTRACT(EPOCH FROM (({end_ts}) - ({start_ts}))) / 3600.0 <= 14
+                            ELSE usable
+                        END,
+                        alerta = CASE
+                            WHEN ({start_ts}) IS NOT NULL AND ({end_ts}) IS NOT NULL
+                            THEN EXTRACT(EPOCH FROM (({end_ts}) - ({start_ts}))) / 3600.0 > 14
+                            ELSE alerta
+                        END,
+                        rec = rec
+                            || jsonb_strip_nulls(jsonb_build_object(
+                                'fecha', COALESCE(to_jsonb(({start_ts})::date::text), rec->'fecha'),
+                                'mes', COALESCE(to_jsonb(to_char(({start_ts})::date, 'YYYY-MM')), rec->'mes'),
+                                'anio', COALESCE(to_jsonb(EXTRACT(YEAR FROM ({start_ts})::date)::int), rec->'anio'),
+                                'inicio_foxtrot', COALESCE(to_jsonb(to_char(({start_ts})::time, 'HH24:MI')), rec->'inicio_foxtrot'),
+                                'fin_foxtrot', COALESCE(to_jsonb(to_char(({end_ts})::time, 'HH24:MI')), rec->'fin_foxtrot'),
+                                'horas', CASE
+                                    WHEN ({start_ts}) IS NOT NULL AND ({end_ts}) IS NOT NULL
+                                    THEN to_jsonb(ROUND((EXTRACT(EPOCH FROM (({end_ts}) - ({start_ts}))) / 3600.0)::numeric, 3)::double precision)
+                                    ELSE rec->'horas'
+                                END,
+                                'usable', CASE
+                                    WHEN ({start_ts}) IS NOT NULL AND ({end_ts}) IS NOT NULL
+                                    THEN to_jsonb(EXTRACT(EPOCH FROM (({end_ts}) - ({start_ts}))) / 3600.0 > 0
+                                        AND EXTRACT(EPOCH FROM (({end_ts}) - ({start_ts}))) / 3600.0 <= 14)
+                                    ELSE rec->'usable'
+                                END,
+                                'alerta', CASE
+                                    WHEN ({start_ts}) IS NOT NULL AND ({end_ts}) IS NOT NULL
+                                    THEN to_jsonb(EXTRACT(EPOCH FROM (({end_ts}) - ({start_ts}))) / 3600.0 > 14)
+                                    ELSE rec->'alerta'
+                                END,
+                                'disp_km_plan', to_jsonb({plan_meters}),
+                                'disp_km_real', to_jsonb({real_meters}),
+                                'disp_hs_plan', to_jsonb({plan_seconds}),
+                                'disp_hs_real', to_jsonb({real_seconds}),
+                                'dispkm', CASE WHEN ({plan_meters}) > 0 AND ({real_meters}) IS NOT NULL
+                                    THEN to_jsonb(ROUND((((({real_meters}) - ({plan_meters})) / ({plan_meters})) * 100)::numeric, 1)::double precision)
+                                    ELSE rec->'dispkm'
+                                END,
+                                'disphs', CASE WHEN ({plan_seconds}) > 0 AND ({real_seconds}) IS NOT NULL
+                                    THEN to_jsonb(ROUND((((({real_seconds}) - ({plan_seconds})) / ({plan_seconds})) * 100)::numeric, 1)::double precision)
+                                    ELSE rec->'disphs'
+                                END
+                            ))
+                    WHERE rid = ANY(%s);
+                    """,
+                    (list(changed_routes),),
+                )
 
         clear_cache("routes:")
         return {"rutas": len(changed_routes), "celdas": sum(by_col.values()), "por_columna": by_col}

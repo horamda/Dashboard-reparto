@@ -1,6 +1,7 @@
 ﻿<!DOCTYPE html>
 <html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Tiempos de reparto · Foxtrot · FichaYa - del Palacio S.A. - 2026</title>
+<link rel="icon" type="image/png" href="/static/logot2.png">
 <style>
 :root{--ink:#15233B;--ink2:#26334d;--bg:#EEF1F5;--card:#FFFFFF;--line:#DCE2EA;--muted:#657085;
  --good:#16A34A;--bad:#DC2626;--amber:#D97706;--obj:#1E3A8A;--sec:#7C3AED;--cli:#0E7C6B;--shadow:0 8px 22px rgba(21,35,59,.06)}
@@ -11,6 +12,7 @@ body{font-family:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-
 .wrap{width:min(100% - 32px,1240px);margin:0 auto;padding:0 0 56px}
 header{background:var(--ink);color:#fff;padding:20px 0 18px;margin-bottom:18px;border-bottom:3px solid #C77D1A;position:sticky;top:0;z-index:20;box-shadow:0 8px 24px rgba(21,35,59,.18)}
 header .wrap{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;padding-bottom:0}
+.brand-title{display:flex;align-items:center;gap:12px;min-width:0}.brand-logo{width:58px;height:58px;border-radius:12px;object-fit:contain;flex:0 0 auto;background:#fff}
 .head-actions{display:flex;align-items:center;justify-content:flex-end;gap:8px;flex-wrap:wrap}
 .head-actions a{color:#fff;text-decoration:none;border:1px solid rgba(255,255,255,.24);background:rgba(255,255,255,.08);border-radius:8px;padding:8px 10px;font-size:12.5px;font-weight:700;white-space:nowrap}
 .head-actions a:hover{background:#fff;color:var(--ink)}
@@ -160,13 +162,13 @@ tfoot td{font-weight:700;border-top:2px solid var(--line);border-bottom:none}
 .dpo-quality-matrix td.matrix-future{color:#94A3B8}
 @media(max-width:1100px){.filters{grid-template-columns:repeat(2,minmax(170px,1fr))}.reset{width:100%}.grid{grid-template-columns:1fr!important}.grid>.panel[style*="grid-column"]{grid-column:1/-1!important}}
 @media(min-width:721px) and (max-width:1024px){.wrap{width:min(100% - 24px,1240px)}header{position:relative;padding:18px 0 16px}header .wrap{align-items:flex-start}.head-actions{order:3;width:100%;justify-content:flex-start;flex-wrap:nowrap;overflow-x:auto;overscroll-behavior-x:contain;padding:2px 0 6px}.head-actions a{display:inline-flex;align-items:center;min-height:44px;padding:9px 11px}.hcount{text-align:left}.filters select,.filters input,.filters .reset,.tab{min-height:44px}.c5,.c4,.c2{grid-template-columns:repeat(2,minmax(0,1fr))}.gauges{grid-template-columns:repeat(2,minmax(0,1fr))}.gauges>.gcard:last-child:nth-child(odd){grid-column:1/-1}.chartbox{height:290px}.team-table{font-size:11.5px}.team-table th,.team-table td{padding:9px 7px}}
-@media(max-width:720px){.wrap{width:min(100% - 20px,1240px);padding-bottom:40px}header{position:relative;padding:18px 0 16px}header .wrap{align-items:flex-start}.head-actions{justify-content:flex-start}.head-actions a{padding:7px 9px;font-size:12px}h1{font-size:18px}.hcount{text-align:left}.filters{grid-template-columns:1fr;padding:12px}.panel{padding:14px 12px;overflow:hidden}.panel>table{display:block;overflow-x:auto;white-space:nowrap}.card{min-height:104px;padding:14px}.cards,.c5,.c4,.c2{grid-template-columns:1fr}.tab{padding:9px 14px}.chartbox{height:260px}.tblscroll{margin:0 -8px;padding:0 8px;border-radius:0}.team-table{font-size:11px}.team-table th,.team-table td{padding:8px 6px}.team-table tbody td:nth-child(2){font-size:11.5px;padding-left:10px}.team-table th:nth-child(2),.team-table td:nth-child(2){left:118px}.rech-table{min-width:1080px}.rech-table th,.rech-table td{padding:9px 8px}.pill{min-width:48px}}
+@media(max-width:720px){.wrap{width:min(100% - 20px,1240px);padding-bottom:40px}header{position:relative;padding:18px 0 16px}header .wrap{align-items:flex-start}.brand-logo{width:48px;height:48px;border-radius:10px}.head-actions{justify-content:flex-start}.head-actions a{padding:7px 9px;font-size:12px}h1{font-size:18px}.hcount{text-align:left}.filters{grid-template-columns:1fr;padding:12px}.panel{padding:14px 12px;overflow:hidden}.panel>table{display:block;overflow-x:auto;white-space:nowrap}.card{min-height:104px;padding:14px}.cards,.c5,.c4,.c2{grid-template-columns:1fr}.tab{padding:9px 14px}.chartbox{height:260px}.tblscroll{margin:0 -8px;padding:0 8px;border-radius:0}.team-table{font-size:11px}.team-table th,.team-table td{padding:8px 6px}.team-table tbody td:nth-child(2){font-size:11.5px;padding-left:10px}.team-table th:nth-child(2),.team-table td:nth-child(2){left:118px}.rech-table{min-width:1080px}.rech-table th,.rech-table td{padding:9px 8px}.pill{min-width:48px}}
 @media(max-width:420px){.wrap{width:min(100% - 14px,1240px)}.panel{padding:12px 9px}.filters{gap:10px}.team-table{min-width:920px}.team-table th,.team-table td{padding:7px 5px}.team-table th:first-child,.team-table td:first-child{max-width:72px;min-width:72px}.card .v{font-size:22px}}
 @media(max-width:720px){.dqi-block-head,.dqi-history-head,.dpo-quality-head{flex-direction:column;align-items:stretch;gap:8px;padding:12px}.dqi-history-head{padding:0;margin-top:18px}.dqi-metric-switch{width:100%}.dqi-metric-switch button{flex:1}.dqi-legend,.dpo-quality-legend{justify-content:flex-start;white-space:normal}.dqi-block-title h2,.dpo-quality-head h2{font-size:16px}.dqi-section{margin-bottom:24px}}
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*{transition:none!important}}
 </style></head><body>
-<header><div class="wrap"><div><h1>Tiempos de reparto · Foxtrot - FichaYA - 2026 </h1>
-<div class="sub" id="periodo">del Palacio S.A.</div></div>
+<header><div class="wrap"><div class="brand-title"><img class="brand-logo" src="/static/logot2.png" alt="T2"><div><h1>Tiempos de reparto · Foxtrot - FichaYA - 2026 </h1>
+<div class="sub" id="periodo">del Palacio S.A.</div></div></div>
 <div class="head-actions"><a href="/inicio">Inicio</a><a href="/pedidos">Pedidos</a><a href="/costos-distribucion/dashboard">Costos</a><a href="/reporte-fichaya-foxtrot">FichaYA</a><a href="/asociar-fichaya">Asociar</a><a href="/foxtrot-calidad">Calidad</a><a href="/datos">Datos</a><a href="/admin">Admin</a><a href="/logout">Salir</a></div>
 <div class="hcount"><b id="hc">0</b>jornadas analizadas</div></div></header>
 <div class="wrap">
