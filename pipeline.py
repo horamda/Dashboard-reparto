@@ -255,6 +255,14 @@ def _norm_id(v):
     return s
 
 
+def fichaya_legajo(v):
+    """Preserva los ceros del identificador oficial; no normaliza como número."""
+    if v is None or pd.isna(v):
+        return ""
+    text = str(v).strip()
+    return text[:-2] if re.fullmatch(r"\d+\.0", text) else text
+
+
 def _norm_persona_key(v):
     s = unicodedata.normalize("NFKD", str(v or "").strip().upper())
     s = "".join(ch for ch in s if not unicodedata.combining(ch))
@@ -428,7 +436,7 @@ def _indexar_fichadas_csv(raw):
         mov = _norm_persona_key(row.get("TIPO MOV") or row.get("accion"))
         key = (fecha.strftime("%Y-%m-%d"), nombre)
         item = idx.setdefault(key, {"ingresos": [], "egresos": []})
-        codigo = _norm_id(row.get("CODIGO") or row.get("legajo"))
+        codigo = fichaya_legajo(row.get("CODIGO") or row.get("legajo"))
         if codigo:
             item["legajo"] = codigo
             idx[(fecha.strftime("%Y-%m-%d"), "LEGAJO:" + codigo)] = item
@@ -456,7 +464,7 @@ def _fichada_item_to_cache(fecha, nombre, item):
 
 def _cache_record_to_item(rec):
     item = {
-        "legajo": _norm_id(rec.get("legajo")),
+        "legajo": fichaya_legajo(rec.get("legajo")),
         "ingresos": [_parse_hora_fichaya(h) for h in rec.get("ingresos", []) if _parse_hora_fichaya(h)],
         "egresos": [_parse_hora_fichaya(h) for h in rec.get("egresos", []) if _parse_hora_fichaya(h)],
     }
@@ -821,11 +829,11 @@ def fichaya_lookup_ref(foxtrot_name, mapping=None, empleados=None):
     empleados = empleados if empleados is not None else fichaya_empleados()
     entry = mapping.get(_norm_persona_key(foxtrot_name))
     if isinstance(entry, dict):
-        legajo = _norm_id(entry.get("legajo"))
+        legajo = fichaya_legajo(entry.get("legajo"))
         nombre = entry.get("nombre") or (empleados.get(legajo) or {}).get("nombre") or ""
         return {"legajo": legajo, "nombre": nombre or foxtrot_name or ""}
     if isinstance(entry, str) and entry:
-        emp = empleados.get(_norm_id(entry))
+        emp = empleados.get(fichaya_legajo(entry))
         if emp:
             return {"legajo": emp["legajo"], "nombre": emp.get("nombre") or foxtrot_name or ""}
         return {"legajo": "", "nombre": entry}

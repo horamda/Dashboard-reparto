@@ -29,7 +29,7 @@ from datetime import date, datetime, timedelta
 from html import escape
 from io import StringIO
 from urllib.parse import urlencode, urlsplit
-from flask import Flask, request, redirect, url_for, Response, session, send_from_directory
+from flask import Flask, request, redirect, url_for, Response, session, send_from_directory, render_template
 import pipeline
 from logistics_cost_service import LogisticsCostService
 from pedidos_blueprint import pedidos_bp
@@ -442,11 +442,12 @@ def _main_page():
             ("Dashboard de costos", "Histórico vigente, comparaciones y rankings logísticos.", "/costos-distribucion/dashboard", "Analizar"),
             ("Análisis de pedidos", "Importación y análisis por franja horaria, corte, canal, vendedor y bultos estimados.", "/pedidos", "Abrir"),
             ("Reporte FichaYA / Foxtrot", "Empleado, fichada de ingreso, inicio Foxtrot, TML, fin Foxtrot, salida y TI.", "/reporte-fichaya-foxtrot", "Abrir"),
+            ("Equipos de Casa Central", "Choferes y ayudantes por fecha y camión, con su vinculación a FichaYA.", "/equipos-reparto", "Ver equipos"),
         ]),
         ("Datos y calidad", [
             ("Calidad Foxtrot", "Auditoría de columnas vacías y autocompletado de campos Foxtrot.", "/foxtrot-calidad", "Ver"),
             ("Datos cargados", "Revisión y edición directa de rutas, clientes, rechazos, artículos y configuración.", "/datos", "Revisar"),
-            ("Asociar nombres", "Mapa entre nombres de choferes Foxtrot y empleados FichaYA.", "/asociar-fichaya", "Asociar"),
+            ("Asociar nombres", "Vinculación de choferes y ayudantes de reparto con legajos FichaYA.", "/asociar-fichaya", "Asociar"),
         ]),
         ("Administración", [
             ("Actualizar datos", "Carga de Route Analytics, visitas Foxtrot, clientes, rechazos y artículos.", "/admin", "Ir a admin"),
@@ -852,7 +853,7 @@ def _import_fichaya_empleados(file_obj):
 
         empleados = {}
         for row in rows:
-            legajo = pipeline._norm_id(cell(row, "legajo"))
+            legajo = pipeline.fichaya_legajo(cell(row, "legajo"))
             if not legajo or not legajo.isdigit():
                 continue
             apellido = str(cell(row, "apellido") or "").strip()
@@ -1211,7 +1212,20 @@ def _fichaya_mapping_page(msg="", err=False):
     mapping = _fichaya_name_map()
     empleados = _fichaya_empleados()
     dimensions = pipeline.storage.load_fichaya_dimensions("2026-08-01")
-    choferes = dimensions["choferes"]
+    dpo = pipeline.cargar_dpo_gkpis()
+    personas = {pipeline._norm_persona_key(n): n for n in dimensions["choferes"] if n}
+    for row in dpo.get("rows", []):
+        for field in ("chofer", "ayudante1", "ayudante2"):
+            name = str(row.get(field) or "").strip()
+            if name:
+                personas.setdefault(pipeline._norm_persona_key(name), name)
+    # Mantener editables asociaciones anteriores aunque una fuente esté incompleta.
+    for name in mapping:
+        personas.setdefault(name, name)
+    choferes = sorted(personas.values(), key=pipeline._norm_persona_key)
+    if dpo.get("error"):
+        msg = " ".join(filter(None, [msg, "DPO incompleto: " + dpo["error"]]))
+        err = True
     emp_options = "".join(
         f'<option value="{escape(leg)}">{escape(leg)} · {escape(emp.get("nombre", ""))} · {escape(emp.get("sucursal", ""))}</option>'
         for leg, emp in sorted(empleados.items(), key=lambda kv: kv[1].get("nombre", ""))
@@ -1220,20 +1234,22 @@ def _fichaya_mapping_page(msg="", err=False):
     for name in choferes:
         norm = pipeline._norm_persona_key(name)
         mapped = mapping.get(norm, {})
-        mapped_legajo = pipeline._norm_id(mapped.get("legajo") if isinstance(mapped, dict) else mapped)
+        mapped_legajo = pipeline.fichaya_legajo(mapped.get("legajo") if isinstance(mapped, dict) else mapped)
         mapped_name = (empleados.get(mapped_legajo) or {}).get("nombre", "")
-        body += f"""<tr><td>{escape(name)}</td><td><select name="map__{escape(norm)}"><option value="">Usar nombre Foxtrot</option>{emp_options.replace('value="' + escape(mapped_legajo) + '"', 'value="' + escape(mapped_legajo) + '" selected', 1) if mapped_legajo else emp_options}</select><small>{escape(mapped_name)}</small></td></tr>"""
+        missing_option = (f'<option value="{escape(mapped_legajo)}" selected>{escape(mapped_legajo)} · Fuera del catálogo: revisar</option>'
+                          if mapped_legajo and mapped_legajo not in empleados else "")
+        body += f"""<tr><td>{escape(name)}</td><td><select name="map__{escape(norm)}"><option value="">Sin vincular</option>{missing_option}{emp_options.replace('value="' + escape(mapped_legajo) + '"', 'value="' + escape(mapped_legajo) + '" selected', 1) if mapped_legajo else emp_options}</select><small>{escape(mapped_name)}</small></td></tr>"""
     if not body:
-        body = '<tr><td class=empty colspan=2>No hay choferes Foxtrot desde agosto.</td></tr>'
+        body = '<tr><td class=empty colspan=2>No hay personas en las fuentes consultadas.</td></tr>'
     alert = f'<div class="msg{" err" if err else ""}">{escape(msg)}</div>' if msg else ""
     return f"""<!doctype html><html lang=es><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><title>Asociar nombres FichaYA</title><link rel="icon" type="image/png" href="/static/logot2.png">{DATOS_CSS}
 <style>td select{{width:100%;min-width:300px;border:1px solid #DCE2EA;border-radius:8px;padding:8px 10px;background:#fff}}td small{{display:block;color:#657085;margin-top:4px}}.panel{{max-width:960px}}.upload{{max-width:960px;background:#fff;border:1px solid #DCE2EA;border-radius:10px;padding:14px;margin-bottom:16px}}.upload input[type=file]{{max-width:100%;margin:10px 8px 0 0}}@media(max-width:900px){{td select{{min-width:240px;min-height:44px}}.upload input[type=file],.upload .btn{{width:100%;min-height:44px;margin-right:0}}}}</style></head>
-<body><div class=wrap><div class=top><div class=brand-title><img class=brand-logo src="/static/logot2.png" alt="T2"><div><h1>Asociar nombres Foxtrot / FichaYA</h1><p class=muted>Relacioná cada chofer de Foxtrot contra el legajo de FichaYA. El reporte busca fichadas por legajo primero.</p></div></div>
+<body><div class=wrap><div class=top><div class=brand-title><img class=brand-logo src="/static/logot2.png" alt="T2"><div><h1>Asociar empleados de reparto / FichaYA</h1><p class=muted>Relacioná cada chofer de Foxtrot contra el legajo de FichaYA. El reporte busca fichadas por legajo primero.</p></div></div>
 <div class=nav><a class=secondary href="/inicio">Inicio</a><a class=secondary href="/reporte-fichaya-foxtrot">Reporte</a><a class=secondary href="/dashboard">Dashboard</a><a class=secondary href="/pedidos">Pedidos</a><a class=secondary href="/costos-distribucion/dashboard">Costos</a><a class=secondary href="/admin">Admin</a><a href="/logout">Salir</a></div></div>{alert}
 <form class=upload method=post action="/asociar-fichaya/importar" enctype="multipart/form-data"><b>Importar empleados FichaYA</b><p class=muted>Subí el Excel exportado desde FichaYA para cargar legajos y nombres.</p><input type=file name=empleados accept=".xlsx,.xls" required> <button class=btn type=submit>Importar empleados</button></form>
-<form method=post action="/asociar-fichaya/guardar"><div class=panel><div class=table-wrap><table><thead><tr><th>Nombre Foxtrot</th><th>Legajo / empleado FichaYA</th></tr></thead><tbody>{body}</tbody></table></div></div>
+<form method=post action="/asociar-fichaya/guardar"><div class=panel><div class=table-wrap><table><thead><tr><th>Nombre en Foxtrot / DPO</th><th>Legajo / empleado FichaYA</th></tr></thead><tbody>{body}</tbody></table></div></div>
 <button class=btn type=submit style="margin-top:16px">Guardar asociaciones</button></form>
-<p class=muted style="margin-top:12px">Empleados FichaYA cargados: {len(empleados)}. El reporte usa esta asociación al calcular TML/TI.</p>
+<p><a href="/equipos-reparto">Ver equipos de Casa Central</a></p><p class=muted style="margin-top:12px">Empleados FichaYA cargados: {len(empleados)}. El reporte usa esta asociación al calcular TML/TI.</p>
 </div></body></html>"""
 
 
@@ -1511,17 +1527,93 @@ def asociar_fichaya_guardar():
     if blocked:
         return blocked
     empleados = _fichaya_empleados()
-    mapping = {}
+    mapping = dict(_fichaya_name_map())
     for key, value in request.form.items():
         if not key.startswith("map__"):
             continue
         norm = key[5:]
-        legajo = pipeline._norm_id(value)
+        legajo = pipeline.fichaya_legajo(value)
         if legajo:
-            emp = empleados.get(legajo) or {}
+            emp = empleados.get(legajo)
+            if not emp:
+                return redirect(url_for("asociar_fichaya", msg="El legajo seleccionado no existe en el catálogo. No se guardaron cambios.", err=1))
             mapping[norm] = {"legajo": legajo, "nombre": emp.get("nombre", "")}
+        else:
+            mapping.pop(norm, None)
     pipeline.storage.save_setting("fichaya_nombre_map", {"valor": mapping})
     return redirect(url_for("asociar_fichaya", msg=f"Asociaciones guardadas: {len(mapping)}."))
+
+
+def _equipo_persona(name, mapping, empleados):
+    name = str(name or "").strip()
+    ref = pipeline.fichaya_lookup_ref(name, mapping, empleados)
+    legajo = ref.get("legajo", "")
+    emp = empleados.get(legajo)
+    estado = pipeline._norm_persona_key((emp or {}).get("estado", ""))
+    status = "Sin vincular"
+    if legajo:
+        status = "Vinculado" if emp else "Legajo fuera del catálogo"
+    if emp and estado and estado not in {"ACTIVO", "ACTIVE", "1"}:
+        status = "Revisar estado: " + str(emp["estado"])
+    return {"nombre": name, "legajo": legajo, "estado": status, "ok": status == "Vinculado"}
+
+
+@app.route("/equipos-reparto")
+def equipos_reparto():
+    blocked = _require_login()
+    if blocked:
+        return blocked
+    today = date.today().isoformat()
+    desde = request.args.get("desde", today[:8] + "01")
+    hasta = request.args.get("hasta", today)
+    camion = request.args.get("camion", "").strip()
+    pendientes = request.args.get("pendientes") == "1"
+    try:
+        if date.fromisoformat(desde) > date.fromisoformat(hasta):
+            raise ValueError()
+    except ValueError:
+        return Response("Rango de fechas inválido.", status=400)
+    try:
+        source = pipeline.cargar_dpo_gkpis()
+        mapping, empleados = _fichaya_name_map(), _fichaya_empleados()
+        central = [r for r in source.get("rows", []) if str(r.get("sucursal_id")) == "1"]
+        camiones = sorted({str(r.get("nro_camion") or r.get("camion") or "") for r in central})
+        rows = []
+        for raw in central:
+            truck = str(raw.get("nro_camion") or raw.get("camion") or "")
+            if not (desde <= raw["fecha"] <= hasta) or (camion and camion != truck):
+                continue
+            members = [dict(_equipo_persona(raw.get(field), mapping, empleados), rol=role)
+                       for field, role in (("chofer", "Chofer"), ("ayudante1", "Ayudante 1"), ("ayudante2", "Ayudante 2"))
+                       if str(raw.get(field) or "").strip()]
+            issues = []
+            if not str(raw.get("chofer") or "").strip():
+                issues.append("Falta chofer")
+            if any(not p["ok"] for p in members):
+                issues.append("Vinculación pendiente")
+            if raw.get("personas") is not None and raw["personas"] != len(members):
+                issues.append("Cantidad de personas no coincide")
+            ids = [p["legajo"] or pipeline._norm_persona_key(p["nombre"]) for p in members]
+            if len(set(ids)) != len(ids):
+                issues.append("Integrante repetido")
+            if raw["fecha"] > today:
+                issues.append("Fecha futura")
+            rows.append({**raw, "integrantes": members, "avisos": issues, "numero": truck})
+        counts = {}
+        for row in rows:
+            key = (row["fecha"], row["numero"])
+            counts[key] = counts.get(key, 0) + 1
+        for row in rows:
+            if counts[(row["fecha"], row["numero"])] > 1:
+                row["avisos"].append("Varias filas para el día/camión: revisar salidas o duplicados")
+        if pendientes:
+            rows = [r for r in rows if r["avisos"]]
+        rows.sort(key=lambda r: (r["fecha"], r["numero"]), reverse=True)
+        return render_template("equipos_reparto.html", rows=rows, camiones=camiones,
+                               desde=desde, hasta=hasta, camion=camion, pendientes=pendientes,
+                               warning=source.get("error", ""), css=DATOS_CSS)
+    except Exception as exc:
+        return Response(_data_unavailable_page("Equipos de Casa Central", exc), status=503)
 
 
 @app.route("/foxtrot-calidad/guardar", methods=["POST"])

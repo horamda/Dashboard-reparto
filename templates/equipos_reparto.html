@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Equipos de Casa Central</title>{{ css|safe }}
+<style>.filters{display:flex;flex-wrap:wrap;gap:14px;align-items:end;margin:20px 0}.filters label{display:grid;gap:5px}.filters input,.filters select{padding:10px;border:1px solid #cbd5e1;border-radius:8px}.member{margin:8px 0;min-width:210px}.member small{display:block;color:#526175}.pending{color:#9a3412}.good{color:#166534}.notice{padding:14px;background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;margin:12px 0}.table-wrap{overflow-x:auto}td{vertical-align:top}</style>
+</head><body><main class="wrap">
+<div class="top"><div class="brand-title"><img class="brand-logo" src="/static/logot2.png" alt="T2"><div><h1>Equipos de Casa Central</h1><p class="muted">Integrantes declarados en DPO y vinculación con los legajos de FichaYA.</p></div></div>
+<nav class="nav"><a class="secondary" href="/inicio">Inicio</a><a href="/asociar-fichaya">Asociar empleados</a><a class="secondary" href="/dashboard">Dashboard</a></nav></div>
+{% if warning %}<div class="notice" role="alert">La fuente DPO está incompleta. {{ warning }}</div>{% endif %}
+<form class="filters" method="get">
+<label>Desde<input type="date" name="desde" value="{{ desde }}" required></label>
+<label>Hasta<input type="date" name="hasta" value="{{ hasta }}" required></label>
+<label>Camión<select name="camion"><option value="">Todos</option>{% for item in camiones %}<option value="{{ item }}" {% if item == camion %}selected{% endif %}>{{ item }}</option>{% endfor %}</select></label>
+<label><span><input type="checkbox" name="pendientes" value="1" {% if pendientes %}checked{% endif %}> Solo pendientes de revisión</span></label>
+<button class="btn" type="submit">Filtrar</button></form>
+<p>{{ rows|length }} registros · La vinculación indica que el legajo existe en el catálogo importado. Las filas de un mismo día y camión se conservan para revisar posibles recargas.</p>
+<div class="panel"><div class="table-wrap"><table><thead><tr><th>Fecha</th><th>Camión</th><th>Equipo / legajos</th><th>Personas declaradas</th><th>Revisión</th></tr></thead><tbody>
+{% for row in rows %}<tr><td>{{ row.fecha }}</td><td>{{ row.numero }}<br><small>{{ row.camion }}</small>{% if row.recarga %}<br>Recarga{% endif %}</td>
+<td>{% for person in row.integrantes %}<div class="member"><strong>{{ person.rol }}: {{ person.nombre }}</strong><small>Legajo: {{ person.legajo or '—' }}</small><span class="{{ 'good' if person.ok else 'pending' }}">{{ person.estado }}</span></div>{% else %}Sin integrantes{% endfor %}</td>
+<td>{{ row.personas if row.personas is not none else 'Sin dato' }}</td><td>{% for issue in row.avisos %}<p class="pending">{{ issue }}</p>{% else %}<span class="good">Integrantes vinculados</span>{% endfor %}</td></tr>
+{% else %}<tr><td colspan="5">No hay equipos para los filtros seleccionados.</td></tr>{% endfor %}
+</tbody></table></div></div></main></body></html>

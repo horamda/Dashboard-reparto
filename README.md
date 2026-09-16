@@ -11,6 +11,14 @@ como respaldo para desarrollo local.
 - Pedidos: importacion XLSX, filtros operativos, ventas, bultos, HL y pallets.
 - Calidad Foxtrot: auditoria y correccion de columnas del export.
 - FichaYA: asociacion por legajo y reporte comparativo con Foxtrot.
+- Equipos de Casa Central: `/equipos-reparto` muestra chofer y ayudantes de DPO
+  por fecha y camion, con filtros y avisos de vinculacion, cantidades y posibles
+  recargas. `/asociar-fichaya` incluye personas de Foxtrot y DPO; requiere importar
+  el catalogo de empleados FichaYA. Los legajos nuevos conservan ceros iniciales
+  cuando el Excel los contiene como texto. Los legajos antiguos que hayan perdido
+  ceros requieren reimportar el catalogo y revisar sus asociaciones.
+  Esta vista consulta las fuentes DPO actuales; aun no guarda equipos historicos
+  ni envia resultados de KPIs a FichaYA.
 - Costos de distribucion: depositos CRUD, tarifas por vigencia, perfiles de
   vehiculo, ruteo vial, asignacion por cliente e historial de recalculos.
 - Datos cargados: busqueda, paginacion, edicion y borrado controlado.
