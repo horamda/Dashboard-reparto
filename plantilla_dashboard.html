@@ -217,8 +217,8 @@ tfoot td{font-weight:700;border-top:2px solid var(--line);border-bottom:none}
    <div class="card" id="cTIcmp"><div class="badge" id="gTIcmp"></div><div class="k">Cumplimiento TI</div><div class="v" id="kTIcmp">–</div><div class="obj" id="oTIcmp">≥65% de rutas validadas con TI ≤ 30 min</div><div class="bar"><i id="bTIcmp"></i></div></div>
   </div>
   <div class="grid" style="grid-template-columns:1fr 1fr">
-   <div class="panel"><h2>Cumplimiento TML por mes</h2><div class="note">Rutas con TML ≤ 30 min · objetivo ≥65% · verde cumple, rojo no cumple<span class="origin-note"> · TML de abril 2026 estimado entre 20 y 35 min</span></div><div class="chartbox"><canvas id="chTMLcmpMes"></canvas></div></div>
-   <div class="panel"><h2>Cumplimiento TI por mes</h2><div class="note">Rutas con TI ≤ 30 min · objetivo ≥65%<span class="origin-note"> · TI estimado: enero 2026 entre 25 y 45 min; mayo, junio y julio 2026 entre 20 y 35 min</span></div><div class="chartbox"><canvas id="chTIcmpMes"></canvas></div></div>
+   <div class="panel"><h2>Cumplimiento TML por mes</h2><div class="note">Rutas con TML ≤ 30 min · objetivo ≥65% · verde cumple, rojo no cumple</div><div class="chartbox"><canvas id="chTMLcmpMes"></canvas></div></div>
+   <div class="panel"><h2>Cumplimiento TI por mes</h2><div class="note">Rutas con TI ≤ 30 min · objetivo ≥65%</div><div class="chartbox"><canvas id="chTIcmpMes"></canvas></div></div>
   </div>
   <div class="grid" style="grid-template-columns:1fr">
    <div class="panel"><h2>Resultado mensual de cumplimiento</h2><div class="note">Según los filtros activos. Cada indicador considera únicamente rutas válidas con dato disponible. El mes en curso y los períodos filtrados pueden ser parciales.<span class="origin-note"> TI simulado por ruta: enero 2026 entre 25 y 45 min; mayo, junio y julio 2026 entre 20 y 35 min. TML de abril 2026 simulado entre 20 y 35 min. No representa tiempos medidos.</span></div>
@@ -963,7 +963,7 @@ function cumplimientoRutas(rows,key,limit){const estimated=rows.filter(r=>r.usab
 function cumplimientoMensual(rows){const groups={};rows.filter(r=>r.usable&&r.mes).forEach(r=>(groups[r.mes]||(groups[r.mes]=[])).push(r));return Object.keys(groups).sort().map(key=>({key,ti:cumplimientoRutas(groups[key],'ti',OBJ.ti),tml:cumplimientoRutas(groups[key],'tml',OBJ.tml)}))}
 function renderCumplimientoMensual(rows){
  const months=cumplimientoMensual(rows),labels=months.map(r=>mLbl(r.key)+' '+r.key.slice(0,4));
- const cells=result=>'<td>'+result.ok+' / '+result.total+'</td><td class="'+(result.value==null?'':result.value>=OBJ_CUMPLIMIENTO?'g':'r')+'">'+fmtPct(result.value)+(result.estimated?' <span class="origin-note">(estimado)</span>':'')+'</td><td>'+(result.value==null?'Sin datos':result.value>=OBJ_CUMPLIMIENTO?'CUMPLE':'NO CUMPLE')+'</td>';
+ const cells=result=>'<td>'+result.ok+' / '+result.total+'</td><td class="'+(result.value==null?'':result.value>=OBJ_CUMPLIMIENTO?'g':'r')+'">'+fmtPct(result.value)+'</td><td>'+(result.value==null?'Sin datos':result.value>=OBJ_CUMPLIMIENTO?'CUMPLE':'NO CUMPLE')+'</td>';
  document.getElementById('tbodyCmpMes').innerHTML=months.length?months.map((r,i)=>'<tr><td>'+esc(labels[i])+'</td>'+cells(r.tml)+cells(r.ti)+'</tr>').join(''):emptyRow(7,'No hay rutas validadas para los filtros activos.');
  document.getElementById('tfootCmpMes').innerHTML=months.length?'<tr><td>Total del período</td>'+cells(cumplimientoRutas(rows,'tml',OBJ.tml))+cells(cumplimientoRutas(rows,'ti',OBJ.ti))+'</tr>':'';
  [['chTIcmpMes','ti'],['chTMLcmpMes','tml']].forEach(([id,key])=>{
