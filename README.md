@@ -155,3 +155,38 @@ una integracion externa. El timeout es de 180 segundos para archivos grandes.
 `/salud` devuelve el estado y los conteos agregados sin descargar las tablas
 completas. Las migraciones son idempotentes; para forzarlas al iniciar se puede
 definir `RUN_DB_MIGRATIONS_ON_START=1`.
+
+
+### Copias antes de rehacer la base
+
+La opcion de rehacer la base crea un respaldo antes de borrar rutas e intentos
+(attempts). Si falla la copia, el borrado se cancela. El archivo de importacion
+se procesa antes del borrado; un export invalido o sin rutas no vacia la base.
+
+En PostgreSQL, `dashboard_reset_backups` conserva cada copia con un UUID,
+`created_at` y `payload`. El payload version 1 contiene las filas completas de
+`rutas_dashboard` y `attempts_dashboard`, incluidas columnas tipadas, datos
+originales y marcas de simulacion. La copia y el borrado se confirman en una
+misma transaccion, bloqueando escrituras concurrentes en esas dos tablas.
+La tabla de respaldos no se borra al rehacer la base.
+
+En modo JSON, las copias verificadas se guardan en `DATA_DIR/backups/` como
+`before-reset-<UUID>.json`. El payload conserva los documentos originales
+bajo `files.rutas` y `files.attempts`. Estas copias requieren un volumen
+persistente si la aplicacion se ejecuta en un contenedor.
+
+El resultado de la importacion muestra el identificador de respaldo. Para
+consultar las copias de PostgreSQL:
+
+```sql
+SELECT backup_id, created_at,
+       jsonb_array_length(payload->'rutas_dashboard') AS rutas,
+       jsonb_array_length(payload->'attempts_dashboard') AS attempts
+FROM dashboard_reset_backups
+ORDER BY created_at DESC;
+```
+
+Los respaldos no caducan automaticamente. La restauracion requiere una accion
+separada: no se mezclan ni sobrescriben registros actuales automaticamente.
+Solo se respaldan las tablas que esta accion borra; no es una copia completa
+de toda la DB ni protege contra la perdida de la propia instancia PostgreSQL.

@@ -65,3 +65,9 @@ desktop.ini
 *.njsproj
 *.sln
 *.sw?
+
+# Local database recovery snapshots
+data/recovery/
+
+# Automatic pre-reset backups
+data/backups/

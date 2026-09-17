@@ -2373,17 +2373,18 @@ def _data_desde_base(base):
 
 def actualizar(xls_file, xls_name, csv_files=None, reset=False):
     """Procesa el export y agrega a la base SOLO las rutas nuevas. Devuelve stats."""
-    if reset:
-        storage.reset()
     visitas = _leer_csv_visitas(csv_files or [])
-    previas = storage.count_routes()
     nuevos = procesar_export(xls_file, xls_name, csv_files, visitas=visitas)
     attempts = procesar_attempts(visitas) if not visitas.empty else {}
+    if reset and not nuevos:
+        raise ValueError("El export no contiene rutas; se cancela el borrado de la base.")
+    backup_id = storage.reset() if reset else None
+    previas = storage.count_routes()
     actualiza_existentes = True
     agregadas = storage.upsert_all(nuevos)
     attempts_guardados = storage.upsert_attempts(attempts) if attempts else 0
     stats = storage.route_import_stats(OBJ["tml"], OBJ["ti"])
-    return {"previas": previas, "agregadas": agregadas, "actualiza_existentes": actualiza_existentes, "procesadas": len(nuevos), "attempts_guardados": attempts_guardados, **stats}
+    return {"backup_id": backup_id, "previas": previas, "agregadas": agregadas, "actualiza_existentes": actualiza_existentes, "procesadas": len(nuevos), "attempts_guardados": attempts_guardados, **stats}
 
 
 @_ttl_cached(DASHBOARD_CACHE_TTL_SECONDS)

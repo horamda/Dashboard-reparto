@@ -168,6 +168,10 @@ tfoot td{font-weight:700;border-top:2px solid var(--line);border-bottom:none}
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*{transition:none!important}}
 .hide-origin-notes .origin-note{display:none}
 @media print{.hide-origin-notes .origin-note{display:inline!important}.origin-toggle{display:none!important}}
+#exportClientesSin{background:#166534;border-color:#166534;color:#fff;font-weight:700}
+#exportClientesSin:hover:not(:disabled){background:#14532d;border-color:#14532d}
+#exportClientesSin:focus-visible{outline:3px solid #86efac;outline-offset:3px}
+#exportClientesSin:disabled{background:#e2e8f0;border-color:#cbd5e1;color:#64748b;cursor:not-allowed}
 </style></head><body>
 <header><div class="wrap"><div class="brand-title"><img class="brand-logo" src="/static/logot2.png" alt="T2"><div><h1>Tiempos de reparto · Foxtrot - FichaYA - 2026 </h1>
 <div class="sub" id="periodo">del Palacio S.A.</div></div></div>
@@ -210,6 +214,7 @@ tfoot td{font-weight:700;border-top:2px solid var(--line);border-bottom:none}
  </div>
  </div>
  <div id="viewMes" style="display:none">
+  <div class="hint" id="monthlyRoutesNotice" role="status" style="display:none"></div>
   <div class="sectlbl">Cumplimiento de objetivos</div>
   <label class="note origin-toggle"><input type="checkbox" id="showOriginNotes" checked> Mostrar notas de origen</label>
   <div class="cards c2" style="margin-bottom:22px">
@@ -498,7 +503,7 @@ tfoot td{font-weight:700;border-top:2px solid var(--line);border-bottom:none}
   <div class="grid" style="grid-template-columns:1fr">
    <div class="panel"><h2>Clientes visitados fuera de horario</h2><div class="note">Ranking de visitas Foxtrot fuera de la ventana cargada del cliente.</div>
     <div class="tblscroll clientlist"><table><thead><tr><th>Cliente</th><th>Nombre</th><th>Visitas fuera</th><th>Último desvío</th><th>Visita</th><th>Ventana</th><th>Motivo</th></tr></thead><tbody id="tbodyOTClientes"></tbody></table></div></div>
-   <div class="panel"><h2>Clientes Foxtrot sin ventana horaria cargada</h2><div class="note">Clientes únicos presentes en Foxtrot que no se pueden evaluar para on time.</div>
+   <div class="panel"><h2>Clientes Foxtrot sin ventana horaria cargada</h2><button type="button" class="tab" id="exportClientesSin" disabled>Exportar Excel</button><div class="note" id="exportClientesSinStatus" role="status"></div><div class="note">Clientes únicos presentes en Foxtrot que no se pueden evaluar para on time.</div>
     <div class="tblscroll clientlist"><table><thead><tr><th>Cliente</th><th>Nombre</th><th>Visitas sin ventana</th><th>Motivo</th></tr></thead><tbody id="tbodyOTClientesSin"></tbody></table></div></div>
   </div>
  </div>
@@ -758,7 +763,7 @@ function desvioVentana(visita,ventana){const m=tMin(visita),vs=parseVentanas(ven
  return{motivo:'Entre ventanas',mins:0}}
 function desvioLbl(mins){if(mins==null)return'-';const d=Math.abs(mins),txt=Math.floor(d/60)+' h '+String(d%60).padStart(2,'0')+' min';return mins<0?txt+' antes':mins>0?txt+' tarde':'entre ventanas'}
 function topClientesFuera(scope){const g={};scope.forEach(r=>(r.clientes_fuera_ontime||[]).forEach(c=>{const k=c.cliente||'Sin ID',fecha=r.fecha||'',stamp=fecha+' '+(c.visita||''),d=desvioVentana(c.visita,c.ventana),x=g[k]||(g[k]={cliente:k,nombre:c.nombre||'',fuera:0,visita:'',fecha:'',stamp:'',ventana:c.ventana||'',motivo:'',desvio:null});x.fuera+=1;x.nombre=x.nombre||c.nombre||'';x.ventana=x.ventana||c.ventana||'';if(!x.stamp||stamp>x.stamp){x.stamp=stamp;x.fecha=fecha;x.visita=c.visita||'';x.motivo=d.motivo;x.desvio=d.mins}}));return Object.values(g).sort((a,b)=>b.fuera-a.fuera||b.stamp.localeCompare(a.stamp)||a.nombre.localeCompare(b.nombre)).slice(0,30)}
-function topClientesSinVentana(scope){const g={};scope.forEach(r=>(r.clientes_sin_ventana||[]).forEach(c=>{const k=c.cliente||'Sin ID';const x=g[k]||(g[k]={cliente:k,nombre:c.nombre||'',pedidos:0,motivo:c.motivo||'sin ventana cargada'});x.pedidos+=1;x.nombre=x.nombre||c.nombre||'';x.motivo=x.motivo||c.motivo||'sin ventana cargada'}));return Object.values(g).sort((a,b)=>b.pedidos-a.pedidos||a.nombre.localeCompare(b.nombre)).slice(0,30)}
+function topClientesSinVentana(scope,limit=30){const g={};scope.forEach(r=>(r.clientes_sin_ventana||[]).forEach(c=>{const k=c.cliente||'Sin ID';const x=g[k]||(g[k]={cliente:k,nombre:c.nombre||'',pedidos:0,motivo:c.motivo||'sin ventana cargada'});x.pedidos+=1;x.nombre=x.nombre||c.nombre||'';x.motivo=x.motivo||c.motivo||'sin ventana cargada'}));return Object.values(g).sort((a,b)=>b.pedidos-a.pedidos||a.nombre.localeCompare(b.nombre)).slice(0,limit)}
 function otRows(items){return items.length?items.map(s=>'<tr><td>'+esc(s.key)+'</td><td>'+s.ev+'</td><td class="g">'+s.ok+'</td><td class="'+(s.bad?'r':'g')+'">'+s.bad+'</td><td class="'+(s.sin?'r':'g')+'">'+s.sin+'</td><td class="'+(s.p>=85?'g':'r')+'">'+(s.p==null?'–':r1(s.p)+'%')+'</td></tr>').join(''):emptyRow(6,'No hay pedidos para el filtro actual.')}
 function otChart(id,items,dimension){if(!chartsReady())return;if(ch[id])ch[id].destroy();const rows=items.filter(s=>s.p!=null).slice(0,14);
  ch[id]=new Chart(document.getElementById(id),{data:{labels:rows.map(s=>s.key),datasets:[{type:'bar',data:rows.map(s=>s.p),backgroundColor:rows.map(s=>s.p>=85?C.good:C.bad),borderRadius:4,maxBarThickness:22},{type:'line',data:rows.map(()=>85),borderColor:C.obj,borderWidth:2,borderDash:[6,4],pointRadius:0}]},
@@ -974,7 +979,7 @@ function renderCumplimientoMensual(rows){
   chart.update();
  });
 }
-function renderMes(){const usM=R.filter(r=>r.usable&&full(r));renderCumplimientoMensual(usM);const OC=OBJ_CUMPLIMIENTO;const cmp=(k,o)=>cumplimientoRutas(usM,k,o);[["TI","ti",OBJ.ti],["TML","tml",OBJ.tml]].forEach(([p,k,o])=>{const result=cmp(k,o),c=result.value,ok=c!=null&&c>=OC,col=c==null?C.obj:(ok?C.good:C.bad);document.getElementById("c"+p+"cmp").style.setProperty("--accent",col);document.getElementById("k"+p+"cmp").textContent=c==null?"–":r1(c)+"%";document.getElementById("o"+p+"cmp").textContent=result.total?result.ok+" de "+result.total+" rutas con "+p+" ≤ "+o+" min · objetivo ≥"+OC+"%":"Sin rutas validadas para "+p;if(result.estimated){const note=document.createElement("span");note.className="origin-note";note.textContent=" (incluye "+p+" estimado)";document.getElementById("o"+p+"cmp").appendChild(note)}const b=document.getElementById("b"+p+"cmp");b.style.background=col;b.style.width=Math.min(100,c||0)+"%";const bg=document.getElementById("g"+p+"cmp");bg.className="badge "+(c==null?"":(ok?"ok":"no"));bg.textContent=c==null?"SIN DATOS":(ok?"CUMPLE":"NO");});const ser=aggOperativo('mes',usM);
+function renderMes(){const usM=R.filter(r=>r.usable&&full(r));const notice=document.getElementById('monthlyRoutesNotice');notice.style.display=usM.length?'none':'block';if(!usM.length){const months=[...new Set(R.filter(r=>r.usable&&base(r)).map(r=>r.mes))].sort();notice.textContent='No hay rutas validadas para el mes y los filtros seleccionados. '+(months.length?'Meses con rutas disponibles para esta unidad, sucursal y chofer: '+months.map(m=>mLbl(m)+' '+m.slice(0,4)).join(', ')+'.':'No hay rutas disponibles para esta unidad, sucursal y chofer.')}renderCumplimientoMensual(usM);const OC=OBJ_CUMPLIMIENTO;const cmp=(k,o)=>cumplimientoRutas(usM,k,o);[["TI","ti",OBJ.ti],["TML","tml",OBJ.tml]].forEach(([p,k,o])=>{const result=cmp(k,o),c=result.value,ok=c!=null&&c>=OC,col=c==null?C.obj:(ok?C.good:C.bad);document.getElementById("c"+p+"cmp").style.setProperty("--accent",col);document.getElementById("k"+p+"cmp").textContent=c==null?"–":r1(c)+"%";document.getElementById("o"+p+"cmp").textContent=result.total?result.ok+" de "+result.total+" rutas con "+p+" ≤ "+o+" min · objetivo ≥"+OC+"%":"Sin rutas validadas para "+p;if(result.estimated){const note=document.createElement("span");note.className="origin-note";note.textContent=" (incluye "+p+" estimado)";document.getElementById("o"+p+"cmp").appendChild(note)}const b=document.getElementById("b"+p+"cmp");b.style.background=col;b.style.width=Math.min(100,c||0)+"%";const bg=document.getElementById("g"+p+"cmp");bg.className="badge "+(c==null?"":(ok?"ok":"no"));bg.textContent=c==null?"SIN DATOS":(ok?"CUMPLE":"NO");});const ser=aggOperativo('mes',usM);
  const lab=ser.map(s=>mLbl(s.key));
  const mesSelect=chartFilter('mes',ser.map(s=>s.key));
  barGen('chTml',lab,ser.map(s=>s.tml),v=>r1(v)+' min',()=>C.cli,OBJ.tml,true,mesSelect);
@@ -1031,6 +1036,25 @@ function renderCalidad(){const scope=R.filter(full),q=quality(scope),ok=q.p!=nul
  const ser=qualityByMonth(R.filter(full)),lab=ser.map(s=>mLbl(s.key));
  barGen('chDQ',lab,ser.map(s=>s.p),v=>r1(v)+'%',v=>v>=OBJ_DQ?C.good:C.bad,OBJ_DQ,true,chartFilter('mes',ser.map(s=>s.key)));
  tbodyQ.innerHTML=ser.map(s=>'<tr><td>'+mLbl(s.key)+'</td><td>'+s.total+'</td><td class="g">'+s.good+'</td><td class="'+(s.bad?'r':'g')+'">'+s.bad+'</td><td class="'+(s.p>=OBJ_DQ?'g':'r')+'">'+r1(s.p)+'%</td></tr>').join('');}
+document.getElementById('exportClientesSin').addEventListener('click',async()=>{
+ const button=document.getElementById('exportClientesSin'),status=document.getElementById('exportClientesSinStatus');
+ const clientes=topClientesSinVentana(R.filter(full),Infinity);if(!clientes.length)return;
+ button.disabled=true;status.textContent='Preparando Excel...';
+ try{
+  const response=await fetch('/clientes-sin-ventana.xlsx',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({clientes})});
+  if(response.redirected)throw new Error('La sesión venció. Volvé a ingresar.');
+  const contentType=response.headers.get('Content-Type')||'';
+  if(!response.ok){
+   let message=response.status===404?'La exportación Excel no está disponible en este servidor. Es necesario actualizar y reiniciar la aplicación.':'No se pudo generar el Excel (HTTP '+response.status+'). Intentá nuevamente.';
+   if(contentType.includes('application/json')){try{const error=await response.json();if(typeof error.error==='string')message=error.error}catch(e){}}
+   throw new Error(message);
+  }
+  if(!contentType.includes('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'))throw new Error('El servidor no devolvió un archivo Excel. Actualizá la página e ingresá nuevamente.');
+  const blob=await response.blob(),url=URL.createObjectURL(blob),link=document.createElement('a');link.href=url;link.download='clientes_sin_ventana_'+(state.mes==='__all'?'todos':state.mes)+'.xlsx';document.body.appendChild(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),10000);
+  status.textContent=clientes.length+' clientes exportados.';
+ }catch(error){status.textContent=error.message||'No se pudo descargar el Excel.'}
+ finally{button.disabled=!topClientesSinVentana(R.filter(full),Infinity).length}
+});
 function renderOnTime(){const scope=R.filter(full),o=onTime(scope),ok=o.p!=null&&o.p>=85,col=o.p==null?C.obj:(ok?C.good:C.bad);
  kOT.textContent=o.p==null?'–':r1(o.p)+'%';kOTOk.textContent=o.ok;kOTBad.textContent=o.bad;kOTNoWin.textContent=o.sin;
  kOTCliTotal.textContent=o.cliTotal;kOTCliCon.textContent=o.cliVentanaPct==null?'–':r1(o.cliVentanaPct)+'%';oOTCliCon.textContent=o.cliCon+' con ventana · '+o.cliSin+' sin ventana';
@@ -1051,6 +1075,7 @@ function renderOnTime(){const scope=R.filter(full),o=onTime(scope),ok=o.p!=null&
  otChart('chOTCho',byCho,'cho');otChart('chOTZona',byZona,'suc');
  tbodyOTCho.innerHTML=otRows(byCho);tbodyOTZona.innerHTML=otRows(byZona);
  const fueraRows=topClientesFuera(scope),sinRows=topClientesSinVentana(scope);
+ document.getElementById('exportClientesSin').disabled=!sinRows.length;document.getElementById('exportClientesSinStatus').textContent='';
  const msgFuera=o.bad?'Hay '+o.bad+' visitas fuera de ventana, pero esta carga no tiene el detalle por cliente. Volvé a subir Route Analytics y visitas Foxtrot para recalcular On time.':'No hay clientes visitados fuera de horario en el filtro actual.';
  const msgSin=o.sin?'Hay '+o.sin+' pedidos sin ventana, pero esta carga no tiene el detalle por cliente. Volvé a subir Route Analytics, visitas Foxtrot y clientes para recalcular.':'No hay clientes sin ventana horaria cargada en el filtro actual.';
  tbodyOTClientes.innerHTML=fueraRows.length?fueraRows.map(c=>'<tr><td>'+esc(c.cliente)+'</td><td>'+esc(c.nombre)+'</td><td class="r">'+c.fuera+'</td><td>'+dLbl(c.fecha)+'</td><td>'+esc(c.visita)+'</td><td>'+esc(c.ventana)+'</td><td class="r">'+desvioLbl(c.desvio)+' · '+esc(c.motivo)+'</td></tr>').join(''):emptyRow(7,msgFuera);

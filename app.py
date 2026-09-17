@@ -103,7 +103,7 @@ if os.environ.get("DISABLE_CACHE_PREWARM") != "1":
 
 @app.after_request
 def optimize_response(response):
-    read_only_posts = {"login", "pedidos.pedidos_ai_analisis"}
+    read_only_posts = {"login", "pedidos.pedidos_ai_analisis", "exportar_clientes_sin_ventana"}
     if (
         request.method not in ("GET", "HEAD")
         and response.status_code < 400
@@ -188,7 +188,7 @@ a{{color:#1E3A8A;font-size:13.5px}}hr{{border:0;border-top:1px solid #DCE2EA;mar
   <input type=file name=clientes accept=".csv">
   {token_field}
   <label style="text-transform:none;font-weight:400;color:#15233B;margin-top:14px">
-    <input type=checkbox name=reset value=1 style="width:auto;margin-right:6px">Rehacer la base de cero (borra lo guardado)</label>
+    <input type=checkbox name=reset value=1 style="width:auto;margin-right:6px">Rehacer la base de cero (crea una copia de seguridad antes de borrar)</label>
   <button class=btn type=submit>Actualizar</button>
 </form>
 <p style="margin-top:18px"><a href="/inicio">Panel principal</a> · <a href="/dashboard">Dashboard</a> · <a href="/datos">Revisar datos cargados</a> · <a href="/foxtrot-calidad">Calidad Foxtrot</a> · <a href="/reporte-fichaya-foxtrot">Reporte FichaYA/Foxtrot</a> · <a href="/pedidos">Análisis de pedidos</a> · <a href="/costos-distribucion">Costos</a> · <a href="/logout">Cerrar sesión</a></p>
@@ -1890,6 +1890,24 @@ def datos_borrar():
     return redirect(url_for("datos", tabla=table, q=q, pagina=page, msg="Registro borrado."))
 
 
+@app.route("/clientes-sin-ventana.xlsx", methods=["POST"])
+def exportar_clientes_sin_ventana():
+    blocked = _require_login()
+    if blocked:
+        return blocked
+    from clientes_export import clientes_sin_ventana_xlsx
+    payload = request.get_json(silent=True)
+    if not isinstance(payload, dict):
+        return jsonify(error="Solicitud invalida."), 400
+    try:
+        content = clientes_sin_ventana_xlsx(payload.get("clientes"))
+    except ValueError as exc:
+        return jsonify(error=str(exc)), 400
+    filename = "clientes_sin_ventana_" + datetime.now().strftime("%Y%m%d_%H%M%S") + ".xlsx"
+    return Response(content, mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    headers={"Content-Disposition": 'attachment; filename="' + filename + '"', "Cache-Control": "no-store"})
+
+
 @app.route("/actualizar", methods=["POST"])
 def actualizar():
     blocked = _require_login()
@@ -1911,6 +1929,8 @@ def actualizar():
     msg = (f"Listo. Rutas procesadas: {st['procesadas']} · nuevas agregadas: {st['agregadas']} · total en base: {st['total']} "
            f"({st['validas']} válidas, {st['sin_cierre']} sin cierre). "
            f"TML {st['tml_prom']} min ({st['tml_cumpl']}% cumple) · TI {st['ti_prom']} min ({st['ti_cumpl']}% cumple).")
+    if st.get("backup_id"):
+        msg += f" Copia de seguridad previa al borrado: {st['backup_id']}."
     if st.get("actualiza_existentes"):
         msg += " Las rutas existentes del export fueron actualizadas."
     if st.get("attempts_guardados"):

@@ -17,9 +17,56 @@ import re
 import threading
 import tempfile
 import time
+import uuid
+from datetime import datetime, timezone
 from collections import OrderedDict
 from contextlib import contextmanager
 from urllib.parse import quote
+
+
+def _backup_postgres_before_reset(cur):
+    # Keep the snapshot and deletion in one transaction; block concurrent writes.
+    cur.execute("LOCK TABLE rutas_dashboard, attempts_dashboard IN ACCESS EXCLUSIVE MODE")
+    cur.execute("""CREATE TABLE IF NOT EXISTS dashboard_reset_backups (
+        backup_id TEXT PRIMARY KEY,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        payload JSONB NOT NULL
+    )""")
+    backup_id = str(uuid.uuid4())
+    cur.execute("""INSERT INTO dashboard_reset_backups (backup_id, payload)
+        SELECT %s, jsonb_build_object(
+            'version', 1, 'reason', 'before_reset', 'backend', 'postgres',
+            'rutas_dashboard', COALESCE((SELECT jsonb_agg(to_jsonb(r)) FROM rutas_dashboard r), '[]'::jsonb),
+            'attempts_dashboard', COALESCE((SELECT jsonb_agg(to_jsonb(a)) FROM attempts_dashboard a), '[]'::jsonb)
+        ) RETURNING backup_id""", (backup_id,))
+    saved = cur.fetchone()
+    if not saved or saved[0] != backup_id:
+        raise RuntimeError("Backup could not be verified; reset cancelled")
+    return backup_id
+
+
+def _backup_json_before_reset():
+    # Read strictly: corrupt source files must never be silently backed up as empty.
+    files = {}
+    for name, path in (("rutas", JSON_PATH), ("attempts", ATTEMPTS_JSON_PATH)):
+        if os.path.exists(path):
+            with open(path, encoding="utf-8") as source:
+                files[name] = json.load(source)
+        else:
+            files[name] = None
+    payload = {"version": 1, "reason": "before_reset", "backend": "json",
+               "created_at": datetime.now(timezone.utc).isoformat(), "files": files}
+    directory = os.path.join(DATA_DIR, "backups")
+    os.makedirs(directory, exist_ok=True)
+    path = os.path.join(directory, "before-reset-" + str(uuid.uuid4()) + ".json")
+    with open(path, "x", encoding="utf-8") as backup:
+        json.dump(payload, backup, ensure_ascii=False)
+        backup.flush()
+        os.fsync(backup.fileno())
+    with open(path, encoding="utf-8") as backup:
+        if json.load(backup) != payload:
+            raise RuntimeError("Backup could not be verified; reset cancelled")
+    return path
 
 
 def _safe_float(value):
@@ -1104,9 +1151,11 @@ if BACKEND == "postgres":
 
     def reset():
         with _conn() as cn, cn.cursor() as cur:
+            backup_id = _backup_postgres_before_reset(cur)
             cur.execute("TRUNCATE rutas_dashboard;")
             cur.execute("TRUNCATE attempts_dashboard;")
         clear_cache()
+        return backup_id
 
     def load_clientes():
         cached = _cache_get("clientes:all")
@@ -2317,10 +2366,13 @@ else:
         }
 
     def reset():
+        backup_id = _backup_json_before_reset()
         if os.path.exists(JSON_PATH):
             os.remove(JSON_PATH)
         if os.path.exists(ATTEMPTS_JSON_PATH):
             os.remove(ATTEMPTS_JSON_PATH)
+        clear_cache()
+        return backup_id
 
     def upsert_attempts(recs):
         base = load_attempts()
