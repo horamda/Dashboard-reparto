@@ -15,6 +15,7 @@ import copy
 import json
 import re
 import threading
+import tempfile
 import time
 from collections import OrderedDict
 from contextlib import contextmanager
@@ -85,6 +86,66 @@ DB_INSERT_PAGE_SIZE = int(os.environ.get("PG_INSERT_PAGE_SIZE", "500"))
 CACHE_MAX_ITEMS = max(16, int(os.environ.get("STORAGE_CACHE_MAX_ITEMS", "128")))
 _CACHE = OrderedDict()
 _CACHE_LOCK = threading.RLock()
+_EQUIPOS_LOCK = threading.RLock()
+
+
+def _equipo_day_key(fecha):
+    from datetime import date
+    canonical = date.fromisoformat(fecha).isoformat()
+    if canonical != fecha:
+        raise ValueError("Usá fechas con formato YYYY-MM-DD.")
+    return "equipos_reparto:" + canonical
+
+
+def load_equipo_days(desde, hasta):
+    """Histórico separado de la fuente DPO; lectura sin caché para revisión."""
+    first, last = _equipo_day_key(desde), _equipo_day_key(hasta)
+    if BACKEND == "postgres":
+        with _conn() as cn, cn.cursor() as cur:
+            cur.execute("SELECT rec FROM settings_dashboard WHERE key >= %s AND key <= %s ORDER BY key;", (first, last))
+            return {rec["fecha"]: rec for (rec,) in cur.fetchall()}
+    directory = os.path.join(DATA_DIR, "equipos_reparto")
+    if not os.path.isdir(directory):
+        return {}
+    result = {}
+    with _EQUIPOS_LOCK:
+        for name in sorted(os.listdir(directory)):
+            if name.endswith(".json") and desde <= name[:-5] <= hasta:
+                with open(os.path.join(directory, name), encoding="utf-8") as fh:
+                    result[name[:-5]] = json.load(fh)
+    return result
+
+
+def update_equipo_day(fecha, transform):
+    """Serializa cambios del mismo día y escribe atómicamente, también en JSON."""
+    key = _equipo_day_key(fecha)
+    if BACKEND == "postgres":
+        with _conn() as cn, cn.cursor() as cur:
+            cur.execute("INSERT INTO settings_dashboard (key, rec) VALUES (%s, '{}'::jsonb) ON CONFLICT (key) DO NOTHING;", (key,))
+            cur.execute("SELECT rec FROM settings_dashboard WHERE key = %s FOR UPDATE;", (key,))
+            result = transform(copy.deepcopy(cur.fetchone()[0]))
+            cur.execute("UPDATE settings_dashboard SET rec = %s WHERE key = %s;", (_extras.Json(result), key))
+        clear_cache("settings:")
+        return result
+    directory = os.path.join(DATA_DIR, "equipos_reparto")
+    os.makedirs(directory, exist_ok=True)
+    path = os.path.join(directory, fecha + ".json")
+    with _EQUIPOS_LOCK:
+        current = {}
+        if os.path.exists(path):
+            with open(path, encoding="utf-8") as fh:
+                current = json.load(fh)
+        result = transform(current)
+        temporary = None
+        try:
+            with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", dir=directory, suffix=".tmp", delete=False) as fh:
+                temporary = fh.name
+                json.dump(result, fh, ensure_ascii=False)
+            os.replace(temporary, path)
+        finally:
+            if temporary and os.path.exists(temporary):
+                os.remove(temporary)
+        return result
 
 
 def clear_cache(prefix=None):

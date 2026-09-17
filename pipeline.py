@@ -934,27 +934,27 @@ def aplicar_tiempos_fichaya_guardados(rutas):
             empleados=empleados,
             manual_overrides=manual_overrides,
         )
-        if not calc["tml_ok"] and not calc["ti_ok"]:
-            continue
         if calc["tml_ok"]:
             rec["tml"] = calc["tml"]
         if calc["ti_ok"]:
             rec["ti"] = calc["ti"]
-        rec["tml_ti_origen"] = (
-            "fichaya" if calc["tml_ok"] and calc["ti_ok"] else "fichaya_parcial"
-        )
+        if calc["tml_ok"] or calc["ti_ok"]:
+            rec["tml_ti_origen"] = (
+                "fichaya" if calc["tml_ok"] and calc["ti_ok"] else "fichaya_parcial"
+            )
         rec["tml_ti_ajuste_manual"] = any(
             field in calc["manual"] for field in FICHAYA_MANUAL_FIELDS
         )
         effective = calc["effective"]
-        if effective["fichada_ingreso"]:
-            rec["fichaya_ingreso"] = effective["fichada_ingreso"].strftime("%H:%M")
-        if effective["fichada_salida"]:
-            rec["fichaya_egreso"] = effective["fichada_salida"].strftime("%H:%M")
-        if effective["inicio_foxtrot"]:
-            rec["inicio_foxtrot"] = effective["inicio_foxtrot"].strftime("%H:%M")
-        if effective["finalizacion_foxtrot"]:
-            rec["fin_foxtrot"] = effective["finalizacion_foxtrot"].strftime("%H:%M")
+        for source_field, route_field in (
+            ("fichada_ingreso", "fichaya_ingreso"),
+            ("fichada_salida", "fichaya_egreso"),
+            ("inicio_foxtrot", "inicio_foxtrot"),
+            ("finalizacion_foxtrot", "fin_foxtrot"),
+        ):
+            value = effective[source_field]
+            if value is not None or source_field in calc["manual"]:
+                rec[route_field] = value.strftime("%H:%M") if value else ""
         duracion = _minutos_entre(
             effective["inicio_foxtrot"], effective["finalizacion_foxtrot"]
         )
@@ -1470,14 +1470,13 @@ def cargar_dpo_gkpis():
             camion = str(r.get(camion_col, "") or "").strip()
             if not fecha or not camion:
                 continue
-            if fecha[:4] != "2026":
-                continue
             sid = str(r.get(sid_col, "") or sid_default).strip() if sid_col else sid_default
             suc = "Mar de Ajo" if sid == "1" else "Dolores"
             nro = str(r.get(nro_col, "") or "").strip() if nro_col else ""
             estado = str(r.get(estado_col, "") or "").strip() if estado_col else ""
             rows.append({
                 "key": f"{fecha}|{sid}|{nro or camion}|{idx}",
+                "fuente": hashlib.sha256(_url.encode("utf-8")).hexdigest()[:16],
                 "fecha": fecha,
                 "mes": fecha[:7],
                 "anio": int(fecha[:4]),
@@ -2222,7 +2221,7 @@ DASHBOARD_ROUTE_FIELDS = {
     "adhcli", "disp_km_plan", "disp_km_real", "disp_hs_plan", "disp_hs_real", "dispkm",
     "disphs", "disp_descartada", "disp_motivo", "pdv_total", "pdv_ontime",
     "pdv_fuera_ontime", "pdv_sin_ventana", "ontime_pct", "clientes_fuera_ontime",
-    "clientes_con_ventana", "clientes_sin_ventana",
+    "clientes_con_ventana", "clientes_sin_ventana", "ti_estimado", "ti_estimacion_metodo", "tml_estimado", "tml_estimacion_metodo",
 }
 
 
@@ -2242,6 +2241,7 @@ def _calibrar_metrica_historica_casa_central(rutas, campo, referencias):
         mes = str(rec.get("mes") or "")
         if (
             mes not in referencias
+            or rec.get(campo + "_estimado")
             or not rec.get("usable")
             or rec.get(campo) is None
             or str(rec.get("tml_ti_origen") or "").lower() == "fichaya"
@@ -2275,9 +2275,70 @@ def _calibrar_tiempos_historicos_casa_central(rutas):
     return rutas
 
 
+def _estimar_ti_enero_2026(rutas):
+    """Simulacion solicitada: TI uniforme 25-45 min, estable por ruta."""
+    for rec in rutas:
+        if (rec.get("mes") != "2026-01" or not rec.get("usable")
+                or str(rec.get("tml_ti_origen") or "").startswith("fichaya")):
+            continue
+        if rec.get("ti_estimado") and rec.get("ti_estimacion_metodo") == "uniforme_25_45_v1":
+            continue
+        identity = rec.get("rid") or "|".join(str(rec.get(k) or "") for k in ("fecha", "suc", "chofer", "inicio_foxtrot"))
+        seed = hashlib.sha256(("ti-enero-2026-v1|" + str(identity)).encode("utf-8")).digest()
+        fraction = int.from_bytes(seed[:8], "big") / (2**64 - 1)
+        rec["ti"] = round(25 + 20 * fraction, 2)
+        rec["ti_estimado"] = True
+        rec.pop("ti_referencia_mensual", None)
+    return rutas
+
+
+def _estimar_ti_20_35_2026(rutas, mes):
+    """Simulacion solicitada: TI uniforme 20-35 min, estable por ruta."""
+    nombre_mes = {"2026-05": "mayo", "2026-06": "junio", "2026-07": "julio"}[mes]
+    for rec in rutas:
+        if (rec.get("mes") != mes or not rec.get("usable")
+                or str(rec.get("tml_ti_origen") or "").startswith("fichaya")):
+            continue
+        if rec.get("ti_estimado") and rec.get("ti_estimacion_metodo") == "uniforme_20_35_v1":
+            continue
+        identity = rec.get("rid") or "|".join(str(rec.get(k) or "") for k in ("fecha", "suc", "chofer", "inicio_foxtrot"))
+        seed = hashlib.sha256(("ti-" + nombre_mes + "-2026-v1|" + str(identity)).encode("utf-8")).digest()
+        fraction = int.from_bytes(seed[:8], "big") / (2**64 - 1)
+        rec["ti"] = round(20 + 15 * fraction, 2)
+        rec["ti_estimado"] = True
+        rec.pop("ti_referencia_mensual", None)
+    return rutas
+
+
+def _estimar_tml_abril_2026(rutas):
+    """Simulacion solicitada: TML uniforme 20-35 min, estable por ruta."""
+    mes = "2026-04"
+    for rec in rutas:
+        if (rec.get("mes") != mes or not rec.get("usable")
+                or str(rec.get("tml_ti_origen") or "").startswith("fichaya")):
+            continue
+        if rec.get("tml_estimado") and rec.get("tml_estimacion_metodo") == "uniforme_20_35_v1":
+            continue
+        identity = rec.get("rid") or "|".join(str(rec.get(k) or "") for k in ("fecha", "suc", "chofer", "inicio_foxtrot"))
+        seed = hashlib.sha256(("tml-abril-2026-v1|" + str(identity)).encode("utf-8")).digest()
+        fraction = int.from_bytes(seed[:8], "big") / (2**64 - 1)
+        rec["tml"] = round(20 + 15 * fraction, 2)
+        rec["tml_estimado"] = True
+        rec.pop("tml_referencia_mensual", None)
+    return rutas
+
+
+def _estimar_ti_julio_2026(rutas):
+    return _estimar_ti_20_35_2026(rutas, "2026-07")
+
+
 def _data_desde_base(base):
     rutas = sorted((_dashboard_route(r) for r in base.values()), key=lambda r: (r["fecha"], r["suc"], r["chofer"]))
     _calibrar_tiempos_historicos_casa_central(rutas)
+    _estimar_ti_enero_2026(rutas)
+    _estimar_tml_abril_2026(rutas)
+    for mes in ("2026-05", "2026-06", "2026-07"):
+        _estimar_ti_20_35_2026(rutas, mes)
     aplicar_tiempos_fichaya_guardados(rutas)
     rechazos_base = storage.load_rechazos()
     if rutas and not rechazos_base:

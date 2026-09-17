@@ -17,8 +17,42 @@ como respaldo para desarrollo local.
   el catalogo de empleados FichaYA. Los legajos nuevos conservan ceros iniciales
   cuando el Excel los contiene como texto. Los legajos antiguos que hayan perdido
   ceros requieren reimportar el catalogo y revisar sus asociaciones.
-  Esta vista consulta las fuentes DPO actuales; aun no guarda equipos historicos
-  ni envia resultados de KPIs a FichaYA.
+  `/equipos-reparto/historico` guarda los equipos por dia con sus legajos actuales
+  y asigna rutas cuando fecha, sucursal, camion y legajo del chofer coinciden con
+  un unico equipo sin inconsistencias. Recargas ambiguas quedan para revision.
+  El boton de importacion conserva los dias existentes; actualizar un dia requiere
+  motivo, conserva la version anterior y vuelve a evaluar las rutas (incluidas
+  las asignaciones manuales). La asignacion manual permite vincular/desvincular
+  rutas validas del mismo dia y sucursal con motivo y auditoria.
+  No se importan fechas futuras ni fuentes con errores. Los cambios concurrentes
+  se detectan por version. PostgreSQL usa registros `equipos_reparto:YYYY-MM-DD`
+  en `settings_dashboard` con bloqueo transaccional, sin una migracion nueva.
+  El respaldo local usa `data/equipos_reparto/` con escritura atomica y bloqueo
+  entre hilos del proceso.
+- KPIs a FichaYA: `/kpis-fichaya` prepara y envia resultados diarios por integrante
+  desde el historico. El catalogo inicial reproduce el Excel de Operaciones
+  (empresa 1, sector 1): dispersion KM `2`, dispersion tiempo `3`, click `4`,
+  TML `6` y TI `7`. DQI `5` (PPM), RMD `RMD` (%), rechazos `1` y NPS `8`/`9`
+  quedan pendientes de confirmar formula/unidad/atribucion; no se envian.
+  Las dispersiones usan `(plan-real)/plan*100` con totales diarios, click es el
+  promedio por ruta y TML/TI usan las fichadas por legajo del chofer y ajustes
+  guardados, compartidos con su equipo. No se usan tiempos simulados ni el cruce
+  de fichadas por nombre. Cada empleado recibe una sola fila por dia/codigo.
+  Preparar guarda una vista previa; enviar requiere pulsar el boton de envio.
+  Se rechaza el borrador si cambiaron los equipos, datos o configuracion.
+  Cada lote admite hasta 1000 filas (maximo 10000 por borrador). Los lotes ya
+  confirmados no se reenvian al continuar. Errores 400/422 requieren un nuevo
+  borrador corregido; cortes de conexion y errores temporales permiten reintentar
+  exactamente el lote persistido. Una correccion posterior impide reintentar
+  borradores anteriores sobre las mismas claves. Se conserva cada intento.
+  El historial vive en `settings_dashboard` (prefijo `fichaya_kpis:`) o en
+  `data/fichaya_kpis/` local. PostgreSQL serializa envios mediante advisory lock;
+  el respaldo JSON utiliza un bloqueo dentro de un solo proceso.
+  Requiere credenciales tecnicas `FICHAYA_API_USERNAME/FICHAYA_API_PASSWORD`
+  y habilitar `EXTERNAL_API_KPI_WRITE_ENABLED=1` en el backend de FichaYA. El modo
+  web de lectura de fichadas puede mantenerse. No se guardan tokens en la base.
+  La API valida empleados activos, empresa y KPI del sector al recibir el lote.
+  Cambiar de legajo/codigo no borra valores anteriores: corregirlos en FichaYA.
 - Costos de distribucion: depositos CRUD, tarifas por vigencia, perfiles de
   vehiculo, ruteo vial, asignacion por cliente e historial de recalculos.
 - Datos cargados: busqueda, paginacion, edicion y borrado controlado.

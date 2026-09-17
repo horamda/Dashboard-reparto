@@ -166,6 +166,8 @@ tfoot td{font-weight:700;border-top:2px solid var(--line);border-bottom:none}
 @media(max-width:420px){.wrap{width:min(100% - 14px,1240px)}.panel{padding:12px 9px}.filters{gap:10px}.team-table{min-width:920px}.team-table th,.team-table td{padding:7px 5px}.team-table th:first-child,.team-table td:first-child{max-width:72px;min-width:72px}.card .v{font-size:22px}}
 @media(max-width:720px){.dqi-block-head,.dqi-history-head,.dpo-quality-head{flex-direction:column;align-items:stretch;gap:8px;padding:12px}.dqi-history-head{padding:0;margin-top:18px}.dqi-metric-switch{width:100%}.dqi-metric-switch button{flex:1}.dqi-legend,.dpo-quality-legend{justify-content:flex-start;white-space:normal}.dqi-block-title h2,.dpo-quality-head h2{font-size:16px}.dqi-section{margin-bottom:24px}}
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*{transition:none!important}}
+.hide-origin-notes .origin-note{display:none}
+@media print{.hide-origin-notes .origin-note{display:inline!important}.origin-toggle{display:none!important}}
 </style></head><body>
 <header><div class="wrap"><div class="brand-title"><img class="brand-logo" src="/static/logot2.png" alt="T2"><div><h1>Tiempos de reparto · Foxtrot - FichaYA - 2026 </h1>
 <div class="sub" id="periodo">del Palacio S.A.</div></div></div>
@@ -209,14 +211,24 @@ tfoot td{font-weight:700;border-top:2px solid var(--line);border-bottom:none}
  </div>
  <div id="viewMes" style="display:none">
   <div class="sectlbl">Cumplimiento de objetivos</div>
+  <label class="note origin-toggle"><input type="checkbox" id="showOriginNotes" checked> Mostrar notas de origen</label>
   <div class="cards c2" style="margin-bottom:22px">
-   <div class="card" id="cTIcmp"><div class="badge" id="gTIcmp"></div><div class="k">Cumplimiento TI</div><div class="v" id="kTIcmp">–</div><div class="obj" id="oTIcmp">≥65% de rutas validadas con TI ≤ 30 min</div><div class="bar"><i id="bTIcmp"></i></div></div>
    <div class="card" id="cTMLcmp"><div class="badge" id="gTMLcmp"></div><div class="k">Cumplimiento TML</div><div class="v" id="kTMLcmp">–</div><div class="obj" id="oTMLcmp">≥65% de rutas validadas con TML ≤ 30 min</div><div class="bar"><i id="bTMLcmp"></i></div></div>
+   <div class="card" id="cTIcmp"><div class="badge" id="gTIcmp"></div><div class="k">Cumplimiento TI</div><div class="v" id="kTIcmp">–</div><div class="obj" id="oTIcmp">≥65% de rutas validadas con TI ≤ 30 min</div><div class="bar"><i id="bTIcmp"></i></div></div>
+  </div>
+  <div class="grid" style="grid-template-columns:1fr 1fr">
+   <div class="panel"><h2>Cumplimiento TML por mes</h2><div class="note">Rutas con TML ≤ 30 min · objetivo ≥65% · verde cumple, rojo no cumple<span class="origin-note"> · TML de abril 2026 estimado entre 20 y 35 min</span></div><div class="chartbox"><canvas id="chTMLcmpMes"></canvas></div></div>
+   <div class="panel"><h2>Cumplimiento TI por mes</h2><div class="note">Rutas con TI ≤ 30 min · objetivo ≥65%<span class="origin-note"> · TI estimado: enero 2026 entre 25 y 45 min; mayo, junio y julio 2026 entre 20 y 35 min</span></div><div class="chartbox"><canvas id="chTIcmpMes"></canvas></div></div>
+  </div>
+  <div class="grid" style="grid-template-columns:1fr">
+   <div class="panel"><h2>Resultado mensual de cumplimiento</h2><div class="note">Según los filtros activos. Cada indicador considera únicamente rutas válidas con dato disponible. El mes en curso y los períodos filtrados pueden ser parciales.<span class="origin-note"> TI simulado por ruta: enero 2026 entre 25 y 45 min; mayo, junio y julio 2026 entre 20 y 35 min. TML de abril 2026 simulado entre 20 y 35 min. No representa tiempos medidos.</span></div>
+    <table><thead><tr><th>Mes</th><th>Rutas TML ≤30 min / evaluadas</th><th>Cumplimiento TML</th><th>Objetivo TML ≥65%</th><th>Rutas TI ≤30 min / evaluadas</th><th>Cumplimiento TI</th><th>Objetivo TI ≥65%</th></tr></thead><tbody id="tbodyCmpMes"></tbody><tfoot id="tfootCmpMes"></tfoot></table>
+   </div>
   </div>
   <div class="grid">
-   <div class="panel"><h2>TML por mes</h2><div class="note">Promedio por ruta válida · FichaYA desde ago 2026 · Casa Central ene-jul calibrado · objetivo 30 min</div><div class="chartbox"><canvas id="chTml"></canvas></div></div>
+   <div class="panel"><h2>TML promedio por mes (minutos)</h2><div class="note">Media de los tiempos por ruta. Línea de referencia: 30 min. El cumplimiento se evalúa arriba: al menos 65% de rutas con tiempo ≤30 min.</div><div class="chartbox"><canvas id="chTml"></canvas></div></div>
    <div class="panel"><h2>Tiempo en ruta por mes</h2><div class="note">Promedio por jornada · normal + recarga · objetivo 7</div><div class="chartbox"><canvas id="chHr"></canvas></div></div>
-   <div class="panel"><h2>TI por mes</h2><div class="note">Promedio por ruta válida · FichaYA desde ago 2026 · Casa Central ene-jul calibrado · objetivo 30 min</div><div class="chartbox"><canvas id="chTi"></canvas></div></div>
+   <div class="panel"><h2>TI promedio por mes (minutos)</h2><div class="note">Media de los tiempos por ruta. Línea de referencia: 30 min. El cumplimiento se evalúa arriba: al menos 65% de rutas con tiempo ≤30 min.</div><div class="chartbox"><canvas id="chTi"></canvas></div></div>
   </div>
   <div class="grid" style="grid-template-columns:2fr 1fr">
    <div class="panel"><h2>Mes por mes</h2><div class="note">Adherencia verde si ≥85%, rojo si no.</div>
@@ -396,8 +408,8 @@ tfoot td{font-weight:700;border-top:2px solid var(--line);border-bottom:none}
     <div class="tblscroll"><table><thead><tr><th>Mes</th><th>Rutas recarga</th><th>Personas</th><th>Horas prom.</th><th>Horas total</th></tr></thead><tbody id="tbodyRecargaMes"></tbody></table></div></div>
   </div>
   <div class="grid" style="grid-template-columns:1fr">
-   <div class="panel"><h2>Detalle de jornadas</h2><div class="note">Una fila por fecha y persona. Carga y recarga se muestran separadas; total dia suma ambas.</div>
-    <div class="tblscroll"><table><thead><tr><th>Fecha</th><th>Mes</th><th>Sucursal</th><th>Camion</th><th>Persona</th><th>Inicio carga</th><th>Fin carga</th><th>Horas carga</th><th>Inicio recarga</th><th>Fin recarga</th><th>Horas recarga</th><th>Total dia</th><th>Tramos</th></tr></thead><tbody id="tbodyFoxDetalle"></tbody></table></div></div>
+   <div class="panel"><h2>Detalle de jornadas</h2><div class="note">Una fila por fecha y persona. Se usan los horarios corregidos. Total día suma carga y recarga de Foxtrot; ingreso y salida muestran las fichadas disponibles. Los tramos corregidos indican ajuste manual.</div>
+    <div class="tblscroll"><table><thead><tr><th>Fecha</th><th>Mes</th><th>Sucursal</th><th>Camion</th><th>Persona</th><th>Inicio carga</th><th>Fin carga</th><th>Horas carga</th><th>Inicio recarga</th><th>Fin recarga</th><th>Horas recarga</th><th>Total día</th><th>Ingreso fichada</th><th>Salida fichada</th><th>Tramos</th></tr></thead><tbody id="tbodyFoxDetalle"></tbody></table></div></div>
  </div>
  </div>
  <div id="viewDpo" style="display:none">
@@ -648,30 +660,44 @@ const hhmmH=h=>{if(h==null||isNaN(h))return'–';const H=Math.floor(h),M=Math.ro
 function arcPath(r,d0,d1){const pol=deg=>{const a=(deg-180)*Math.PI/180;return[100+r*Math.cos(a),100+r*Math.sin(a)]};const[x0,y0]=pol(d0),[x1,y1]=pol(d1),lg=(d1-d0)>180?1:0;return 'M'+x0.toFixed(2)+' '+y0.toFixed(2)+' A'+r+' '+r+' 0 '+lg+' 1 '+x1.toFixed(2)+' '+y1.toFixed(2)}
 function gauge(id,value,max,obj,color,txt){const r=80,f=Math.max(0,Math.min(1,(value||0)/max));const pol=(rr,deg)=>{const a=(deg-180)*Math.PI/180;return[100+rr*Math.cos(a),100+rr*Math.sin(a)]};const od=(Math.min(obj,max)/max)*180,[ox0,oy0]=pol(r-13,od),[ox1,oy1]=pol(r+13,od);document.getElementById(id).innerHTML='<svg viewBox="0 0 200 118">'+'<path d="'+arcPath(r,0,180)+'" stroke="#EAEDF2" stroke-width="14" fill="none" stroke-linecap="round"/>'+'<path d="'+arcPath(r,0,Math.max(f*180,0.1))+'" stroke="'+color+'" stroke-width="14" fill="none" stroke-linecap="round"/>'+'<line x1="'+ox0.toFixed(1)+'" y1="'+oy0.toFixed(1)+'" x2="'+ox1.toFixed(1)+'" y2="'+oy1.toFixed(1)+'" stroke="#15233B" stroke-width="3"/>'+'<text x="100" y="90" text-anchor="middle" font-size="30" font-weight="700" fill="#15233B">'+txt+'</text>'+'<text x="16" y="114" font-size="10" fill="#657085">0</text>'+'<text x="184" y="114" text-anchor="end" font-size="10" fill="#657085">'+max+'</text></svg>'}
 function renderGauges(aTml,aHr,aTi){gauge('ggTml',aTml,58,OBJ.tml,colLow(aTml,OBJ.tml),aTml==null?'–':Math.round(aTml));gauge('ggHr',aHr,8,OBJ.ruta,colRuta(aHr),aHr==null?'–':hhmmH(aHr));gauge('ggTi',aTi,69,OBJ.ti,colLow(aTi,OBJ.ti),aTi==null?'–':Math.round(aTi))}
-function dLabels(idxs){return {id:'dl',afterDatasetsDraw(c){const{ctx,chartArea}=c;ctx.save();ctx.font='700 10px system-ui';ctx.fillStyle='#26334d';ctx.strokeStyle='rgba(255,255,255,.96)';ctx.lineWidth=3;ctx.textAlign='center';ctx.textBaseline='bottom';idxs.forEach(di=>{const m=c.getDatasetMeta(di),ds=c.data.datasets[di],maxLabels=Math.max(1,Math.floor(chartArea.width/44)),step=Math.max(1,Math.ceil(ds.data.length/maxLabels)),last=ds.data.reduce((out,v,i)=>v!=null&&Number(v)!==0?i:out,-1);m.data.forEach((b,i)=>{const v=ds.data[i];if(v==null||Number(v)===0||(i%step!==0&&i!==last))return;const label=ds._fmt?ds._fmt(v):v,y=Math.max(chartArea.top+12,b.y-5);ctx.strokeText(label,b.x,y);ctx.fillText(label,b.x,y)})});ctx.restore()}}}
+function dLabels(idxs){return {id:'dl',afterDatasetsDraw(c){
+ const{ctx,chartArea}=c,placed=[];ctx.save();ctx.font='700 10px system-ui';ctx.strokeStyle='rgba(255,255,255,.96)';ctx.lineWidth=3;ctx.textAlign='center';ctx.textBaseline='middle';
+ idxs.forEach(di=>{if(!c.isDatasetVisible(di))return;const m=c.getDatasetMeta(di),ds=c.data.datasets[di];
+  m.data.forEach((point,i)=>{const v=ds.data[i];if(v==null||!Number.isFinite(Number(v))||point.skip)return;
+   const label=String(ds._fmt?ds._fmt(v):v),half=ctx.measureText(label).width/2+2;
+   const x=Math.max(chartArea.left+half,Math.min(chartArea.right-half,point.x));
+   const negative=m.type==='bar'&&Number(v)<0,direction=negative?1:-1;
+   let y=Math.max(chartArea.top+7,Math.min(chartArea.bottom-7,point.y+direction*12));
+   for(let attempt=0;attempt<8&&placed.some(r=>Math.abs(r.x-x)<r.half+half&&Math.abs(r.y-y)<12);attempt++){
+    y=Math.max(chartArea.top+7,Math.min(chartArea.bottom-7,point.y+direction*(12+12*(attempt+1))));
+   }
+   placed.push({x,y,half});ctx.fillStyle=idxs.length>1?(typeof ds.borderColor==='string'?ds.borderColor:'#26334d'):'#26334d';ctx.strokeText(label,x,y);ctx.fillText(label,x,y);
+  });
+ });ctx.restore()
+}}}
 function barGen(id,labels,vals,fmt,colorFn,obj,showLbl,selection){if(!chartsReady())return;if(ch[id])ch[id].destroy();
  const ds=[{type:'bar',data:vals,backgroundColor:vals.map(colorFn),borderRadius:3,maxBarThickness:34,_fmt:fmt},
   {type:'line',data:vals.map(()=>obj),borderColor:C.obj,borderWidth:2,borderDash:[6,4],pointRadius:0,fill:false}];
  ch[id]=new Chart(document.getElementById(id),{data:{labels,datasets:ds},options:{...chartInteraction(selection),responsive:true,maintainAspectRatio:false,layout:{padding:{top:16}},
   plugins:{legend:{display:false},tooltip:{callbacks:{label:x=>x.datasetIndex===1?'Objetivo '+fmt(obj):fmt(x.parsed.y)}}},
-  scales:{y:{beginAtZero:true,grace:'14%',ticks:{color:'#657085',font:{size:11}},grid:{color:'#eef1f5'}},x:{ticks:{color:'#657085',font:{size:10},maxRotation:60,minRotation:labels.length>12?45:0},grid:{display:false}}}},plugins:showLbl?[dLabels([0])]:[]})}
-function barMetric(id,labels,vals,fmt,color,showLbl,selection){if(!chartsReady())return;if(ch[id])ch[id].destroy();const colors=vals.map((v,i)=>typeof color==='function'?color(v,i):color),ds=[{type:'bar',data:vals,backgroundColor:colors,borderRadius:3,maxBarThickness:34,_fmt:fmt}];ch[id]=new Chart(document.getElementById(id),{data:{labels,datasets:ds},options:{...chartInteraction(selection),responsive:true,maintainAspectRatio:false,layout:{padding:{top:24,right:8,left:4}},plugins:{legend:{display:false},tooltip:{callbacks:{label:x=>fmt(x.parsed.y)}}},scales:{y:{beginAtZero:true,grace:'14%',ticks:{color:'#657085',font:{size:11}},grid:{color:'#eef1f5'}},x:{ticks:{color:'#657085',font:{size:10},maxRotation:60,minRotation:labels.length>12?45:0},grid:{display:false}}}},plugins:showLbl?[dLabels([0])]:[]})}
+  scales:{y:{beginAtZero:true,grace:'14%',ticks:{color:'#657085',font:{size:11}},grid:{color:'#eef1f5'}},x:{ticks:{color:'#657085',font:{size:10},maxRotation:60,minRotation:labels.length>12?45:0},grid:{display:false}}}},plugins:[dLabels([0])]})}
+function barMetric(id,labels,vals,fmt,color,showLbl,selection){if(!chartsReady())return;if(ch[id])ch[id].destroy();const colors=vals.map((v,i)=>typeof color==='function'?color(v,i):color),ds=[{type:'bar',data:vals,backgroundColor:colors,borderRadius:3,maxBarThickness:34,_fmt:fmt}];ch[id]=new Chart(document.getElementById(id),{data:{labels,datasets:ds},options:{...chartInteraction(selection),responsive:true,maintainAspectRatio:false,layout:{padding:{top:24,right:8,left:4}},plugins:{legend:{display:false},tooltip:{callbacks:{label:x=>fmt(x.parsed.y)}}},scales:{y:{beginAtZero:true,grace:'14%',ticks:{color:'#657085',font:{size:11}},grid:{color:'#eef1f5'}},x:{ticks:{color:'#657085',font:{size:10},maxRotation:60,minRotation:labels.length>12?45:0},grid:{display:false}}}},plugins:[dLabels([0])]})}
 function adhChart(id,labels,sV,cV,selection){if(!chartsReady())return;if(ch[id])ch[id].destroy();
  ch[id]=new Chart(document.getElementById(id),{data:{labels,datasets:[
-  {type:'line',label:'Secuencia',data:sV,borderColor:C.sec,borderWidth:2.5,tension:.3,pointRadius:labels.length>15?0:3,fill:false},
-  {type:'line',label:'Click',data:cV,borderColor:C.cli,borderWidth:2.5,tension:.3,pointRadius:labels.length>15?0:3,fill:false},
+  {type:'line',label:'Secuencia',data:sV,_fmt:fmtPct,borderColor:C.sec,borderWidth:2.5,tension:.3,pointRadius:labels.length>15?0:3,fill:false},
+  {type:'line',label:'Click',data:cV,_fmt:fmtPct,borderColor:C.cli,borderWidth:2.5,tension:.3,pointRadius:labels.length>15?0:3,fill:false},
   {type:'line',label:'Objetivo 85%',data:sV.map(()=>OA),borderColor:C.bad,borderWidth:2,borderDash:[6,4],pointRadius:0,fill:false}]},
   options:{...chartInteraction(selection),responsive:true,maintainAspectRatio:false,plugins:{legend:{display:true,labels:{boxWidth:10,font:{size:10}}},tooltip:{callbacks:{label:x=>x.dataset.label+': '+r1(x.parsed.y)+'%'}}},
-  scales:{y:{suggestedMin:40,suggestedMax:100,ticks:{callback:v=>v+'%',color:'#657085',font:{size:11}},grid:{color:'#eef1f5'}},x:{ticks:{color:'#657085',font:{size:10},maxRotation:60,minRotation:labels.length>12?45:0},grid:{display:false}}}}})}
+  scales:{y:{suggestedMin:40,suggestedMax:100,ticks:{callback:v=>v+'%',color:'#657085',font:{size:11}},grid:{color:'#eef1f5'}},x:{ticks:{color:'#657085',font:{size:10},maxRotation:60,minRotation:labels.length>12?45:0},grid:{display:false}}}},plugins:[dLabels([0,1])]})}
 function dispChart(id,labels,kV,hV,selection){if(!chartsReady())return;if(ch[id])ch[id].destroy();
  ch[id]=new Chart(document.getElementById(id),{data:{labels,datasets:[
-  {type:'bar',label:'Km',data:kV,backgroundColor:kV.map(colDisp),borderRadius:3,maxBarThickness:18},
-  {type:'bar',label:'Hs',data:hV,backgroundColor:hV.map(colDisp),borderRadius:3,maxBarThickness:18},
+  {type:'bar',label:'Km',data:kV,_fmt:sgn,backgroundColor:kV.map(colDisp),borderRadius:3,maxBarThickness:18},
+  {type:'bar',label:'Hs',data:hV,_fmt:sgn,backgroundColor:hV.map(colDisp),borderRadius:3,maxBarThickness:18},
   {type:'line',label:'+10%',data:kV.map(()=>OD),borderColor:C.good,borderWidth:1.5,borderDash:[5,4],pointRadius:0},
   {type:'line',label:'-10%',data:kV.map(()=>-OD),borderColor:C.good,borderWidth:1.5,borderDash:[5,4],pointRadius:0}]},
   options:{...chartInteraction(selection),responsive:true,maintainAspectRatio:false,plugins:{legend:{display:true,labels:{boxWidth:10,font:{size:10},filter:i=>['Km','Hs'].includes(i.text)}},
    tooltip:{callbacks:{label:x=>x.dataset.label+': '+sgn(x.parsed.y)+(['Km','Hs'].includes(x.dataset.label)?(Math.abs(x.parsed.y)<=OD?' (dentro)':' (fuera)'):'')}}},
-   scales:{y:{ticks:{callback:v=>v+'%',color:'#657085',font:{size:11}},grid:{color:'#eef1f5'}},x:{ticks:{color:'#657085',font:{size:10},maxRotation:60,minRotation:labels.length>12?45:0},grid:{display:false}}}}})}
+   scales:{y:{ticks:{callback:v=>v+'%',color:'#657085',font:{size:11}},grid:{color:'#eef1f5'}},x:{ticks:{color:'#657085',font:{size:10},maxRotation:60,minRotation:labels.length>12?45:0},grid:{display:false}}}},plugins:[dLabels([0,1])]})}
 function rowsHtml(items,keyFmt,withDisp){return items.map(s=>{const cl=(v,o)=>v==null?'':(v<=o?'g':'r'),ca=v=>v==null?'':(v>=OA?'g':'r'),cd=v=>v==null?'':(Math.abs(v)<=OD?'g':'r');
   return '<tr><td>'+esc(keyFmt(s.key))+'</td><td>'+s.n+'</td><td class="'+cl(s.tml,OBJ.tml)+'">'+r1(s.tml)+'</td><td class="'+cl(s.ti,OBJ.ti)+'">'+r1(s.ti)+'</td><td class="'+cl(s.hr,OBJ.ruta)+'">'+hhmmH(s.hr)+'</td><td class="'+ca(s.as)+'">'+(s.as==null?'–':r1(s.as)+'%')+'</td><td class="'+ca(s.ac)+'">'+(s.ac==null?'–':r1(s.ac)+'%')+'</td>'+(withDisp?('<td class="'+cd(s.dk)+'">'+sgn(s.dk)+'</td><td class="'+cd(s.dh)+'">'+sgn(s.dh)+'</td>'):'')+'</tr>'}).join('')}
 function tmlTiSource(scope){const us=scope.filter(r=>r.usable),fy=us.filter(r=>String(r.tml_ti_origen||'').startsWith('fichaya')).length,ref=us.filter(r=>r.tml_referencia_mensual!=null||r.ti_referencia_mensual!=null).length,est=us.length-fy-ref;if(!us.length)return'Sin rutas válidas para TML/TI';const parts=[];if(ref)parts.push('referencia Casa Central '+ref);if(fy)parts.push('FichaYA '+fy);if(est>0)parts.push('estimadas '+est);return'Promedio por ruta · '+parts.join(' · ')}
@@ -695,22 +721,23 @@ function foxJornadaAgg(rows,field){const g={};foxJornadas(rows).forEach(r=>{cons
 function foxPersonaTable(items){return items.length?items.map(r=>'<tr><td>'+esc(r.key)+'</td><td>'+r.jornadas+'</td><td>'+r.n+'</td><td>'+r.recargas+'</td><td>'+tLbl(r.ini)+'</td><td>'+tLbl(r.fin)+'</td><td>'+durLbl(r.dur)+'</td></tr>').join(''):emptyRow(7,'No hay horarios Foxtrot para el filtro actual.')}
 function recargaMes(rows){const g={};rows.filter(esRecarga).forEach(r=>{const k=r.mes,x=g[k]||(g[k]={key:k,n:0,total:0,personas:new Set()});x.n+=1;x.total+=r.horas!=null?r.horas*60:(tMin(r.fin_foxtrot)-tMin(r.inicio_foxtrot));x.personas.add(personaBase(r))});return Object.keys(g).sort().map(k=>{const x=g[k];return{key:k,n:x.n,total:x.total,prom:x.n?x.total/x.n:null,personas:x.personas.size}})}
 function recargaRows(items){return items.length?items.map(r=>'<tr><td>'+mLbl(r.key)+' '+r.key.slice(0,4)+'</td><td>'+r.n+'</td><td>'+r.personas+'</td><td>'+durLbl(r.prom)+'</td><td>'+durLbl(r.total)+'</td></tr>').join(''):emptyRow(5,'No hay recargas para el filtro actual.')}
-function foxDetalleTable(rows){if(!rows.length)return emptyRow(13,'No hay horarios Foxtrot para el filtro actual.');const g={};rows.forEach(r=>{const k=r.fecha+'|'+personaBase(r),dur=r.horas!=null?r.horas*60:(tMin(r.fin_foxtrot)-tMin(r.inicio_foxtrot)),x=g[k]||(g[k]={fecha:r.fecha,mes:r.mes,suc:r.suc,camion:r.camion||'Sin camion',persona:personaBase(r),carga:0,recarga:0,cargaIni:null,cargaFin:null,recIni:null,recFin:null,tramos:[]}),rec=esRecarga(r);
+function foxDetalleTable(rows){if(!rows.length)return emptyRow(15,'No hay horarios Foxtrot para el filtro actual.');const g={};rows.forEach(r=>{const k=r.fecha+'|'+personaBase(r),dur=r.horas!=null?r.horas*60:(tMin(r.fin_foxtrot)-tMin(r.inicio_foxtrot)),x=g[k]||(g[k]={fecha:r.fecha,mes:r.mes,suc:r.suc,camion:r.camion||'Sin camion',persona:personaBase(r),carga:0,recarga:0,cargaIni:null,cargaFin:null,recIni:null,recFin:null,ingreso:null,egreso:null,tramos:[]}),rec=esRecarga(r);
   if(rec){x.recarga+=dur||0;x.recIni=x.recIni==null?tMin(r.inicio_foxtrot):Math.min(x.recIni,tMin(r.inicio_foxtrot));x.recFin=x.recFin==null?tMin(r.fin_foxtrot):Math.max(x.recFin,tMin(r.fin_foxtrot))}
   else{x.carga+=dur||0;x.cargaIni=x.cargaIni==null?tMin(r.inicio_foxtrot):Math.min(x.cargaIni,tMin(r.inicio_foxtrot));x.cargaFin=x.cargaFin==null?tMin(r.fin_foxtrot):Math.max(x.cargaFin,tMin(r.fin_foxtrot))}
-  x.tramos.push((rec?'Recarga':'Carga')+' '+r.inicio_foxtrot+'-'+r.fin_foxtrot)
+  const ingreso=tMin(r.fichaya_ingreso),egreso=tMin(r.fichaya_egreso);if(ingreso!=null)x.ingreso=x.ingreso==null?ingreso:Math.min(x.ingreso,ingreso);if(egreso!=null)x.egreso=x.egreso==null?egreso:Math.max(x.egreso,egreso);
+  x.tramos.push((rec?'Recarga':'Carga')+' '+r.inicio_foxtrot+'-'+r.fin_foxtrot+(r.tml_ti_ajuste_manual?' (ajuste manual)':''))
  });
- return Object.values(g).sort((a,b)=>b.fecha.localeCompare(a.fecha)||a.persona.localeCompare(b.persona)).map(r=>{const total=(r.carga||0)+(r.recarga||0),grp=r.recarga?' class="warn"':'';return '<tr'+grp+'><td>'+dLbl(r.fecha)+'</td><td>'+mLbl(r.mes)+' '+r.mes.slice(0,4)+'</td><td>'+esc(r.suc)+'</td><td>'+esc(r.camion)+'</td><td>'+esc(r.persona)+'</td><td>'+tLbl(r.cargaIni)+'</td><td>'+tLbl(r.cargaFin)+'</td><td>'+durLbl(r.carga)+'</td><td>'+tLbl(r.recIni)+'</td><td>'+tLbl(r.recFin)+'</td><td>'+durLbl(r.recarga)+'</td><td><b>'+durLbl(total)+'</b></td><td>'+esc(r.tramos.join(' / '))+'</td></tr>'}).join('')}
+ return Object.values(g).sort((a,b)=>b.fecha.localeCompare(a.fecha)||a.persona.localeCompare(b.persona)).map(r=>{const total=(r.carga||0)+(r.recarga||0),grp=r.recarga?' class="warn"':'';return '<tr'+grp+'><td>'+dLbl(r.fecha)+'</td><td>'+mLbl(r.mes)+' '+r.mes.slice(0,4)+'</td><td>'+esc(r.suc)+'</td><td>'+esc(r.camion)+'</td><td>'+esc(r.persona)+'</td><td>'+tLbl(r.cargaIni)+'</td><td>'+tLbl(r.cargaFin)+'</td><td>'+durLbl(r.carga)+'</td><td>'+tLbl(r.recIni)+'</td><td>'+tLbl(r.recFin)+'</td><td>'+durLbl(r.recarga)+'</td><td><b>'+durLbl(total)+'</b></td><td>'+tLbl(r.ingreso)+'</td><td>'+tLbl(r.egreso)+'</td><td>'+esc(r.tramos.join(' / '))+'</td></tr>'}).join('')}
 function recargaChart(id,items){if(!chartsReady())return;if(ch[id])ch[id].destroy();const labels=items.map(r=>mLbl(r.key)+' '+r.key.slice(0,4)),vals=items.map(r=>r.prom/60);
- ch[id]=new Chart(document.getElementById(id),{type:'bar',data:{labels,datasets:[{label:'Promedio recarga',data:vals,backgroundColor:C.amber,borderRadius:4,maxBarThickness:34}]},
+ ch[id]=new Chart(document.getElementById(id),{type:'bar',data:{labels,datasets:[{label:'Promedio recarga',data:vals,_fmt:hhmmH,backgroundColor:C.amber,borderRadius:4,maxBarThickness:34}]},
   options:{...chartInteraction(chartFilter('mes',items.map(r=>r.key))),responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:x=>hhmmH(x.parsed.y)+' promedio · '+items[x.dataIndex].n+' recargas'}}},
-  scales:{y:{beginAtZero:true,ticks:{callback:hhmmH,color:'#657085',font:{size:11}},grid:{color:'#eef1f5'}},x:{ticks:{color:'#657085',font:{size:10}},grid:{display:false}}}}})}
+  scales:{y:{beginAtZero:true,ticks:{callback:hhmmH,color:'#657085',font:{size:11}},grid:{color:'#eef1f5'}},x:{ticks:{color:'#657085',font:{size:10}},grid:{display:false}}}},plugins:[dLabels([0])]})}
 function foxChart(id,items,keyFmt,dimension){if(!chartsReady())return;if(ch[id])ch[id].destroy();const labels=items.map(r=>keyFmt(r.key));
  ch[id]=new Chart(document.getElementById(id),{type:'line',data:{labels,datasets:[
-  {label:'Inicio',data:items.map(r=>r.ini),borderColor:C.cli,backgroundColor:C.cli,borderWidth:2.5,tension:.25,pointRadius:3,fill:false},
-  {label:'Fin',data:items.map(r=>r.fin),borderColor:C.amber,backgroundColor:C.amber,borderWidth:2.5,tension:.25,pointRadius:3,fill:false}]},
+  {label:'Inicio',data:items.map(r=>r.ini),_fmt:tLbl,borderColor:C.cli,backgroundColor:C.cli,borderWidth:2.5,tension:.25,pointRadius:3,fill:false},
+  {label:'Fin',data:items.map(r=>r.fin),_fmt:tLbl,borderColor:C.amber,backgroundColor:C.amber,borderWidth:2.5,tension:.25,pointRadius:3,fill:false}]},
   options:{...chartInteraction(chartFilter(dimension,items.map(r=>r.key),[0,1])),responsive:true,maintainAspectRatio:false,plugins:{legend:{display:true,labels:{boxWidth:10,font:{size:10}}},tooltip:{callbacks:{label:x=>x.dataset.label+': '+tLbl(x.parsed.y)}}},
-  scales:{y:{min:360,max:1320,ticks:{stepSize:120,callback:tLbl,color:'#657085',font:{size:11}},grid:{color:'#eef1f5'}},x:{ticks:{color:'#657085',font:{size:10},maxRotation:60,minRotation:labels.length>12?45:0},grid:{display:false}}}}})}
+  scales:{y:{min:360,max:1320,ticks:{stepSize:120,callback:tLbl,color:'#657085',font:{size:11}},grid:{color:'#eef1f5'}},x:{ticks:{color:'#657085',font:{size:10},maxRotation:60,minRotation:labels.length>12?45:0},grid:{display:false}}}},plugins:[dLabels([0,1])]})}
 function renderHorarios(){const rows=foxRows(),jRows=foxJornadas(rows),sum=foxJornadaSummary('',jRows),col=C.cli;
  kFoxIni.textContent=tLbl(sum.ini);kFoxFin.textContent=tLbl(sum.fin);kFoxDur.textContent=durLbl(sum.dur);kFoxRutas.textContent=jRows.length;
  [[cFoxIni,bFoxIni,C.cli],[cFoxFin,bFoxFin,C.amber],[cFoxDur,bFoxDur,C.obj],[cFoxRutas,bFoxRutas,C.sec]].forEach(([c,b,x])=>{c.style.setProperty('--accent',x);b.style.background=x;b.style.width='100%'});
@@ -737,7 +764,7 @@ function otChart(id,items,dimension){if(!chartsReady())return;if(ch[id])ch[id].d
  ch[id]=new Chart(document.getElementById(id),{data:{labels:rows.map(s=>s.key),datasets:[{type:'bar',data:rows.map(s=>s.p),backgroundColor:rows.map(s=>s.p>=85?C.good:C.bad),borderRadius:4,maxBarThickness:22},{type:'line',data:rows.map(()=>85),borderColor:C.obj,borderWidth:2,borderDash:[6,4],pointRadius:0}]},
   options:{...chartInteraction(dimension?chartFilter(dimension,rows.map(s=>s.key)):null),indexAxis:'y',responsive:true,maintainAspectRatio:false,layout:{padding:{right:28}},plugins:{legend:{display:false},tooltip:{callbacks:{label:x=>x.datasetIndex===1?'Objetivo 85%':r1(x.parsed.x)+'% · '+rows[x.dataIndex].ev+' pedidos eval.'}}},
   scales:{x:{min:0,max:100,ticks:{callback:v=>v+'%',color:'#657085',font:{size:11}},grid:{color:'#eef1f5'}},y:{ticks:{color:'#26334d',font:{size:10}},grid:{display:false}}}},plugins:[hLabels(0,v=>r1(v)+'%')]})}
-function hLabels(di,fmt){return {id:'hl'+di,afterDatasetsDraw(c){const{ctx}=c,m=c.getDatasetMeta(di);ctx.save();ctx.font='600 10px system-ui';ctx.fillStyle='#26334d';ctx.textAlign='left';ctx.textBaseline='middle';m.data.forEach((b,i)=>{const v=c.data.datasets[di].data[i];if(v!=null)ctx.fillText(fmt(v),b.x+6,b.y)});ctx.restore()}}}
+function hLabels(di,fmt){return {id:'hl'+di,afterDatasetsDraw(c){if(!c.isDatasetVisible(di))return;const{ctx,chartArea}=c,m=c.getDatasetMeta(di);ctx.save();ctx.font='600 10px system-ui';ctx.fillStyle='#26334d';ctx.strokeStyle='rgba(255,255,255,.96)';ctx.lineWidth=3;ctx.textAlign='left';ctx.textBaseline='middle';m.data.forEach((b,i)=>{const v=c.data.datasets[di].data[i];if(v==null||!Number.isFinite(Number(v)))return;const label=String(fmt(v)),x=Math.max(chartArea.left+3,Math.min(b.x+6,chartArea.right-ctx.measureText(label).width-3));ctx.strokeText(label,x,b.y);ctx.fillText(label,x,b.y)});ctx.restore()}}}
 function rechazoPeriodOk(r){return(state.mes==='__all'||r.fecha.slice(0,7)===state.mes)&&(state.fecha==='__all'||r.fecha===state.fecha)}
 function rechazosScope(){return RECH.filter(r=>rechazoBase(r)&&rechazoPeriodOk(r))}
 function rechazosDetalleScope(){return RECHDET.filter(r=>rechazoBase(r)&&rechazoPeriodOk(r)&&(state.cho==='__all'||cleanPersona(r.chofer)===state.cho))}
@@ -926,12 +953,34 @@ function renderCards(){const cards=R.filter(scopeCards),us=cards.filter(r=>r.usa
  const bg=(id,ok,v)=>{const el=document.getElementById(id);if(v==null){el.className='badge';el.textContent='';return}el.className='badge '+(ok?'ok':'no');el.textContent=ok?'OK':(id[1]==='D'?'FUERA':'BAJO')};
  bg('gAs',aAs>=OA,aAs);bg('gAc',aAc>=OA,aAc);bg('gDk',Math.abs(aDk)<=OD,aDk);bg('gDh',Math.abs(aDh)<=OD,aDh);
  const ck=us.filter(r=>r.dispkm!=null).length,ch=us.filter(r=>r.disphs!=null).length,cud=us.length||1,dx=us.filter(r=>r.disp_descartada).length,dtxt=dx?' · '+dx+' descart. Foxtrot':'';oDk.textContent='rango ±10% · '+Math.round(100*ck/cud)+'% cob.'+dtxt;oDh.textContent='rango ±10% · '+Math.round(100*ch/cud)+'% cob.'+dtxt;renderGauges(aTml,aHr,aTi);}
-function renderMes(){const usM=R.filter(r=>r.usable&&full(r));const OC=65;const cmp=(k,o)=>{const values=usM.map(r=>r[k]).filter(v=>v!=null),ok=values.filter(v=>v<=o).length;return{value:values.length?ok/values.length*100:null,ok,total:values.length}};[["TI","ti",OBJ.ti],["TML","tml",OBJ.tml]].forEach(([p,k,o])=>{const result=cmp(k,o),c=result.value,ok=c!=null&&c>=OC,col=c==null?C.obj:(ok?C.good:C.bad);document.getElementById("c"+p+"cmp").style.setProperty("--accent",col);document.getElementById("k"+p+"cmp").textContent=c==null?"–":r1(c)+"%";document.getElementById("o"+p+"cmp").textContent=result.total?result.ok+" de "+result.total+" rutas con "+p+" ≤ "+o+" min · objetivo ≥"+OC+"%":"Sin rutas validadas para "+p;const b=document.getElementById("b"+p+"cmp");b.style.background=col;b.style.width=Math.min(100,c||0)+"%";const bg=document.getElementById("g"+p+"cmp");bg.className="badge "+(c==null?"":(ok?"ok":"no"));bg.textContent=c==null?"SIN DATOS":(ok?"CUMPLE":"NO");});const ser=aggOperativo('mes',usM);
+const originNotesToggle=document.getElementById('showOriginNotes');
+try{originNotesToggle.checked=localStorage.getItem('dashboard-show-origin-notes')!=='false'}catch(e){}
+function applyOriginNotesPreference(){document.body.classList.toggle('hide-origin-notes',!originNotesToggle.checked)}
+originNotesToggle.addEventListener('change',()=>{applyOriginNotesPreference();try{localStorage.setItem('dashboard-show-origin-notes',String(originNotesToggle.checked))}catch(e){}});
+applyOriginNotesPreference();
+const OBJ_CUMPLIMIENTO=65;
+function cumplimientoRutas(rows,key,limit){const estimated=rows.filter(r=>r.usable&&r[key+'_estimado']&&Number.isFinite(r[key])).length;const values=rows.filter(r=>r.usable).map(r=>r[key]).filter(v=>v!=null&&Number.isFinite(v)),ok=values.filter(v=>v<=limit).length;return{value:values.length?ok/values.length*100:null,ok,total:values.length,estimated}}
+function cumplimientoMensual(rows){const groups={};rows.filter(r=>r.usable&&r.mes).forEach(r=>(groups[r.mes]||(groups[r.mes]=[])).push(r));return Object.keys(groups).sort().map(key=>({key,ti:cumplimientoRutas(groups[key],'ti',OBJ.ti),tml:cumplimientoRutas(groups[key],'tml',OBJ.tml)}))}
+function renderCumplimientoMensual(rows){
+ const months=cumplimientoMensual(rows),labels=months.map(r=>mLbl(r.key)+' '+r.key.slice(0,4));
+ const cells=result=>'<td>'+result.ok+' / '+result.total+'</td><td class="'+(result.value==null?'':result.value>=OBJ_CUMPLIMIENTO?'g':'r')+'">'+fmtPct(result.value)+(result.estimated?' <span class="origin-note">(estimado)</span>':'')+'</td><td>'+(result.value==null?'Sin datos':result.value>=OBJ_CUMPLIMIENTO?'CUMPLE':'NO CUMPLE')+'</td>';
+ document.getElementById('tbodyCmpMes').innerHTML=months.length?months.map((r,i)=>'<tr><td>'+esc(labels[i])+'</td>'+cells(r.tml)+cells(r.ti)+'</tr>').join(''):emptyRow(7,'No hay rutas validadas para los filtros activos.');
+ document.getElementById('tfootCmpMes').innerHTML=months.length?'<tr><td>Total del período</td>'+cells(cumplimientoRutas(rows,'tml',OBJ.tml))+cells(cumplimientoRutas(rows,'ti',OBJ.ti))+'</tr>':'';
+ [['chTIcmpMes','ti'],['chTMLcmpMes','tml']].forEach(([id,key])=>{
+  barGen(id,labels,months.map(r=>r[key].value),fmtPct,v=>v==null?C.obj:v>=OBJ_CUMPLIMIENTO?C.good:C.bad,OBJ_CUMPLIMIENTO,true,chartFilter('mes',months.map(r=>r.key)));
+  if(!chartsReady()||!ch[id])return;
+  const chart=ch[id];chart.options.scales.y.max=100;chart.options.scales.y.ticks.callback=v=>v+'%';
+  chart.options.plugins.tooltip.callbacks.label=context=>context.datasetIndex===1?'Objetivo ≥'+OBJ_CUMPLIMIENTO+'%':fmtPct(context.parsed.y)+' · '+months[context.dataIndex][key].ok+' de '+months[context.dataIndex][key].total+' rutas';
+  chart.update();
+ });
+}
+function renderMes(){const usM=R.filter(r=>r.usable&&full(r));renderCumplimientoMensual(usM);const OC=OBJ_CUMPLIMIENTO;const cmp=(k,o)=>cumplimientoRutas(usM,k,o);[["TI","ti",OBJ.ti],["TML","tml",OBJ.tml]].forEach(([p,k,o])=>{const result=cmp(k,o),c=result.value,ok=c!=null&&c>=OC,col=c==null?C.obj:(ok?C.good:C.bad);document.getElementById("c"+p+"cmp").style.setProperty("--accent",col);document.getElementById("k"+p+"cmp").textContent=c==null?"–":r1(c)+"%";document.getElementById("o"+p+"cmp").textContent=result.total?result.ok+" de "+result.total+" rutas con "+p+" ≤ "+o+" min · objetivo ≥"+OC+"%":"Sin rutas validadas para "+p;if(result.estimated){const note=document.createElement("span");note.className="origin-note";note.textContent=" (incluye "+p+" estimado)";document.getElementById("o"+p+"cmp").appendChild(note)}const b=document.getElementById("b"+p+"cmp");b.style.background=col;b.style.width=Math.min(100,c||0)+"%";const bg=document.getElementById("g"+p+"cmp");bg.className="badge "+(c==null?"":(ok?"ok":"no"));bg.textContent=c==null?"SIN DATOS":(ok?"CUMPLE":"NO");});const ser=aggOperativo('mes',usM);
  const lab=ser.map(s=>mLbl(s.key));
  const mesSelect=chartFilter('mes',ser.map(s=>s.key));
- barGen('chTml',lab,ser.map(s=>s.tml),v=>r1(v)+'',v=>colLow(v,OBJ.tml),OBJ.tml,true,mesSelect);
+ barGen('chTml',lab,ser.map(s=>s.tml),v=>r1(v)+' min',()=>C.cli,OBJ.tml,true,mesSelect);
  barGen('chHr',lab,ser.map(s=>s.hr),hhmmH,colRuta,OBJ.ruta,true,mesSelect);
- barGen('chTi',lab,ser.map(s=>s.ti),v=>r1(v)+'',v=>colLow(v,OBJ.ti),OBJ.ti,true,mesSelect);
+ barGen('chTi',lab,ser.map(s=>s.ti),v=>r1(v)+' min',()=>C.cli,OBJ.ti,true,mesSelect);
+ ['chTml','chTi'].forEach(id=>{if(!ch[id])return;ch[id].options.plugins.tooltip.callbacks.label=ctx=>ctx.datasetIndex===1?'Referencia: 30 min':'Promedio: '+r1(ctx.parsed.y)+' min';ch[id].update()});
  tbody.innerHTML=rowsHtml(ser,mLbl,false);
  const tot=usM,jTot=jornadas(tot);
  tfoot.innerHTML='<tr><td>Total</td><td>'+jTot.length+'</td><td>'+r1(avg(tot.map(r=>r.tml)))+'</td><td>'+r1(avg(tot.map(r=>r.ti)))+'</td><td>'+hhmmH(avg(jTot.map(r=>r.horas)))+'</td><td>'+r1(avg(tot.map(r=>r.adhsec)))+'%</td><td>'+r1(avg(tot.map(r=>r.adhcli)))+'%</td></tr>';
@@ -941,16 +990,16 @@ function renderMes(){const usM=R.filter(r=>r.usable&&full(r));const OC=65;const 
  const cho=aggByKey(R.filter(r=>r.usable&&full(r)),personaBase);
  if(!chartsReady())return;if(ch.adhc)ch.adhc.destroy();const rc=cho.slice().sort((a,b)=>(b.as||0)-(a.as||0));
  ch.adhc=new Chart(document.getElementById('chAdhCho'),{data:{labels:rc.map(r=>personaCorta(r.key)),datasets:[
-   {type:'bar',label:'Secuencia',data:rc.map(r=>r.as),backgroundColor:C.sec+'cc',borderRadius:3,maxBarThickness:15},
-   {type:'bar',label:'Click',data:rc.map(r=>r.ac),backgroundColor:C.cli+'cc',borderRadius:3,maxBarThickness:15},
+   {type:'bar',label:'Secuencia',data:rc.map(r=>r.as),_fmt:fmtPct,backgroundColor:C.sec+'cc',borderRadius:3,maxBarThickness:15},
+   {type:'bar',label:'Click',data:rc.map(r=>r.ac),_fmt:fmtPct,backgroundColor:C.cli+'cc',borderRadius:3,maxBarThickness:15},
    {type:'line',label:'Obj 85%',data:rc.map(()=>OA),borderColor:C.bad,borderWidth:2,borderDash:[6,4],pointRadius:0}]},
    options:{...chartInteraction(chartFilter('cho',rc.map(r=>r.key),[0,1])),responsive:true,maintainAspectRatio:false,plugins:{legend:{display:true,labels:{boxWidth:10,font:{size:10}}},tooltip:{callbacks:{label:x=>x.dataset.label+': '+r1(x.parsed.y)+'%'}}},
-    scales:{y:{suggestedMax:100,ticks:{callback:v=>v+'%',color:'#657085',font:{size:11}},grid:{color:'#eef1f5'}},x:{ticks:{color:'#26334d',font:{size:10},maxRotation:60,minRotation:45},grid:{display:false}}}}});
+    scales:{y:{suggestedMax:100,ticks:{callback:v=>v+'%',color:'#657085',font:{size:11}},grid:{color:'#eef1f5'}},x:{ticks:{color:'#26334d',font:{size:10},maxRotation:60,minRotation:45},grid:{display:false}}}},plugins:[dLabels([0,1])]});
  const rh=personaDiaHoras(R.filter(r=>r.usable&&full(r))).sort((a,b)=>(b.hr||0)-(a.hr||0));if(ch.cho)ch.cho.destroy();
  ch.cho=new Chart(document.getElementById('chCho'),{data:{labels:rh.map(r=>personaCorta(r.key)),
    datasets:[{type:'bar',data:rh.map(r=>r.hr),backgroundColor:rh.map(r=>colRuta(r.hr)),borderRadius:4,maxBarThickness:22},{type:'line',data:rh.map(()=>OBJ.ruta),borderColor:C.obj,borderWidth:2,borderDash:[6,4],pointRadius:0}]},
    options:{...chartInteraction(chartFilter('cho',rh.map(r=>r.key))),indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:x=>x.datasetIndex===1?'Objetivo 7:00':hhmmH(x.parsed.x)+' · '+rh[x.dataIndex].jornadas+' jornadas · '+rh[x.dataIndex].recargas+' recargas'}}},
-    scales:{x:{beginAtZero:true,ticks:{callback:v=>r1(v)+'h',color:'#657085',font:{size:11}},grid:{color:'#eef1f5'}},y:{ticks:{color:'#26334d',font:{size:11}},grid:{display:false}}}}});}
+    scales:{x:{beginAtZero:true,ticks:{callback:v=>r1(v)+'h',color:'#657085',font:{size:11}},grid:{color:'#eef1f5'}},y:{ticks:{color:'#26334d',font:{size:11}},grid:{display:false}}}},plugins:[hLabels(0,hhmmH)]});}
 function renderDia(){
  const scope=R.filter(r=>r.usable&&full(r));
  const dd=aggOperativo('fecha',scope);const lab=dd.map(s=>dLbl(s.key));const few=dd.length<=20;

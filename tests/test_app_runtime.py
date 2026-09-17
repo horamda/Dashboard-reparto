@@ -163,6 +163,200 @@ class AppRuntimeTests(unittest.TestCase):
         self.assertEqual(route["fichaya_ingreso"], "07:10")
         self.assertEqual(route["fichaya_egreso"], "14:20")
 
+    def test_manual_foxtrot_times_apply_without_valid_fichaya_metrics(self):
+        route = {
+            "rid": "manual-no-marks", "fecha": "2026-09-16", "usable": True,
+            "chofer": "Persona", "inicio_foxtrot": "08:00",
+            "fin_foxtrot": "16:00", "horas": 8, "tml": 45, "ti": 45,
+            "tml_ti_origen": "estimado",
+        }
+        manual = {"RID:manual-no-marks": {"finalizacion_foxtrot": "15:30"}}
+        with patch.object(pipeline, "cargar_fichadas_cache", return_value={}), \
+             patch.object(pipeline, "fichaya_nombre_map", return_value={}), \
+             patch.object(pipeline, "fichaya_empleados", return_value={}), \
+             patch.object(pipeline, "fichaya_ajustes_manuales", return_value=manual):
+            pipeline.aplicar_tiempos_fichaya_guardados([route])
+        self.assertEqual(route["fin_foxtrot"], "15:30")
+        self.assertEqual(route["horas"], 7.5)
+        self.assertTrue(route["tml_ti_ajuste_manual"])
+        self.assertEqual(route["tml_ti_origen"], "estimado")
+
+    def test_manual_fichada_is_kept_even_when_ti_and_tml_are_invalid(self):
+        route = {
+            "rid": "manual-invalid", "fecha": "2026-09-16", "usable": True,
+            "chofer": "Persona", "inicio_foxtrot": "08:00",
+            "fin_foxtrot": "16:00", "horas": 8,
+        }
+        manual = {"RID:manual-invalid": {"fichada_salida": "15:00"}}
+        with patch.object(pipeline, "cargar_fichadas_cache", return_value={}), \
+             patch.object(pipeline, "fichaya_nombre_map", return_value={}), \
+             patch.object(pipeline, "fichaya_empleados", return_value={}), \
+             patch.object(pipeline, "fichaya_ajustes_manuales", return_value=manual):
+            pipeline.aplicar_tiempos_fichaya_guardados([route])
+        self.assertEqual(route["fichaya_egreso"], "15:00")
+        self.assertEqual(route["horas"], 8)
+        self.assertNotIn("ti", route)
+
+    def test_january_ti_simulation_is_stable_and_preserves_other_metrics(self):
+        rows = [{"rid": str(i), "mes": "2026-01", "usable": True,
+                 "ti": 50, "tml": 32, "horas": 7, "ti_referencia_mensual": 42}
+                for i in range(100)]
+        excluded = [
+            {"rid": "feb", "mes": "2026-02", "usable": True, "ti": 50},
+            {"rid": "real", "mes": "2026-01", "usable": True, "ti": 10, "tml_ti_origen": "fichaya"},
+            {"rid": "invalid", "mes": "2026-01", "usable": False, "ti": 50},
+        ]
+        pipeline._estimar_ti_enero_2026(rows + excluded)
+        values = [r["ti"] for r in rows]
+        self.assertTrue(all(25 <= v <= 45 for v in values))
+        self.assertGreater(len(set(values)), 90)
+        self.assertTrue(all(r["ti_estimado"] and "ti_referencia_mensual" not in r for r in rows))
+        self.assertTrue(all(r["tml"] == 32 and r["horas"] == 7 for r in rows))
+        pipeline._estimar_ti_enero_2026(list(reversed(rows)))
+        self.assertEqual(values, [r["ti"] for r in rows])
+        self.assertEqual([r["ti"] for r in excluded], [50, 10, 50])
+        self.assertTrue(all("ti_estimado" not in r for r in excluded))
+
+    def test_persisted_january_estimate_survives_dashboard_projection(self):
+        row = pipeline._dashboard_route({
+            "rid": "saved", "mes": "2026-01", "suc": "Mar de Ajo",
+            "usable": True, "ti": 28.25, "tml": 32,
+            "ti_estimado": True, "ti_estimacion_metodo": "uniforme_25_45_v1",
+        })
+        pipeline._calibrar_tiempos_historicos_casa_central([row])
+        pipeline._estimar_ti_enero_2026([row])
+        self.assertEqual(row["ti"], 28.25)
+        self.assertTrue(row["ti_estimado"])
+        self.assertNotIn("ti_referencia_mensual", row)
+
+    def test_july_ti_simulation_is_stable_and_preserves_other_metrics(self):
+        rows = [{"rid": str(i), "mes": "2026-07", "usable": True,
+                 "ti": 50, "tml": 32, "horas": 7, "ti_referencia_mensual": 42}
+                for i in range(100)]
+        excluded = [
+            {"rid": "feb", "mes": "2026-02", "usable": True, "ti": 50},
+            {"rid": "real", "mes": "2026-07", "usable": True, "ti": 10, "tml_ti_origen": "fichaya"},
+            {"rid": "invalid", "mes": "2026-07", "usable": False, "ti": 50},
+        ]
+        pipeline._estimar_ti_julio_2026(rows + excluded)
+        values = [r["ti"] for r in rows]
+        self.assertTrue(all(20 <= v <= 35 for v in values))
+        self.assertGreater(len(set(values)), 90)
+        self.assertTrue(all(r["ti_estimado"] and "ti_referencia_mensual" not in r for r in rows))
+        self.assertTrue(all(r["tml"] == 32 and r["horas"] == 7 for r in rows))
+        pipeline._estimar_ti_julio_2026(list(reversed(rows)))
+        self.assertEqual(values, [r["ti"] for r in rows])
+        self.assertEqual([r["ti"] for r in excluded], [50, 10, 50])
+        self.assertTrue(all("ti_estimado" not in r for r in excluded))
+
+    def test_persisted_july_estimate_survives_dashboard_projection(self):
+        row = pipeline._dashboard_route({
+            "rid": "saved", "mes": "2026-07", "suc": "Mar de Ajo",
+            "usable": True, "ti": 28.25, "tml": 32,
+            "ti_estimado": True, "ti_estimacion_metodo": "uniforme_20_35_v1",
+        })
+        pipeline._calibrar_tiempos_historicos_casa_central([row])
+        pipeline._estimar_ti_julio_2026([row])
+        self.assertEqual(row["ti"], 28.25)
+        self.assertTrue(row["ti_estimado"])
+        self.assertNotIn("ti_referencia_mensual", row)
+
+    def test_may_ti_simulation_is_stable_and_preserves_other_metrics(self):
+        rows = [{"rid": str(i), "mes": "2026-05", "usable": True,
+                 "ti": 50, "tml": 32, "horas": 7, "ti_referencia_mensual": 42}
+                for i in range(100)]
+        excluded = [
+            {"rid": "feb", "mes": "2026-02", "usable": True, "ti": 50},
+            {"rid": "real", "mes": "2026-05", "usable": True, "ti": 10, "tml_ti_origen": "fichaya"},
+            {"rid": "invalid", "mes": "2026-05", "usable": False, "ti": 50},
+        ]
+        pipeline._estimar_ti_20_35_2026(rows + excluded, "2026-05")
+        values = [r["ti"] for r in rows]
+        self.assertTrue(all(20 <= v <= 35 for v in values))
+        self.assertGreater(len(set(values)), 90)
+        self.assertTrue(all(r["ti_estimado"] and "ti_referencia_mensual" not in r for r in rows))
+        self.assertTrue(all(r["tml"] == 32 and r["horas"] == 7 for r in rows))
+        pipeline._estimar_ti_20_35_2026(list(reversed(rows)), "2026-05")
+        self.assertEqual(values, [r["ti"] for r in rows])
+        self.assertEqual([r["ti"] for r in excluded], [50, 10, 50])
+        self.assertTrue(all("ti_estimado" not in r for r in excluded))
+
+    def test_persisted_may_estimate_survives_dashboard_projection(self):
+        row = pipeline._dashboard_route({
+            "rid": "saved", "mes": "2026-05", "suc": "Mar de Ajo",
+            "usable": True, "ti": 28.25, "tml": 32,
+            "ti_estimado": True, "ti_estimacion_metodo": "uniforme_20_35_v1",
+        })
+        pipeline._calibrar_tiempos_historicos_casa_central([row])
+        pipeline._estimar_ti_20_35_2026([row], "2026-05")
+        self.assertEqual(row["ti"], 28.25)
+        self.assertTrue(row["ti_estimado"])
+        self.assertNotIn("ti_referencia_mensual", row)
+
+    def test_june_ti_simulation_is_stable_and_preserves_other_metrics(self):
+        rows = [{"rid": str(i), "mes": "2026-06", "usable": True,
+                 "ti": 50, "tml": 32, "horas": 7, "ti_referencia_mensual": 42}
+                for i in range(100)]
+        excluded = [
+            {"rid": "feb", "mes": "2026-02", "usable": True, "ti": 50},
+            {"rid": "real", "mes": "2026-06", "usable": True, "ti": 10, "tml_ti_origen": "fichaya"},
+            {"rid": "invalid", "mes": "2026-06", "usable": False, "ti": 50},
+        ]
+        pipeline._estimar_ti_20_35_2026(rows + excluded, "2026-06")
+        values = [r["ti"] for r in rows]
+        self.assertTrue(all(20 <= v <= 35 for v in values))
+        self.assertGreater(len(set(values)), 90)
+        self.assertTrue(all(r["ti_estimado"] and "ti_referencia_mensual" not in r for r in rows))
+        self.assertTrue(all(r["tml"] == 32 and r["horas"] == 7 for r in rows))
+        pipeline._estimar_ti_20_35_2026(list(reversed(rows)), "2026-06")
+        self.assertEqual(values, [r["ti"] for r in rows])
+        self.assertEqual([r["ti"] for r in excluded], [50, 10, 50])
+        self.assertTrue(all("ti_estimado" not in r for r in excluded))
+
+    def test_persisted_june_estimate_survives_dashboard_projection(self):
+        row = pipeline._dashboard_route({
+            "rid": "saved", "mes": "2026-06", "suc": "Mar de Ajo",
+            "usable": True, "ti": 28.25, "tml": 32,
+            "ti_estimado": True, "ti_estimacion_metodo": "uniforme_20_35_v1",
+        })
+        pipeline._calibrar_tiempos_historicos_casa_central([row])
+        pipeline._estimar_ti_20_35_2026([row], "2026-06")
+        self.assertEqual(row["ti"], 28.25)
+        self.assertTrue(row["ti_estimado"])
+        self.assertNotIn("ti_referencia_mensual", row)
+
+    def test_april_tml_simulation_is_stable_and_preserves_other_metrics(self):
+        rows = [{"rid": str(i), "mes": "2026-04", "usable": True,
+                 "tml": 50, "ti": 32, "horas": 7, "tml_referencia_mensual": 42}
+                for i in range(100)]
+        excluded = [
+            {"rid": "feb", "mes": "2026-02", "usable": True, "tml": 50},
+            {"rid": "real", "mes": "2026-04", "usable": True, "tml": 10, "tml_ti_origen": "fichaya"},
+            {"rid": "invalid", "mes": "2026-04", "usable": False, "tml": 50},
+        ]
+        pipeline._estimar_tml_abril_2026(rows + excluded)
+        values = [r["tml"] for r in rows]
+        self.assertTrue(all(20 <= v <= 35 for v in values))
+        self.assertGreater(len(set(values)), 90)
+        self.assertTrue(all(r["tml_estimado"] and "tml_referencia_mensual" not in r for r in rows))
+        self.assertTrue(all(r["ti"] == 32 and r["horas"] == 7 for r in rows))
+        pipeline._estimar_tml_abril_2026(list(reversed(rows)))
+        self.assertEqual(values, [r["tml"] for r in rows])
+        self.assertEqual([r["tml"] for r in excluded], [50, 10, 50])
+        self.assertTrue(all("tml_estimado" not in r for r in excluded))
+
+    def test_persisted_april_estimate_survives_dashboard_projection(self):
+        row = pipeline._dashboard_route({
+            "rid": "saved", "mes": "2026-04", "suc": "Mar de Ajo",
+            "usable": True, "tml": 28.25, "ti": 32,
+            "tml_estimado": True, "tml_estimacion_metodo": "uniforme_20_35_v1",
+        })
+        pipeline._calibrar_tiempos_historicos_casa_central([row])
+        pipeline._estimar_tml_abril_2026([row])
+        self.assertEqual(row["tml"], 28.25)
+        self.assertTrue(row["tml_estimado"])
+        self.assertNotIn("tml_referencia_mensual", row)
+
     def test_admin_message_is_escaped(self):
         with app_module.app.test_request_context("/admin"), patch.object(
             app_module.pipeline, "dqi_objetivo_bultos_mes", return_value=10

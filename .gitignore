@@ -3,6 +3,8 @@ node_modules/
 __pycache__/
 *.py[cod]
 .pytest_cache/
+data/equipos_reparto/
+data/fichaya_kpis/
 .pnpm-store/
 .npm/
 .yarn/

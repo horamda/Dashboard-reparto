@@ -29,11 +29,14 @@ from datetime import date, datetime, timedelta
 from html import escape
 from io import StringIO
 from urllib.parse import urlencode, urlsplit
-from flask import Flask, request, redirect, url_for, Response, session, send_from_directory, render_template
+from flask import Flask, request, redirect, url_for, Response, session, send_from_directory, render_template, jsonify
 import pipeline
 from logistics_cost_service import LogisticsCostService
 from pedidos_blueprint import pedidos_bp
 import storage_pedidos
+import equipos_service
+import fichaya_kpis_service
+import kpi_storage
 
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 50 * 1024 * 1024  # 50 MB
@@ -443,6 +446,7 @@ def _main_page():
             ("Análisis de pedidos", "Importación y análisis por franja horaria, corte, canal, vendedor y bultos estimados.", "/pedidos", "Abrir"),
             ("Reporte FichaYA / Foxtrot", "Empleado, fichada de ingreso, inicio Foxtrot, TML, fin Foxtrot, salida y TI.", "/reporte-fichaya-foxtrot", "Abrir"),
             ("Equipos de Casa Central", "Choferes y ayudantes por fecha y camión, con su vinculación a FichaYA.", "/equipos-reparto", "Ver equipos"),
+            ("KPIs a FichaYA", "Resultados diarios por integrante, vista previa y seguimiento de envíos.", "/kpis-fichaya", "Preparar"),
         ]),
         ("Datos y calidad", [
             ("Calidad Foxtrot", "Auditoría de columnas vacías y autocompletado de campos Foxtrot.", "/foxtrot-calidad", "Ver"),
@@ -854,7 +858,7 @@ def _import_fichaya_empleados(file_obj):
         empleados = {}
         for row in rows:
             legajo = pipeline.fichaya_legajo(cell(row, "legajo"))
-            if not legajo or not legajo.isdigit():
+            if not legajo:
                 continue
             apellido = str(cell(row, "apellido") or "").strip()
             nombre = str(cell(row, "nombre") or "").strip()
@@ -864,6 +868,8 @@ def _import_fichaya_empleados(file_obj):
                 "sucursal": str(cell(row, "sucursal_nombre") or "").strip(),
                 "puesto": str(cell(row, "puesto_nombre") or "").strip(),
                 "estado": str(cell(row, "estado") or "").strip(),
+                "empresa_id": pipeline._norm_id(cell(row, "empresa_id")),
+                "sector_id": pipeline._norm_id(cell(row, "sector_id")),
             }
     finally:
         wb.close()
@@ -1614,6 +1620,181 @@ def equipos_reparto():
                                warning=source.get("error", ""), css=DATOS_CSS)
     except Exception as exc:
         return Response(_data_unavailable_page("Equipos de Casa Central", exc), status=503)
+
+
+@app.route("/equipos-reparto/historico")
+def equipos_historico():
+    blocked = _require_login()
+    if blocked:
+        return blocked
+    today = date.today().isoformat()
+    desde, hasta = request.args.get("desde", today[:8] + "01"), request.args.get("hasta", today)
+    try:
+        equipos_service.validate_range(desde, hasta)
+    except ValueError as exc:
+        return Response(escape(str(exc)), status=400)
+    try:
+        days = pipeline.storage.load_equipo_days(desde, hasta)
+        routes = pipeline.storage.load_all() if days else {}
+        for fecha, day in days.items():
+            available = equipos_service.central_routes(routes, fecha)
+            # Mostrar también rutas eliminadas o modificadas después de asignarlas.
+            day["rutas_actuales"] = available
+            day["rutas_visibles"] = sorted(set(available) | set(day["rutas"]))
+            day["rutas_cambiadas"] = [rid for rid, saved in day["rutas"].items()
+                                      if equipos_service.route_snapshot(available.get(rid, {})) != saved["ruta_origen"]]
+        token = session.setdefault("equipos_csrf", secrets.token_urlsafe(32))
+        return render_template("equipos_historico.html", days=sorted(days.values(), key=lambda d: d["fecha"], reverse=True),
+                               desde=desde, hasta=hasta, token=token, css=DATOS_CSS,
+                               msg=request.args.get("msg", ""), error=request.args.get("err") == "1")
+    except Exception as exc:
+        return Response(_data_unavailable_page("Histórico de equipos", exc), status=503)
+
+
+def _kpis_csrf_valid():
+    expected = session.get("kpis_csrf", "")
+    return bool(expected) and secrets.compare_digest(expected, request.form.get("csrf", ""))
+
+
+@app.route("/kpis-fichaya")
+def kpis_fichaya():
+    blocked = _require_login()
+    if blocked:
+        return blocked
+    today = date.today().isoformat()
+    try:
+        token = session.setdefault("kpis_csrf", secrets.token_urlsafe(32))
+        return render_template("kpis_fichaya.html", css=DATOS_CSS, token=token,
+                               cfg=fichaya_kpis_service.config(), metrics=fichaya_kpis_service.METRICS,
+                               runs=kpi_storage.recent(), desde=today[:8] + "01", hasta=today,
+                               msg=request.args.get("msg", ""))
+    except Exception as exc:
+        return Response(_data_unavailable_page("KPIs a FichaYA", exc), status=503)
+
+
+@app.route("/kpis-fichaya/configurar", methods=["POST"])
+def kpis_fichaya_configurar():
+    blocked = _require_login()
+    if blocked:
+        return blocked
+    if not _kpis_csrf_valid():
+        return Response("Recargá el formulario antes de guardar.", status=400)
+    try:
+        selected = {key: request.form.get("codigo_" + key, "") for key in fichaya_kpis_service.METRICS
+                    if request.form.get("usar_" + key) == "1"}
+        fichaya_kpis_service.save_config(request.form.get("empresa_id"), selected, session.get("admin_user") or "admin")
+        msg = "Configuración guardada. Los indicadores y objetivos deben estar creados en FichaYA para los sectores de choferes y ayudantes."
+    except ValueError as exc:
+        msg = str(exc)
+    return redirect(url_for("kpis_fichaya", msg=msg))
+
+
+@app.route("/kpis-fichaya/preparar", methods=["POST"])
+def kpis_fichaya_preparar():
+    blocked = _require_login()
+    if blocked:
+        return blocked
+    if not _kpis_csrf_valid():
+        return Response("Recargá el formulario antes de preparar.", status=400)
+    try:
+        run = fichaya_kpis_service.create_draft(request.form.get("desde", ""), request.form.get("hasta", ""), session.get("admin_user") or "admin")
+        return redirect(url_for("kpis_fichaya_envio", identifier=run["id"]))
+    except ValueError as exc:
+        return redirect(url_for("kpis_fichaya", msg=str(exc)))
+    except Exception as exc:
+        return Response(_data_unavailable_page("Preparar KPIs", exc), status=503)
+
+
+@app.route("/kpis-fichaya/envios/<identifier>")
+def kpis_fichaya_envio(identifier):
+    blocked = _require_login()
+    if blocked:
+        return blocked
+    try:
+        run = kpi_storage.load(identifier)
+    except ValueError:
+        run = {}
+    if not run or not identifier.startswith("run_"):
+        return Response("Envío no encontrado.", status=404)
+    try:
+        page = max(1, int(request.args.get("pagina", "1")))
+    except ValueError:
+        page = 1
+    pages = max(1, math.ceil(len(run["resultados"]) / 100))
+    page = min(page, pages)
+    start = (page - 1) * 100
+    preview = [(i + 1, row, run["evidencia"][i]) for i, row in enumerate(run["resultados"]) if start <= i < start + 100]
+    token = session.setdefault("kpis_csrf", secrets.token_urlsafe(32))
+    return render_template("kpis_envio.html", css=DATOS_CSS, run=run, preview=preview, page=page, pages=pages,
+                           token=token, msg=request.args.get("msg", ""))
+
+
+@app.route("/kpis-fichaya/envios/<identifier>/enviar", methods=["POST"])
+def kpis_fichaya_enviar(identifier):
+    blocked = _require_login()
+    if blocked:
+        return blocked
+    if not _kpis_csrf_valid():
+        return jsonify(error="Recargá el formulario antes de enviar."), 400
+    try:
+        run = fichaya_kpis_service.send_next(identifier, session.get("admin_user") or "admin")
+        if request.headers.get("X-Requested-With") == "fetch":
+            return jsonify(estado=run["estado"], guardados=sum(len(c["payload"]["resultados"]) for c in run["lotes"] if c["estado"] == "guardado"))
+        return redirect(url_for("kpis_fichaya_envio", identifier=identifier))
+    except ValueError as exc:
+        if request.headers.get("X-Requested-With") == "fetch":
+            return jsonify(error=str(exc)), 409
+        return redirect(url_for("kpis_fichaya_envio", identifier=identifier, msg=str(exc)))
+    except Exception:
+        # El lote persistido permite recuperar una respuesta incierta. No registrar
+        # excepciones de transporte que puedan contener detalles de credenciales.
+        return jsonify(error="No se pudo confirmar el envío. Revisá su historial antes de reintentar."), 503
+
+
+@app.route("/equipos-reparto/historico/guardar", methods=["POST"])
+def equipos_historico_guardar():
+    blocked = _require_login()
+    if blocked:
+        return blocked
+    expected = session.get("equipos_csrf", "")
+    if not expected or not secrets.compare_digest(expected, request.form.get("csrf", "")):
+        return Response("La sesión del formulario venció. Recargá la página.", status=400)
+    desde, hasta = request.form.get("desde", ""), request.form.get("hasta", "")
+    try:
+        equipos_service.validate_range(desde, hasta)
+    except ValueError as exc:
+        return Response(escape(str(exc)), status=400)
+    try:
+        action = request.form.get("accion", "")
+        user = session.get("admin_user") or "admin"
+        if action == "importar":
+            result = equipos_service.sync_history(desde, hasta, user)
+            msg = (f'Días guardados: {result["guardados"]}. Sin cambios: {result["existentes"]}. '
+                   f'Días con cambios pendientes de revisión: {result["cambiados"]}. '
+                   'Los días ya guardados se conservaron. No se importan fechas futuras.')
+            if result["fechas_cambiadas"]:
+                msg += " Revisar: " + ", ".join(sorted(result["fechas_cambiadas"])) + "."
+        elif action in {"actualizar", "asignar"}:
+            fecha = request.form.get("fecha", "")
+            date.fromisoformat(fecha)
+            if not desde <= fecha <= hasta:
+                raise ValueError("El día debe estar dentro del rango seleccionado.")
+            revision = int(request.form.get("revision", ""))
+            reason = request.form.get("motivo", "").strip()
+            if action == "actualizar":
+                equipos_service.revise_day(fecha, revision, user, reason)
+                msg = "Equipo actualizado desde DPO. La versión anterior quedó en el historial y las rutas se volvieron a evaluar."
+            else:
+                equipos_service.assign_route(fecha, revision, request.form.get("ruta", ""),
+                                             request.form.get("equipo", ""), user, reason)
+                msg = "Asignación guardada en el historial."
+        else:
+            raise ValueError("Acción desconocida.")
+        return redirect(url_for("equipos_historico", desde=desde, hasta=hasta, msg=msg))
+    except ValueError as exc:
+        return redirect(url_for("equipos_historico", desde=desde, hasta=hasta, msg=str(exc), err=1))
+    except Exception as exc:
+        return Response(_data_unavailable_page("Guardar histórico de equipos; revisá los días guardados antes de reintentar", exc), status=503)
 
 
 @app.route("/foxtrot-calidad/guardar", methods=["POST"])
