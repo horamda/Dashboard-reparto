@@ -8,7 +8,7 @@ import re
 def clientes_sin_ventana_xlsx(rows):
     if not isinstance(rows, list) or not rows or len(rows) > 100000:
         raise ValueError("La lista debe contener entre 1 y 100000 clientes.")
-    headers = ["Cliente", "Nombre", "Visitas sin ventana", "Motivo"]
+    headers = ["Cliente", "Nombre", "Rutas con visitas", "Motivo"]
     sheet_rows = []
     def text_cell(ref, value, header=False):
         text = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f]", "", str(value or ""))[:32767]

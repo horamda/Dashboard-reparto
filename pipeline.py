@@ -1843,7 +1843,9 @@ def procesar_clientes(clientes_file):
 
 def actualizar_clientes(clientes_file):
     clientes = procesar_clientes(clientes_file)
-    return storage.replace_clientes(clientes)
+    count = storage.replace_clientes(clientes)
+    clear_dashboard_cache()
+    return count
 
 
 def procesar_articulos(articulos_file):
@@ -2332,6 +2334,30 @@ def _estimar_ti_julio_2026(rutas):
     return _estimar_ti_20_35_2026(rutas, "2026-07")
 
 
+def aplicar_ventanas_actuales_clientes(rutas, clientes):
+    """Current master coverage; keep historical On Time classifications untouched."""
+    for ruta in rutas:
+        candidates = {}
+        for field in ("clientes_con_ventana", "clientes_sin_ventana", "clientes_fuera_ontime"):
+            for item in ruta.get(field) or []:
+                rec = item if isinstance(item, dict) else {"cliente": item}
+                cid = _norm_customer_id_foxtrot(rec.get("cliente"))
+                if cid:
+                    candidates.setdefault(cid, rec)
+        con, sin = [], []
+        for cid, previous in candidates.items():
+            current = clientes.get(cid)
+            if current and current.get("ventanas"):
+                con.append(cid)
+            else:
+                sin.append({"cliente": cid,
+                            "nombre": (current or {}).get("nombre") or (current or {}).get("razon_social") or previous.get("nombre") or "",
+                            "motivo": "sin ventana cargada" if current is not None else "no encontrado en base de clientes"})
+        ruta["clientes_con_ventana_actual"] = con
+        ruta["clientes_sin_ventana_actual"] = sin
+    return rutas
+
+
 def _data_desde_base(base):
     rutas = sorted((_dashboard_route(r) for r in base.values()), key=lambda r: (r["fecha"], r["suc"], r["chofer"]))
     _calibrar_tiempos_historicos_casa_central(rutas)
@@ -2340,6 +2366,7 @@ def _data_desde_base(base):
     for mes in ("2026-05", "2026-06", "2026-07"):
         _estimar_ti_20_35_2026(rutas, mes)
     aplicar_tiempos_fichaya_guardados(rutas)
+    aplicar_ventanas_actuales_clientes(rutas, storage.load_clientes())
     rechazos_base = storage.load_rechazos()
     if rutas and not rechazos_base:
         try:
