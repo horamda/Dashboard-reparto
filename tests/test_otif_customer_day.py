@@ -1,4 +1,4 @@
-from otif_customer_day import build_customer_days, latest_snapshot
+from otif_customer_day import build_customer_days, latest_snapshot, historical_visits
 from pipeline import _otif_window_check
 
 
@@ -88,3 +88,25 @@ def test_latest_snapshot_does_not_resurrect_stale_orders():
                 'otif_pedidos:2026-05-01:2026-05-02:TODAS': {'valor': {'datos': []}},
                 'otif_pedidos:2026-01-01:2026-05-02:TODAS': {'valor': {'datos': [order()]}}}
     assert latest_snapshot(settings)['datos'] == []
+
+
+def test_historical_summary_requires_exact_reconciliation_and_preserves_detail():
+    route = dict(fecha='2026-05-01', suc='Mar de Ajo', chofer='Ana',
+                 clientes_con_ventana=[{'cliente': '001'}, {'cliente': '002'}],
+                 clientes_fuera_ontime=[{'cliente': '002', 'visita': '15:00'}],
+                 clientes_sin_ventana=[], pdv_total=2, pdv_ontime=1,
+                 pdv_fuera_ontime=1, pdv_sin_ventana=0)
+    recovered = historical_visits({'r1': route}, set())
+    assert {r['cliente']: r['a_tiempo'] for r in recovered} == {'001': True, '002': False}
+    assert historical_visits({'r1': route}, {'r1'}) == []
+    rows = build_customer_days(dict(desde='2026-05-01', hasta='2026-05-01', datos=[order()]),
+                               [], {'r1': route}, {}, _otif_window_check)
+    assert next(r for r in rows if r['cliente'] == '001')['resultado'] == 'cumple'
+    route['pdv_fuera_ontime'] = 2
+    assert all(r['a_tiempo'] is None for r in historical_visits({'r1': route}, set()))
+
+
+def test_historical_summary_does_not_infer_from_truncated_late_list():
+    route = dict(clientes_con_ventana=['001', '002'], clientes_fuera_ontime=[],
+                 pdv_total=2, pdv_ontime=1, pdv_fuera_ontime=1, pdv_sin_ventana=0)
+    assert all(r['a_tiempo'] is None for r in historical_visits({'r1': route}, set()))

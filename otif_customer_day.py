@@ -28,6 +28,49 @@ def documents(order):
     return {text(x) for x in order.get('comprobantes', []) if text(x)}
 
 
+def historical_visits(routes, detailed_route_ids):
+    """Recover customer classifications only from exhaustive reconciled route summaries.
+
+    Equal evaluable-visit and unique-customer counts proves one evaluable visit per
+    listed customer. Exact late-list counts rule out truncated detail. Never invent
+    timestamps or replace detailed attempts already available for a route.
+    """
+    recovered = []
+    for rid, route in routes.items():
+        if text(rid) in detailed_route_ids:
+            continue
+        with_window = route.get('clientes_con_ventana') or []
+        late = route.get('clientes_fuera_ontime') or []
+        without = route.get('clientes_sin_ventana') or []
+        ids = [text(x.get('cliente')) if isinstance(x, dict) else text(x) for x in with_window]
+        late_ids = [text(x.get('cliente')) for x in late if isinstance(x, dict)]
+        try:
+            on, off, missing, total = [int(route[k]) for k in
+                                       ('pdv_ontime', 'pdv_fuera_ontime', 'pdv_sin_ventana', 'pdv_total')]
+        except (KeyError, TypeError, ValueError):
+            continue
+        valid = (min(on, off, missing, total) >= 0 and total == on + off + missing
+                 and len(ids) == len(set(ids)) == on + off and all(ids)
+                 and len(late) == len(late_ids) == len(set(late_ids)) == off
+                 and set(late_ids) <= set(ids) and len(without) == missing)
+        late_map = {text(x.get('cliente')): x for x in late if isinstance(x, dict)}
+        for cid in set(ids + late_ids):
+            if not cid:
+                continue
+            recovered.append(dict(route_id=text(rid), cliente=cid,
+                                  a_tiempo=(cid not in late_map) if valid else None,
+                                  hora=text(late_map.get(cid, {}).get('visita')),
+                                  estado='RESUMEN_HISTORICO' if valid else 'RESUMEN_INCOMPLETO',
+                                  fuente='Clasificacion historica guardada; sin inventar hora de llegada'))
+        for item in without:
+            cid = text(item.get('cliente')) if isinstance(item, dict) else text(item)
+            if cid and cid not in set(ids + late_ids):
+                recovered.append(dict(route_id=text(rid), cliente=cid, a_tiempo=None,
+                                      hora='', estado='RESUMEN_INCOMPLETO',
+                                      fuente='Resumen historico sin ventana'))
+    return recovered
+
+
 def build_customer_days(snapshot, attempts, routes, clients, window_check):
     """Use one complete snapshot, not a union of stale overlapping queries.
 
@@ -61,6 +104,7 @@ def build_customer_days(snapshot, attempts, routes, clients, window_check):
         key = (sid, customer or 'SIN CLIENTE:' + identity, day)
         group(key)['orders'].append(order)
 
+    attempts = list(attempts)
     seen_visits = set()
     for visit in attempts:
         rid = text(visit.get('route_id') or visit.get('Route ID'))
@@ -80,6 +124,17 @@ def build_customer_days(snapshot, attempts, routes, clients, window_check):
             rid=rid, chofer=route.get('chofer', ''), suc=route.get('suc', ''),
             hora=text(stamp), a_tiempo=value,
             estado=text(visit.get('Aggregate Visit Status'))))
+
+    detailed_route_ids = {text(v.get('route_id') or v.get('Route ID')) for v in attempts}
+    for visit in historical_visits(routes, detailed_route_ids):
+        route = routes.get(visit['route_id'], {})
+        day = text(route.get('fecha'))
+        sid = branch(route.get('sucursal_id') or route.get('suc'))
+        if not start <= day <= end or (scope_branch != 'TODAS' and sid != branch(scope_branch)):
+            continue
+        group((sid, visit['cliente'], day))['visits'].append(dict(
+            rid=visit['route_id'], chofer=route.get('chofer', ''), suc=route.get('suc', ''),
+            hora=visit['hora'], a_tiempo=visit['a_tiempo'], estado=visit['estado'], fuente=visit['fuente']))
 
     rejections_by_customer = defaultdict(list)
     for rejection in snapshot.get('rechazos_clientes', []):
@@ -143,7 +198,7 @@ def build_customer_days(snapshot, attempts, routes, clients, window_check):
             on_time = False
         else:
             reasons.append('Varias visitas con puntualidad diferente')
-        if any(normalized(v['estado']) != 'SUCCESSFUL' for v in visits):
+        if any(normalized(v['estado']) not in ('SUCCESSFUL', 'RESUMEN_HISTORICO') for v in visits):
             reasons.append('Visita sin confirmacion de exito')
         # An identified physical rejection proves failure independently of punctuality.
         if identified and (rejected or (complete and on_time is False)):

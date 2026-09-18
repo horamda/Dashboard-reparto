@@ -221,3 +221,11 @@ responsabilidad individual. El detalle paginado muestra referencias, visitas y m
 
 Si ningun cliente/dia tiene pedidos y visitas coincidentes, el porcentaje queda sin evaluar,
 aunque existan rechazos confirmados; se muestran las fechas disponibles de ambas fuentes.
+
+
+Se recupera puntualidad historica por cliente desde las listas guardadas en rutas sin
+attempts: exige que clientes unicos con ventana = visitas puntuales + fuera de horario,
+que la lista de fuera de horario este completa y que todos los contadores reconcilien.
+No genera timestamps. Si hay attempts para la ruta se prioriza el detalle y no se rellena
+con resumen. Las clasificaciones historicas conservan su origen visible, no se presentan
+como recalculadas con el maestro actual. Resumenes incompletos permanecen pendientes.
