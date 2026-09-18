@@ -25,7 +25,19 @@ def branch(value):
 
 
 def documents(order):
-    return {text(x) for x in order.get('comprobantes', []) if text(x)}
+    result = set()
+    for item in order.get('comprobantes', []):
+        if isinstance(item, dict):
+            ref = text(item.get('detalle_documento'))
+            if not ref:
+                ref = ' / '.join(text(item.get(k)) for k in ('documento', 'letra', 'serie', 'numero'))
+                if not any(text(item.get(k)) for k in ('documento', 'letra', 'serie', 'numero')):
+                    continue
+        else:
+            ref = text(item)
+        if ref:
+            result.add(ref)
+    return result
 
 
 def historical_visits(routes, detailed_route_ids):
@@ -95,7 +107,9 @@ def build_customer_days(snapshot, attempts, routes, clients, window_check):
         if identity in seen:
             continue
         seen.add(identity)
-        day = text(order.get('fecha_entrega'))
+        sales = (order.get('contrato_origen') == 'comprobantes_ventas_v2'
+                 or snapshot.get('contrato') == 'comprobantes_ventas_v2')
+        day = text(order.get('fecha_movimiento') if sales else order.get('fecha_entrega'))
         if not start <= day <= end:
             continue
         customer = text(order.get('cliente_id'))
@@ -145,9 +159,14 @@ def build_customer_days(snapshot, attempts, routes, clients, window_check):
         orders, visits = row.pop('orders'), row.pop('visits')
         sid, customer = row['sucursal_id'], row['cliente']
         reasons = []
+        sales = any(o.get('contrato_origen') == 'comprobantes_ventas_v2' for o in orders) or (
+            bool(orders) and snapshot.get('contrato') == 'comprobantes_ventas_v2')
+        if sales:
+            reasons.append('Fecha de movimiento: no acredita fecha ni entrega completa')
         states = [o.get('estado_entrega') for o in orders]
         docs = set().union(*(documents(o) for o in orders)) if orders else set()
-        rejected = any(s in ('rechazada', 'parcial') for s in states)
+        rejected = any(s in ('rechazada', 'parcial') for s in states) or any(
+            o.get('tiene_rechazo_registrado') is True for o in orders)
         motives = set()
         for order in orders:
             for line in order.get('detalle', []):
@@ -157,7 +176,7 @@ def build_customer_days(snapshot, attempts, routes, clients, window_check):
                 if motive and normalized(motive) not in ('0', 'NINGUNO', 'SIN RECHAZO', 'NO APLICA'):
                     motives.add(motive)
                     # A motive alone with no rejected state is a conflict, not proof of quantity.
-                    if normalized(line.get('estado')) not in ('RECHAZADO', 'PARCIAL'):
+                    if not sales and normalized(line.get('estado')) not in ('RECHAZADO', 'PARCIAL'):
                         reasons.append('Motivo de rechazo con estado contradictorio')
         rejection_ambiguous = False
         for rec in rejections_by_customer.get(customer, []):
@@ -183,7 +202,7 @@ def build_customer_days(snapshot, attempts, routes, clients, window_check):
             reasons.append('Visita sin pedidos en la consulta API')
         if any(o.get('tipo_identificador') == 'fila' for o in orders):
             reasons.append('Registro sin pedido ni comprobante')
-        complete = bool(orders) and all(s == 'completa' for s in states)
+        complete = not sales and bool(orders) and all(s == 'completa' for s in states)
         if orders and not complete and not rejected:
             reasons.append('Entrega pendiente o sin confirmar')
         times = [v['a_tiempo'] for v in visits]
@@ -201,7 +220,7 @@ def build_customer_days(snapshot, attempts, routes, clients, window_check):
         if any(normalized(v['estado']) not in ('SUCCESSFUL', 'RESUMEN_HISTORICO') for v in visits):
             reasons.append('Visita sin confirmacion de exito')
         # An identified physical rejection proves failure independently of punctuality.
-        if identified and (rejected or (complete and on_time is False)):
+        if identified and not sales and (rejected or (complete and on_time is False)):
             result = 'no_cumple'
         elif identified and complete and on_time is True and not reasons:
             result = 'cumple'
@@ -220,6 +239,7 @@ def build_customer_days(snapshot, attempts, routes, clients, window_check):
                    visitas=visits, a_tiempo=on_time, completa=complete,
                    rechazo=rejected, motivos=sorted(motives), resultado=result,
                    razones=list(dict.fromkeys(reasons)),
+                   base_fecha='movimiento' if sales else 'entrega_planilla',
                    detalle=[dict(pedido=o.get('numero_pedido') or '',
                                  comprobantes=sorted(documents(o)), estado=o.get('estado_entrega')) for o in orders])
         output.append(row)

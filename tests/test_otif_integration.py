@@ -10,12 +10,12 @@ import pipeline
 class OrdersIntegrationTests(unittest.TestCase):
     config = {"base_url": "https://example.test", "api_key": "test-key", "timeout": 1}
 
-    def test_chunks_and_pagination_without_empresa(self):
+    def test_chunks_and_pagination_with_empresa(self):
         calls = []
         def opener(request, **kwargs):
             query = parse_qs(urlparse(request.full_url).query)
             calls.append(query)
-            self.assertNotIn("empresa_id", query)
+            self.assertEqual(query["empresa_id"], ["1"])
             offset = int(query['offset'][0])
             row = {"id_integracion": query['desde'][0]+str(offset), "fecha_entrega": query['desde'][0]}
             return io.StringIO(json.dumps({"api_version": "v1", "datos": [row], "paginacion": {"offset": offset, "devueltos": 1, "total": 2, "hay_mas": offset == 0}}))
@@ -27,6 +27,27 @@ class OrdersIntegrationTests(unittest.TestCase):
     def test_missing_key_does_not_call_api(self):
         with self.assertRaisesRegex(ValueError, "API_KEY"):
             fetch_orders({}, "2026-01-01", "2026-01-01", opener=lambda *a,**k:self.fail())
+
+    def sales_response(self, movement):
+        return io.StringIO(json.dumps({'api_version': 'v1', 'contrato': 'comprobantes_ventas_v2',
+            'datos': [{'id_integracion': 'doc1', 'empresa_id': '1', 'fecha_entrega': None,
+                       'fecha_movimiento': movement}],
+            'paginacion': {'total': 1, 'offset': 0, 'devueltos': 1, 'hay_mas': False}}))
+
+    def test_sales_contract_validates_movement_without_inventing_delivery_date(self):
+        result = fetch_orders(self.config, '2026-09-01', '2026-09-17',
+                              opener=lambda *a, **k: self.sales_response('2026-09-17'))
+        self.assertEqual(result['contrato'], 'comprobantes_ventas_v2')
+        self.assertIsNone(result['datos'][0]['fecha_entrega'])
+        self.assertEqual(result['datos'][0]['fecha_movimiento'], '2026-09-17')
+
+    def test_sales_contract_still_rejects_dates_outside_range(self):
+        with self.assertRaisesRegex(ValueError, 'fecha_movimiento=2026-09-18 fuera'):
+            fetch_orders(self.config, '2026-09-01', '2026-09-17',
+                         opener=lambda *a, **k: self.sales_response('2026-09-18'))
+        with self.assertRaisesRegex(ValueError, 'falta fecha_movimiento'):
+            fetch_orders(self.config, '2026-09-01', '2026-09-17',
+                         opener=lambda *a, **k: self.sales_response(None))
 
     def test_rejection_feed_uses_company_and_customer_day_identity(self):
         def opener(request, **kwargs):

@@ -13,16 +13,16 @@ def fetch_orders(config, desde, hasta, sucursal="TODAS", opener=urlopen, *, reje
     if start > end or (end-start).days > 366:
         raise ValueError("Rango invalido: maximo 367 dias.")
     rows, seen, coverage = [], set(), []
+    contract = None
     cursor = start
     while cursor <= end:
         stop = min(cursor + timedelta(days=30), end)
         offset, expected = 0, None
         while True:
             params = {"desde": cursor.isoformat(), "hasta": stop.isoformat(), "sucursal": sucursal, "limit": 1000, "offset": offset}
-            if rejection_feed:
-                params["empresa_id"] = config.get("empresa_id", "1")
+            params["empresa_id"] = config.get("empresa_id", "1")
             endpoint = "/rechazos/clientes-diario" if rejection_feed else "/pedidos"
-            # Orders do not support empresa_id.
+            # Current sales contract filters company; legacy repartos ignores this parameter.
             request = Request(config["base_url"].rstrip("/") + "/api/v1/integracion/logistica" + endpoint + "?" + urlencode(params), headers={"X-API-Key": config["api_key"], "Accept": "application/json"})
             try:
                 with opener(request, timeout=config.get("timeout", 30)) as response:
@@ -33,6 +33,15 @@ def fetch_orders(config, desde, hasta, sucursal="TODAS", opener=urlopen, *, reje
                 raise RuntimeError("La API de pedidos no devolvio una respuesta JSON valida.") from None
             if not isinstance(payload, dict) or payload.get("api_version") != "v1" or not isinstance(payload.get("datos"), list):
                 raise ValueError("Respuesta incompatible con el contrato de pedidos v1.")
+            page_contract = ('rechazos_clientes_diario' if rejection_feed else
+                             payload.get('contrato') or 'repartos_v1')
+            if page_contract not in ('rechazos_clientes_diario', 'repartos_v1', 'comprobantes_ventas_v2'):
+                raise ValueError("Contrato de pedidos desconocido; no se guardaron datos parciales.")
+            if contract is not None and page_contract != contract:
+                raise ValueError("La API cambio de contrato durante la consulta; repetir la importacion.")
+            contract = page_contract
+            date_field = ('fecha' if rejection_feed else
+                          'fecha_movimiento' if contract == 'comprobantes_ventas_v2' else 'fecha_entrega')
             page = payload["datos"]
             pagination = payload.get("paginacion", {})
             total = pagination.get("total")
@@ -44,12 +53,20 @@ def fetch_orders(config, desde, hasta, sucursal="TODAS", opener=urlopen, *, reje
             for row in page:
                 if not isinstance(row, dict) or (not rejection_feed and not row.get("id_integracion")):
                     raise ValueError("Pedido sin id_integracion.")
+                try:
+                    row_date = date.fromisoformat(str(row.get(date_field) or ''))
+                except ValueError:
+                    raise ValueError(f"API {contract}: falta {date_field} o no tiene formato YYYY-MM-DD.") from None
+                if not cursor <= row_date <= stop:
+                    raise ValueError(f"API {contract}: {date_field}={row_date.isoformat()} fuera del rango {cursor} al {stop}.")
+                if contract == 'comprobantes_ventas_v2' and str(row.get('empresa_id')) != str(config.get('empresa_id', '1')):
+                    raise ValueError("La API devolvio comprobantes de otra empresa.")
                 identity = (json.dumps([row.get("empresa_id"), row.get("fecha"), row.get("cliente_id")])
                             if rejection_feed else str(row["id_integracion"]))
                 if identity in seen:
                     raise ValueError("Pedido duplicado entre paginas; revisar la fuente.")
-                if not cursor.isoformat() <= str(row.get("fecha" if rejection_feed else "fecha_entrega") or "") <= stop.isoformat():
-                    raise ValueError("Pedido fuera del rango solicitado.")
+                if contract == 'comprobantes_ventas_v2':
+                    row = dict(row, contrato_origen=contract)
                 seen.add(identity)
                 rows.append(row)
             offset += len(page)
@@ -63,7 +80,7 @@ def fetch_orders(config, desde, hasta, sucursal="TODAS", opener=urlopen, *, reje
             if not page or offset >= total:
                 raise ValueError("Paginacion sin avance.")
         cursor = stop + timedelta(days=1)
-    return {"datos": rows, "desde": desde, "hasta": hasta, "sucursal": sucursal,
+    return {"datos": rows, "desde": desde, "hasta": hasta, "sucursal": sucursal, "contrato": contract,
             "coverage": coverage, "generado_en": datetime.now(timezone.utc).isoformat()}
 
 

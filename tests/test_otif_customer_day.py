@@ -110,3 +110,20 @@ def test_historical_summary_does_not_infer_from_truncated_late_list():
     route = dict(clientes_con_ventana=['001', '002'], clientes_fuera_ontime=[],
                  pdv_total=2, pdv_ontime=1, pdv_fuera_ontime=1, pdv_sin_ventana=0)
     assert all(r['a_tiempo'] is None for r in historical_visits({'r1': route}, set()))
+
+
+def test_sales_movement_imported_but_not_presented_as_delivered():
+    sale = order()
+    sale.update(contrato_origen='comprobantes_ventas_v2', fecha_entrega=None,
+                fecha_movimiento='2026-05-01', numero_pedido=None,
+                tipo_identificador='comprobante', estado_entrega='sin_determinar',
+                comprobantes=[{'documento': 'FACTURA', 'letra': 'A', 'serie': '001', 'numero': '42'}])
+    row = build([sale])[0]
+    assert row['pedidos'] == 1
+    assert row['base_fecha'] == 'movimiento'
+    assert row['resultado'] == 'pendiente'
+    assert row['detalle'][0]['comprobantes'] == ['FACTURA / A / 001 / 42']
+    sale.update(tiene_rechazo_registrado=True, estado_entrega='parcial')
+    row = build([sale])[0]
+    assert row['rechazo'] is True
+    assert row['resultado'] == 'pendiente'  # accounting date is not a delivery date

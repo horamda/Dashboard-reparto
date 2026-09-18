@@ -229,3 +229,12 @@ que la lista de fuera de horario este completa y que todos los contadores reconc
 No genera timestamps. Si hay attempts para la ruta se prioriza el detalle y no se rellena
 con resumen. Las clasificaciones historicas conservan su origen visible, no se presentan
 como recalculadas con el maestro actual. Resumenes incompletos permanecen pendientes.
+
+
+El importador admite el contrato `comprobantes_ventas_v2`: valida `fecha_movimiento`
+contra cada rango paginado, conserva `fecha_entrega` nula, envia empresa_id y verifica
+la empresa recibida. Los comprobantes estructurados se muestran con tipo/letra/serie/numero.
+No se convierte fecha contable en fecha de entrega: esos grupos quedan pendientes de
+confirmar entrega incluso cuando hay un rechazo registrado. El contrato previo de
+repartos sigue validando fecha_entrega. Un cambio de contrato durante la paginacion
+aborta la consulta y conserva el snapshot anterior.
