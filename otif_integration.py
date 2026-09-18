@@ -6,7 +6,7 @@ from urllib.request import Request, urlopen
 from urllib.error import HTTPError
 
 
-def fetch_orders(config, desde, hasta, sucursal="TODAS", opener=urlopen):
+def fetch_orders(config, desde, hasta, sucursal="TODAS", opener=urlopen, *, rejection_feed=False):
     if not config.get("api_key"):
         raise ValueError("Falta configurar LOGISTICS_INTEGRATION_API_KEY en este servidor.")
     start, end = date.fromisoformat(desde), date.fromisoformat(hasta)
@@ -19,8 +19,11 @@ def fetch_orders(config, desde, hasta, sucursal="TODAS", opener=urlopen):
         offset, expected = 0, None
         while True:
             params = {"desde": cursor.isoformat(), "hasta": stop.isoformat(), "sucursal": sucursal, "limit": 1000, "offset": offset}
-            # This endpoint explicitly does not support empresa_id.
-            request = Request(config["base_url"].rstrip("/") + "/api/v1/integracion/logistica/pedidos?" + urlencode(params), headers={"X-API-Key": config["api_key"], "Accept": "application/json"})
+            if rejection_feed:
+                params["empresa_id"] = config.get("empresa_id", "1")
+            endpoint = "/rechazos/clientes-diario" if rejection_feed else "/pedidos"
+            # Orders do not support empresa_id.
+            request = Request(config["base_url"].rstrip("/") + "/api/v1/integracion/logistica" + endpoint + "?" + urlencode(params), headers={"X-API-Key": config["api_key"], "Accept": "application/json"})
             try:
                 with opener(request, timeout=config.get("timeout", 30)) as response:
                     payload = json.load(response)
@@ -39,12 +42,13 @@ def fetch_orders(config, desde, hasta, sucursal="TODAS", opener=urlopen):
                 raise ValueError("La fuente cambio durante la consulta; repetir con importaciones estables.")
             expected = total
             for row in page:
-                if not isinstance(row, dict) or not row.get("id_integracion"):
+                if not isinstance(row, dict) or (not rejection_feed and not row.get("id_integracion")):
                     raise ValueError("Pedido sin id_integracion.")
-                identity = str(row["id_integracion"])
+                identity = (json.dumps([row.get("empresa_id"), row.get("fecha"), row.get("cliente_id")])
+                            if rejection_feed else str(row["id_integracion"]))
                 if identity in seen:
                     raise ValueError("Pedido duplicado entre paginas; revisar la fuente.")
-                if not cursor.isoformat() <= str(row.get("fecha_entrega") or "") <= stop.isoformat():
+                if not cursor.isoformat() <= str(row.get("fecha" if rejection_feed else "fecha_entrega") or "") <= stop.isoformat():
                     raise ValueError("Pedido fuera del rango solicitado.")
                 seen.add(identity)
                 rows.append(row)

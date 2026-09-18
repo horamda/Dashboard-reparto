@@ -2359,14 +2359,49 @@ def aplicar_ventanas_actuales_clientes(rutas, clientes):
     return rutas
 
 
+def _otif_window_check(stamp, windows, day):
+    ts = pd.to_datetime(stamp, errors="coerce")
+    if pd.isna(ts):
+        return None
+    if ts.tzinfo is not None:
+        ts = ts.tz_convert("America/Argentina/Buenos_Aires")
+    if ts.date().isoformat() != day:
+        return None
+    return _en_ventana(ts, windows)
+
+
+def cargar_otif_clientes(settings=None, base=None):
+    from otif_customer_day import latest_snapshot, build_customer_days
+    settings = storage.load_settings() if settings is None else settings
+    snapshot = latest_snapshot(settings)
+    if not snapshot:
+        return []
+    return build_customer_days(snapshot, storage.load_attempts().values(),
+                               storage.load_all() if base is None else base,
+                               storage.load_clientes(), _otif_window_check)
+
+
 def sincronizar_pedidos_otif(desde, hasta, sucursal="TODAS"):
-    from otif_integration import fetch_orders, diagnose_links
-    snapshot = fetch_orders(_logistics_integration_config(), desde, hasta, sucursal)
-    snapshot["diagnostico"] = diagnose_links(snapshot["datos"], storage.load_attempts().values(), storage.load_all())
-    # Separate snapshots keep earlier ranges intact and do not alter routes or KPIs.
+    from otif_integration import fetch_orders
+    from otif_customer_day import build_customer_days
+    config = _logistics_integration_config()
+    snapshot = fetch_orders(config, desde, hasta, sucursal)
+    rejected = fetch_orders(config, desde, hasta, sucursal, rejection_feed=True)
+    snapshot["rechazos_clientes"] = rejected["datos"]
+    snapshot["rechazos_consultados"] = True
+    rows = build_customer_days(snapshot, storage.load_attempts().values(), storage.load_all(),
+                               storage.load_clientes(), _otif_window_check)
+    snapshot["diagnostico"] = {
+        "pedidos": len(snapshot["datos"]), "clientes_dia": len(rows),
+        "cumplen": sum(r["resultado"] == "cumple" for r in rows),
+        "no_cumplen": sum(r["resultado"] == "no_cumple" for r in rows),
+        "pendientes": sum(r["resultado"] == "pendiente" for r in rows),
+        "rechazos_clientes": len(rejected["datos"]),
+    }
     key = "otif_pedidos:" + desde + ":" + hasta + ":" + sucursal
     storage.save_setting(key, {"valor": snapshot})
-    storage.save_setting("otif_ultima_consulta", {"valor": {k: v for k, v in snapshot.items() if k != "datos"}})
+    storage.save_setting("otif_ultima_consulta", {"valor": {k: v for k, v in snapshot.items()
+                                                          if k not in ("datos", "rechazos_clientes")}})
     clear_dashboard_cache()
     return snapshot["diagnostico"]
 
@@ -2398,8 +2433,10 @@ def _data_desde_base(base):
         satisfaction = satisfaction_future.result()
         dqi = dqi_future.result()
         dpo = dpo_future.result()
+    otif_settings = storage.load_settings()
     return {"rutas": rutas,
-            "otif_integracion": {"configured": logistics_integration_status()["configured"], "ultima_consulta": (storage.load_settings().get("otif_ultima_consulta") or {}).get("valor", {})},
+            "otif_clientes_dia": cargar_otif_clientes(otif_settings, base),
+            "otif_integracion": {"configured": logistics_integration_status()["configured"], "ultima_consulta": (otif_settings.get("otif_ultima_consulta") or {}).get("valor", {})},
             "rechazos": rechazos,
             "rechazos_detalle": rechazos_detalle,
             "satisfaccion": satisfaction,

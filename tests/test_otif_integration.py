@@ -28,6 +28,23 @@ class OrdersIntegrationTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "API_KEY"):
             fetch_orders({}, "2026-01-01", "2026-01-01", opener=lambda *a,**k:self.fail())
 
+    def test_rejection_feed_uses_company_and_customer_day_identity(self):
+        def opener(request, **kwargs):
+            query = parse_qs(urlparse(request.full_url).query)
+            self.assertEqual(query['empresa_id'], ['1'])
+            self.assertTrue(urlparse(request.full_url).path.endswith('/rechazos/clientes-diario'))
+            return io.StringIO(json.dumps({'api_version': 'v1', 'datos': [
+                {'empresa_id': '1', 'fecha': '2026-01-01', 'cliente_id': '001', 'tiene_rechazo': True}
+            ], 'paginacion': {'offset': 0, 'devueltos': 1, 'total': 1, 'hay_mas': False}}))
+        result = fetch_orders(self.config, '2026-01-01', '2026-01-01', opener=opener, rejection_feed=True)
+        self.assertTrue(result['datos'][0]['tiene_rechazo'])
+
+    def test_rejection_fetch_failure_preserves_previous_snapshot(self):
+        with patch('otif_integration.fetch_orders', side_effect=[{'datos': []}, ValueError('rechazos incomplete')]), patch.object(pipeline.storage, 'save_setting') as save:
+            with self.assertRaises(ValueError):
+                pipeline.sincronizar_pedidos_otif('2026-01-01', '2026-01-31')
+        save.assert_not_called()
+
     def test_incomplete_pagination_rejected(self):
         def opener(*args, **kwargs):
             return io.StringIO(json.dumps({"api_version":"v1", "datos":[], "paginacion":{"offset":0,"devueltos":0,"total":3,"hay_mas":False}}))

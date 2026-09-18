@@ -194,7 +194,7 @@ a{{color:#1E3A8A;font-size:13.5px}}hr{{border:0;border-top:1px solid #DCE2EA;mar
 <p style="margin-top:18px"><a href="/inicio">Panel principal</a> · <a href="/dashboard">Dashboard</a> · <a href="/datos">Revisar datos cargados</a> · <a href="/foxtrot-calidad">Calidad Foxtrot</a> · <a href="/reporte-fichaya-foxtrot">Reporte FichaYA/Foxtrot</a> · <a href="/pedidos">Análisis de pedidos</a> · <a href="/costos-distribucion">Costos</a> · <a href="/logout">Cerrar sesión</a></p>
 <hr>
 <h1>Pedidos para OTIF</h1>
-<p>Consulta pedidos y estados de entrega. Guarda una copia y diagnostica el vinculo con Foxtrot; no convierte cruces ambiguos en cumplimiento.</p>
+<p>Consulta pedidos y rechazos por cliente/dia. Cruza visitas Foxtrot y ventanas horarias; los casos sin evidencia quedan pendientes.</p>
 <form method=post action="/actualizar-otif-pedidos">
 <label>Desde</label><input type=date name=desde value="2026-01-01" required>
 <label>Hasta</label><input type=date name=hasta value="{hasta_default}" required>
@@ -2035,9 +2035,9 @@ def actualizar_otif_pedidos():
         result = pipeline.sincronizar_pedidos_otif(request.form.get("desde", ""), request.form.get("hasta", ""), request.form.get("sucursal") or "TODAS")
     except Exception as exc:
         return Response(_admin_page(f"No se pudo consultar pedidos OTIF: {exc}", err=True), mimetype="text/html", status=400)
-    message = (f"Pedidos guardados: {result['pedidos']}. Vinculos candidatos: {result['vinculos_candidatos']}; "
-               f"sin vinculo: {result['sin_vinculo']}; ambiguos: {result['ambiguos']}; "
-               f"sin identificador: {result['sin_identificador']}. No se modificaron indicadores OTIF.")
+    message = (f"Pedidos guardados: {result['pedidos']}. Clientes/dia: {result['clientes_dia']}; "
+               f"cumplen: {result['cumplen']}; no cumplen: {result['no_cumplen']}; "
+               f"pendientes: {result['pendientes']}. Ver detalle en OTIF.")
     return Response(_admin_page(message), mimetype="text/html")
 
 

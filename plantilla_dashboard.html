@@ -546,25 +546,23 @@ tfoot td{font-weight:700;border-top:2px solid var(--line);border-bottom:none}
  </div>
  <div id="viewOtif" style="display:none">
   <div class="hint" id="otifCoverage" role="status"></div><div class="note" id="otifIntegrationStatus"></div>
-  <div class="hint">OTIF = entregas a tiempo y completas / total de entregas. Si una entrega llega fuera de ventana o con rechazo, no cumple OTIF.
-   <span class="tip" tabindex="0" aria-label="Informacion sobre OTIF">?
-    <span class="tipbox" role="tooltip"><b>Cuando una entrega es OTIF</b><br>Debe cumplir ambas condiciones al mismo tiempo: llego a tiempo y llego completa. Si falla una de las dos, no es OTIF.<ul><li>Puntual y completa: cumple OTIF.</li><li>Puntual con faltantes: no cumple.</li><li>Completa pero fuera de horario: no cumple.</li><li>Tarde y con faltantes: no cumple.</li></ul><br><b>Formula:</b> entregas a tiempo y completas / total de entregas x 100. Ejemplo: 960 / 1.000 x 100 = 96%.</span>
-   </span>
-  </div>
+  <div class="hint">OTIF por cliente/día = clientes/día a tiempo y completos / clientes/día evaluados. Se agrupan todos los pedidos de la misma sucursal, cliente y fecha de planilla. Un rechazo acreditado cuenta una sola vez. Los pendientes se muestran aparte.</div>
+  <div class="note">Entrega completa según el estado ENTREGADO de todas las líneas de repartos; no compara cantidades contra el pedido original. Puntualidad con horarios Foxtrot y ventanas del maestro actual. Rechazos de ventas con fecha contable diferente solo se atribuyen mediante comprobantes coincidentes dentro del período consultado. La cobertura corresponde a registros recibidos, no garantiza todos los pedidos comprometidos.</div>
   <div class="cards c4" style="margin-bottom:22px">
-   <div class="card" id="cOTIF"><div class="badge" id="gOTIF"></div><div class="k">OTIF pedidos</div><div class="v" style="font-size:clamp(18px,2vw,28px)" id="kOTIF">–</div><div class="obj">objetivo ≥ 95%</div><div class="bar"><i id="bOTIF"></i></div></div>
-   <div class="card" id="cOTIFNoPct"><div class="badge" id="gOTIFNoPct"></div><div class="k">No OTIF pedidos</div><div class="v" id="kOTIFNoPct">–</div><div class="obj">objetivo ≤ 5%</div><div class="bar"><i id="bOTIFNoPct"></i></div></div>
-   <div class="card" id="cOTIFVol"><div class="k">Pedidos identificados</div><div class="v" id="kOTIFVol">–</div><div class="obj">total verificado por pedido</div><div class="bar"><i id="bOTIFVol"></i></div></div>
+   <div class="card" id="cOTIF"><div class="badge" id="gOTIF"></div><div class="k">OTIF</div><div class="v" style="font-size:clamp(18px,2vw,28px)" id="kOTIF">–</div><div class="obj">objetivo ≥ 95%</div><div class="bar"><i id="bOTIF"></i></div></div>
+   <div class="card" id="cOTIFNoPct"><div class="badge" id="gOTIFNoPct"></div><div class="k">No OTIF</div><div class="v" id="kOTIFNoPct">–</div><div class="obj">objetivo ≤ 5%</div><div class="bar"><i id="bOTIFNoPct"></i></div></div>
+   <div class="card" id="cOTIFVol"><div class="k">Clientes/día registrados</div><div class="v" id="kOTIFVol">–</div><div class="obj">incluye evaluados y pendientes</div><div class="bar"><i id="bOTIFVol"></i></div></div>
    <div class="card" id="cOTIFEnt"><div class="k">A tiempo y completas</div><div class="v" id="kOTIFEnt">–</div><div class="obj">cumplen ambas condiciones</div><div class="bar"><i id="bOTIFEnt"></i></div></div>
    <div class="card" id="cOTIFNo"><div class="k">No OTIF</div><div class="v" id="kOTIFNo">–</div><div class="obj">fuera de horario o con rechazo</div><div class="bar"><i id="bOTIFNo"></i></div></div>
   </div>
   <div class="grid" style="grid-template-columns:1fr 1fr">
-   <div class="panel"><h2>OTIF por mes</h2><div class="note">% de entregas a tiempo y completas.</div><div class="chartbox" style="height:300px"><canvas id="chOtifMes"></canvas></div></div>
-   <div class="panel"><h2>No OTIF por mes</h2><div class="note">% fuera de horario o con rechazo.</div><div class="chartbox" style="height:300px"><canvas id="chNoOtifMes"></canvas></div></div>
+   <div class="panel"><h2>OTIF por mes</h2><div class="note">% de clientes/día que cumplen sobre evaluados; ver cobertura mensual.</div><div class="chartbox" style="height:300px"><canvas id="chOtifMes"></canvas></div></div>
+   <div class="panel"><h2>No OTIF por mes</h2><div class="note">% de clientes/día que no cumplen sobre evaluados.</div><div class="chartbox" style="height:300px"><canvas id="chNoOtifMes"></canvas></div></div>
   </div>
   <div class="grid" style="grid-template-columns:1fr">
-   <div class="panel"><h2>Mes por mes</h2><div class="note">Detalle por pedido: no se descuentan rechazos agregados. Sin detalle completo, el porcentaje queda sin evaluar.</div>
-    <table><thead><tr><th>Mes</th><th>Pedidos identificados</th><th>A tiempo</th><th>Incompletos</th><th>A tiempo y completas</th><th>Sin resolver</th><th>Rutas sin detalle</th><th>No OTIF</th><th>OTIF</th></tr></thead><tbody id="tbodyOtif"></tbody></table></div>
+   <div class="panel"><h2>Mes por mes</h2><div class="note">Cada cliente/día se cuenta una vez. Los porcentajes son parciales si hay pendientes.</div>
+    <table><thead><tr><th>Mes</th><th>Clientes/día</th><th>Pedidos / registros</th><th>Cumplen</th><th>No cumplen</th><th>Pendientes</th><th>Cobertura</th><th>No OTIF</th><th>OTIF</th></tr></thead><tbody id="tbodyOtif"></tbody></table></div>
+   <div class="panel"><h2>Detalle por cliente y día</h2><div style="overflow:auto"><table><thead><tr><th>Fecha</th><th>Sucursal</th><th>Cliente</th><th>Pedidos / registros</th><th>Puntualidad</th><th>Entrega</th><th>Rechazo</th><th>Resultado</th><th>Detalle</th></tr></thead><tbody id="tbodyOtifClientes"></tbody></table></div><button id="otifPrev" type="button">Anterior</button> <span id="otifPageLabel"></span> <button id="otifNext" type="button">Siguiente</button></div>
   </div>
  </div>
 </div>
@@ -787,32 +785,12 @@ function rechazosNdsChart(id,items){if(!chartsReady())return;if(ch[id])ch[id].de
 function rechazoPedidos(rows){return rows.reduce((s,r)=>s+(r.rechazos||0),0)}
 function rankRechDetalle(rows,field,limit=12){const g={};rows.forEach(r=>{const k=r[field]||'Sin dato',x=g[k]||(g[k]={key:k,pedidos:0,ocurrencias:0,bultos:0,hl:0,pallets:0});x.pedidos+=r.pedidos_rechazo||0;x.ocurrencias+=r.ocurrencias||0;x.bultos+=r.bultos_rechazo||0;x.hl+=r.hl_rechazo||0;x.pallets+=r.pallets_rechazo||0});return Object.values(g).sort((a,b)=>b.pedidos-a.pedidos||b.bultos-a.bultos).slice(0,limit)}
 function rechRankRows(items){return items.length?items.map(r=>'<tr><td>'+esc(r.key)+'</td><td class="r">'+fmt0(r.pedidos)+'</td><td>'+fmt1(r.bultos)+'</td><td>'+fmt1(r.hl)+'</td></tr>').join(''):emptyRow(4,'No hay detalle de rechazos para el filtro actual.')}
-function otifCalc(routeScope){
- const orders=new Map();let missingRoutes=0,invalid=0;
- routeScope.forEach(route=>{
-  const details=route.otif_pedidos;
-  if(route.otif_detalle_completo!==true||!Array.isArray(details)){missingRoutes++;return}
-  details.forEach(item=>{
-   if(!item||typeof item!=='object'||!String(item.pedido_id??'').trim()){invalid++;return}
-   const key=JSON.stringify([sucNorm(route.suc),String(item.pedido_id).trim()]);
-   const value={onTime:typeof item.a_tiempo==='boolean'?item.a_tiempo:null,complete:typeof item.completo==='boolean'?item.completo:null,route:route.rid,date:route.fecha};
-   const previous=orders.get(key);
-   if(!previous){orders.set(key,value)}else if(previous.onTime!==value.onTime||previous.complete!==value.complete||previous.route!==value.route||previous.date!==value.date){previous.conflict=true}
-  });
- });
- let ok=0,no=0,unknown=invalid,onTime=0,rech=0;
- orders.forEach(item=>{
-  if(item.conflict){unknown++;return}
-  if(item.onTime===true)onTime++;
-  if(item.complete===false)rech++;
-  if(item.onTime===false||item.complete===false)no++;
-  else if(item.onTime===true&&item.complete===true)ok++;
-  else unknown++;
- });
- const identified=orders.size,total=identified+invalid,ready=total>0&&missingRoutes===0&&unknown===0;
- return{total:missingRoutes?null:total,identified,onTime,rech,ok,no,unknown,missingRoutes,otif:ready?ok/total*100:null,noOtif:ready?no/total*100:null};
+function otifFilteredRows(){return (DATA.otif_clientes_dia||[]).filter(r=>unidadOk(r)&&(state.suc==='__all'||sucNorm(r.suc)===sucNorm(state.suc))&&periodOk(r)&&(state.cho==='__all'||(r.choferes||[]).some(c=>cleanPersona(c)===state.cho)))}
+function otifCalc(rows){
+ const total=rows.length,ok=rows.filter(r=>r.resultado==='cumple').length,no=rows.filter(r=>r.resultado==='no_cumple').length,unknown=total-ok-no,evaluated=ok+no,linked=rows.filter(r=>r.pedidos>0&&(r.visitas||[]).length>0).length;
+ return{total,ok,no,unknown,evaluated,linked,onTime:rows.filter(r=>r.a_tiempo===true).length,rech:rows.filter(r=>r.rechazo===true).length,pedidos:rows.reduce((n,r)=>n+r.pedidos,0),coverage:total?evaluated/total*100:null,otif:evaluated&&linked?ok/evaluated*100:null,noOtif:evaluated&&linked?no/evaluated*100:null};
 }
-function otifMes(routeScope){const keys=[...new Set(routeScope.map(r=>r.mes))].sort();return keys.map(key=>({key,...otifCalc(routeScope.filter(r=>r.mes===key))}))}
+function otifMes(rows){return [...new Set(rows.map(r=>r.mes))].sort().map(key=>({key,...otifCalc(rows.filter(r=>r.mes===key))}))}
 
 function wavg(rows,val,w){const den=rows.reduce((s,r)=>s+(r[w]||0),0);return den?rows.reduce((s,r)=>s+(r[val]||0)*(r[w]||0),0)/den:null}
 function fmt0(v){return Math.round(v||0).toLocaleString('es-AR')}
@@ -962,19 +940,29 @@ function renderRechazos(){const rows=rechazosScope(),total=rows.reduce((s,r)=>s+
  const det=rechazosDetalleScope();tbodyRechChofer.innerHTML=rechRankRows(rankRechDetalle(det,'chofer'));tbodyRechMotivo.innerHTML=rechRankRows(rankRechDetalle(det,'motivo'));tbodyRechSector.innerHTML=rechRankRows(rankRechDetalle(det,'sector'));
  tbodyRechDetalle.innerHTML=det.length?det.slice().sort((a,b)=>b.fecha.localeCompare(a.fecha)||(b.pedidos_rechazo||0)-(a.pedidos_rechazo||0)).slice(0,250).map(r=>'<tr><td>'+dLbl(r.fecha)+'</td><td>'+esc(r.sucursal)+'</td><td>'+esc(r.chofer)+'</td><td>'+esc(r.sector)+'</td><td>'+esc(r.motivo)+'</td><td class="r">'+fmt0(r.pedidos_rechazo)+'</td><td>'+fmt0(r.ocurrencias)+'</td><td>'+fmt1(r.bultos_rechazo)+'</td><td>'+fmt1(r.hl_rechazo)+'</td><td>'+fmt1(r.pallets_rechazo)+'</td></tr>').join(''):emptyRow(10,'No hay detalle de rechazos importado para el filtro actual.');
  tbodyRech.innerHTML=rows.length?rows.map(r=>{const aus=100-(r.nds||0),ev=r.evento||r.feriado||'';return '<tr><td title="'+esc(r.fecha)+'">'+dLbl(r.fecha)+'</td><td>'+fmt1(r.bultos)+'</td><td class="'+((r.rechazo_bultos||0)?'r':'g')+'">'+fmt1(r.rechazo_bultos)+'</td><td class="'+((r.rechazo_bultos_total||0)?'r':'g')+'">'+fmt1(r.rechazo_bultos_total)+'</td><td>'+fmt1(r.hl)+'</td><td class="'+((r.rechazo_hl||0)?'r':'g')+'">'+fmt1(r.rechazo_hl)+'</td><td class="'+((r.rechazo_hl_total||0)?'r':'g')+'">'+fmt1(r.rechazo_hl_total)+'</td><td>'+fmt0(r.salidas)+'</td><td>'+fmt0(r.pedidos_pdv_atendidos)+'</td><td>'+fmt0(r.pdv_unicos)+'</td><td>'+pctPill(r.nds,(r.nds||0)>=95)+'</td><td>'+fmt1(aus)+'</td><td>'+rechazoPill(r.pct_rechazo_pedidos,(r.pct_rechazo_pedidos||0)<=OBJ_RECH.pdv)+'</td><td>'+rechazoPill(r.pct_rechazo_bultos,(r.pct_rechazo_bultos||0)<=OBJ_RECH.bultos)+'</td><td>'+rechazoPill(r.pct_rechazo_hl,(r.pct_rechazo_hl||0)<=OBJ_RECH.hl)+'</td><td class="event">'+esc(ev)+'</td></tr>'}).join(''):emptyRow(16,'No hay rechazos cargados para el filtro actual.');}
-function renderOtif(){const routeScope=R.filter(full),o=otifCalc(routeScope),ok=o.otif!=null&&o.otif>=95,noOk=o.noOtif!=null&&o.noOtif<=5;
- const count=v=>v==null?'—':fmt0(v);
- kOTIF.textContent=o.otif==null?'Datos insuficientes':fmtPct(o.otif);kOTIFNoPct.textContent=o.noOtif==null?'—':fmtPct(o.noOtif);
- kOTIFVol.textContent=count(o.total);kOTIFEnt.textContent=o.identified?count(o.ok):'—';kOTIFNo.textContent=o.identified?count(o.no):'—';
- const integration=DATA.otif_integracion||{},last=integration.ultima_consulta||{},diagnostic=last.diagnostico;
- document.getElementById('otifIntegrationStatus').textContent=!integration.configured?'API de pedidos: falta configurar la clave de integración en el servidor.':diagnostic?'Última consulta API: '+last.desde+' al '+last.hasta+'; sucursal '+last.sucursal+'. '+diagnostic.pedidos+' pedidos; '+diagnostic.vinculos_candidatos+' vínculos candidatos, '+diagnostic.sin_vinculo+' sin vínculo, '+diagnostic.ambiguos+' ambiguos y '+diagnostic.sin_identificador+' sin identificador. Estos datos aún no acreditan OTIF.':'API configurada. Consultá los pedidos desde Admin para revisar su cobertura y vinculación.';
- const status=document.getElementById('otifCoverage');status.textContent=o.otif==null?'No se publica OTIF sin detalle completo por pedido. '+o.missingRoutes+' rutas sin detalle verificable; '+o.unknown+' pedidos sin resolver. Se necesita identificar el pedido y comprobar puntualidad y entrega completa.':'Cruce por pedido verificado: '+o.total+' pedidos. Cada incumplimiento se cuenta una sola vez.';
- [[cOTIF,bOTIF,gOTIF,o.otif,ok],[cOTIFNoPct,bOTIFNoPct,gOTIFNoPct,o.noOtif,noOk]].forEach(([card,bar,badge,value,passed])=>{const color=value==null?C.obj:passed?C.good:C.bad;card.style.setProperty('--accent',color);bar.style.background=color;bar.style.width=(value==null?0:Math.min(100,value))+'%';badge.className='badge '+(value==null?'':passed?'ok':'no');badge.textContent=value==null?'SIN EVALUAR':passed?'OK':'NO'});
- [[cOTIFVol,bOTIFVol,C.obj],[cOTIFEnt,bOTIFEnt,C.good],[cOTIFNo,bOTIFNo,C.bad]].forEach(([card,bar,color])=>{card.style.setProperty('--accent',o.identified?color:C.obj);bar.style.background=color;bar.style.width=o.identified?'100%':'0%'});
- const months=otifMes(routeScope),selection=chartFilter('mes',months.map(r=>r.key));
+let otifPage=0,otifFilterKey='';
+function renderOtif(){
+ const rows=otifFilteredRows(),o=otifCalc(rows),ok=o.otif!=null&&o.otif>=95,noOk=o.noOtif!=null&&o.noOtif<=5;
+ const filterKey=JSON.stringify([state.unidad,state.suc,state.mes,state.fecha,state.cho]);if(filterKey!==otifFilterKey){otifPage=0;otifFilterKey=filterKey}
+ kOTIF.textContent=o.otif==null?'Sin evaluar':fmtPct(o.otif);kOTIFNoPct.textContent=o.noOtif==null?'—':fmtPct(o.noOtif);
+ kOTIFVol.textContent=fmt0(o.total);kOTIFEnt.textContent=fmt0(o.ok);kOTIFNo.textContent=fmt0(o.no);
+ const integration=DATA.otif_integracion||{},last=integration.ultima_consulta||{};
+ document.getElementById('otifIntegrationStatus').textContent=last.desde?'Consulta API: '+last.desde+' al '+last.hasta+'; sucursal '+last.sucursal+'. Rechazos: estados y motivos del detalle de repartos'+(last.rechazos_consultados?' y consulta de ventas por cliente.':' (actualizá desde Admin para incorporar rechazos de ventas).'):'Consult? pedidos desde Admin para iniciar el cruce.';
+ const sourceRows=DATA.otif_clientes_dia||[],orderDates=sourceRows.filter(r=>r.pedidos).map(r=>r.fecha).sort(),visitDates=sourceRows.filter(r=>(r.visitas||[]).length).map(r=>r.fecha).sort();
+ document.getElementById('otifIntegrationStatus').textContent+=' Fechas con pedidos: '+(orderDates.length?orderDates[0]+' al '+orderDates[orderDates.length-1]:'sin registros')+'. Visitas detalladas: '+(visitDates.length?visitDates[0]+' al '+visitDates[visitDates.length-1]:'sin registros')+'.';
+ document.getElementById('otifCoverage').textContent=fmt0(o.evaluated)+' clientes/día evaluados de '+fmt0(o.total)+'; '+fmt0(o.unknown)+' pendientes. Cobertura: '+(o.coverage==null?'—':fmtPct(o.coverage))+(o.linked?'. OTIF calculado sobre evaluados':'. Sin coincidencias entre pedidos y visitas: porcentaje no disponible')+(o.unknown?' (resultado parcial).':'.')+(state.cho!=='__all'?' El filtro incluye días compartidos en los que participó el chofer; no atribuye responsabilidad individual.':'');
+ [[cOTIF,bOTIF,gOTIF,o.otif,ok],[cOTIFNoPct,bOTIFNoPct,gOTIFNoPct,o.noOtif,noOk]].forEach(([card,bar,badge,value,passed])=>{const color=value==null?C.obj:passed?C.good:C.bad;card.style.setProperty('--accent',color);bar.style.background=color;bar.style.width=(value==null?0:Math.min(100,value))+'%';badge.className='badge '+(value==null?'':passed?'ok':'no');badge.textContent=value==null?'SIN EVALUAR':o.unknown?'PARCIAL':passed?'OK':'NO'});
+ const months=otifMes(rows),selection=chartFilter('mes',months.map(r=>r.key));
  barGen('chOtifMes',months.map(r=>mLbl(r.key)),months.map(r=>r.otif),fmtPct,v=>v==null?C.obj:v>=95?C.good:C.bad,95,true,selection);
  barGen('chNoOtifMes',months.map(r=>mLbl(r.key)),months.map(r=>r.noOtif),fmtPct,v=>v==null?C.obj:v<=5?C.good:C.bad,5,true,selection);
- tbodyOtif.innerHTML=months.length?months.map(r=>'<tr><td>'+mLbl(r.key)+' '+r.key.slice(0,4)+'</td><td>'+count(r.total)+'</td><td>'+(r.identified?count(r.onTime):'—')+'</td><td>'+(r.identified?count(r.rech):'—')+'</td><td>'+(r.identified?count(r.ok):'—')+'</td><td>'+r.unknown+'</td><td>'+r.missingRoutes+'</td><td class="'+(r.noOtif==null?'':r.noOtif<=5?'g':'r')+'">'+(r.noOtif==null?'Sin evaluar':fmtPct(r.noOtif))+'</td><td class="'+(r.otif==null?'':r.otif>=95?'g':'r')+'">'+(r.otif==null?'Datos insuficientes':fmtPct(r.otif))+'</td></tr>').join(''):emptyRow(9,'No hay rutas para los filtros activos.');}
+ tbodyOtif.innerHTML=months.length?months.map(r=>'<tr><td>'+mLbl(r.key)+' '+r.key.slice(0,4)+'</td><td>'+fmt0(r.total)+'</td><td>'+fmt0(r.pedidos)+'</td><td>'+fmt0(r.ok)+'</td><td>'+fmt0(r.no)+'</td><td>'+fmt0(r.unknown)+'</td><td>'+fmtPct(r.coverage)+'</td><td>'+(r.noOtif==null?'Sin evaluar':fmtPct(r.noOtif))+'</td><td>'+(r.otif==null?'Sin evaluar':fmtPct(r.otif))+(r.unknown?' · parcial':'')+'</td></tr>').join(''):emptyRow(9,'No hay clientes/día para los filtros activos.');
+ const sorted=rows.slice().sort((a,b)=>b.fecha.localeCompare(a.fecha)||a.cliente.localeCompare(b.cliente)),size=100,pages=Math.max(1,Math.ceil(sorted.length/size));otifPage=Math.min(otifPage,pages-1);
+ document.getElementById('otifPageLabel').textContent='Página '+(otifPage+1)+' de '+pages+' · '+fmt0(rows.length)+' clientes/día';
+ document.getElementById('otifPrev').disabled=otifPage===0;document.getElementById('otifNext').disabled=otifPage>=pages-1;
+ document.getElementById('tbodyOtifClientes').innerHTML=sorted.slice(otifPage*size,(otifPage+1)*size).map(r=>'<tr><td>'+esc(r.fecha)+'</td><td>'+esc(r.suc)+'</td><td>'+esc(r.cliente)+' · '+esc(r.nombre)+'</td><td>'+fmt0(r.pedidos)+'</td><td>'+(r.a_tiempo==null?'Pendiente':r.a_tiempo?'A tiempo':'Fuera de ventana')+'</td><td>'+(r.completa?'Entregado según repartos':r.rechazo?'Parcial / rechazo':'Sin confirmar')+'</td><td>'+(r.rechazo?'Sí':'Sin rechazo acreditado')+'</td><td class="'+(r.resultado==='cumple'?'g':r.resultado==='no_cumple'?'r':'')+'">'+({cumple:'CUMPLE',no_cumple:'NO CUMPLE',pendiente:'PENDIENTE'}[r.resultado])+'</td><td><details><summary>Ver evidencia</summary>'+esc(r.razones.join('; ')||'Pedidos entregados y visitas a tiempo')+'<br>Pedidos: '+esc(r.detalle.map(d=>(d.pedido||d.comprobantes.join(', ')||'Sin referencia')+' ['+d.estado+']').join('; '))+'<br>Visitas: '+esc(r.visitas.map(v=>v.hora+' · '+v.chofer+' · '+v.estado).join('; ')||'Sin visitas')+'<br>Motivos: '+esc(r.motivos.join('; ')||'Sin motivo registrado')+'</details></td></tr>').join('')||emptyRow(9,'No hay datos para esta selección.');
+}
+document.getElementById('otifPrev').addEventListener('click',()=>{otifPage--;renderOtif()});
+document.getElementById('otifNext').addEventListener('click',()=>{otifPage++;renderOtif()});
 
 function renderCards(){const cards=R.filter(scopeCards),us=cards.filter(r=>r.usable),jUs=jornadas(us);
  const aTml=avg(us.map(r=>r.tml)),aTi=avg(us.map(r=>r.ti)),aHr=avg(jUs.map(r=>r.horas));

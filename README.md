@@ -192,37 +192,32 @@ Solo se respaldan las tablas que esta accion borra; no es una copia completa
 de toda la DB ni protege contra la perdida de la propia instancia PostgreSQL.
 
 
-### OTIF por pedido
+### OTIF operativo por cliente y dia
 
-OTIF ya no resta rechazos diarios agregados de visitas puntuales. El dashboard
-requiere en cada ruta `otif_detalle_completo: true` y una lista `otif_pedidos`
-con `pedido_id` (identificador estable del pedido en la sucursal), `a_tiempo`
-y `completo` (booleanos o null cuando no se sabe). Estos campos constituyen el
-contrato para una futura fuente de entregas verificadas: las importaciones
-actuales de Foxtrot y rechazos agrupados NO los generan automaticamente.
-No se debe marcar detalle completo sin verificar la cobertura de pedidos.
+La vista OTIF agrupa por sucursal, cliente y fecha de planilla. Usa la ultima consulta
+completa guardada de pedidos, sin unir consultas antiguas que puedan contener registros
+obsoletos. Incluye visitas Foxtrot sin pedido como pendientes dentro del rango consultado.
+Los comprobantes identifican pedidos sin numero; los registros sin ambas referencias
+permanecen pendientes. Las sucursales 1/2/3 corresponden a Central/Dolores/Chascomus.
 
-Solo cumple un pedido con ambas condiciones verdaderas. Si cualquiera es
-falsa, incumple una sola vez. Duplicados identicos se cuentan una sola vez;
-conflictos o multiples rutas/fechas para el mismo pedido quedan sin resolver.
-No se publica un porcentaje si falta detalle de rutas o hay pedidos sin
-resolver. Los filtros de chofer y sucursal se aplican a las mismas rutas para
-ambas condiciones. TI/TML y sus simulaciones no intervienen en OTIF.
+Cumple cuando todos los pedidos figuran entregados en repartos y las visitas exitosas
+estan dentro de las ventanas del maestro actual. No reconcilia cantidades con pedidos
+originales. Una entrega parcial o rechazo acreditado determina no cumplimiento una sola
+vez. Varias visitas con puntualidad distinta quedan pendientes; no se elige la primera.
+Los timestamps con zona se convierten a Buenos Aires; fechas distintas no se cruzan.
 
-Prueba del calculo en el navegador: `node tests/test_otif.cjs`.
+La sincronizacion consulta pedidos y rechazos/clientes-diario (empresa configurada para
+rechazos). Guarda la nueva consulta solo si ambos recorridos paginados terminan completos.
+Los rechazos de ventas son contables: solo se atribuyen como incumplimiento si todos sus
+comprobantes exactos y sucursal pertenecen al grupo. Coincidencias parciales o solo por
+cliente/dia quedan pendientes. Se consulta el mismo rango; rechazos contabilizados fuera
+de ese rango no estan cubiertos. Los snapshots anteriores pueden usar solo estados y
+motivos de repartos; la interfaz indica que falta actualizar los rechazos de ventas.
 
+El porcentaje es sobre clientes/dia evaluados (cumplen + no cumplen); los pendientes y
+la cobertura se publican al lado y por mes. No acredita completitud del universo de pedidos
+comprometidos. El filtro de chofer incluye dias compartidos en que participo y no atribuye
+responsabilidad individual. El detalle paginado muestra referencias, visitas y motivos.
 
-La seccion **Admin > Pedidos para OTIF** consulta el contrato
-`/api/v1/integracion/logistica/pedidos` usando `LOGISTICS_INTEGRATION_API_KEY`
-y la URL base logistica existente. Consulta todos los bloques de hasta 31 dias
-y todas sus paginas, sin enviar `empresa_id` (no soportado por ese endpoint).
-Una respuesta incompleta o inconsistente no reemplaza la copia anterior.
-Las copias quedan en settings `otif_pedidos:<desde>:<hasta>:<sucursal>`;
-`otif_ultima_consulta` contiene solo metadatos y diagnostico.
-
-La consulta diagnostica referencias explicitas de pedido en Foxtrot. No une
-solo por cliente/dia ni interpreta rutas comerciales como rutas Foxtrot. No
-escribe `otif_detalle_completo` ni convierte candidatos en OTIF automaticamente:
-falta validar evidencia de entrega, ventana comprometida y cobertura. El estado
-`completa` del proveedor indica lineas entregadas, no conciliacion de cantidades
-contra el pedido original. `clientes-diario` no sustituye este control por pedido.
+Si ningun cliente/dia tiene pedidos y visitas coincidentes, el porcentaje queda sin evaluar,
+aunque existan rechazos confirmados; se muestran las fechas disponibles de ambas fuentes.
