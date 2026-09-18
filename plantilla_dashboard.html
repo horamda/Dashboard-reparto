@@ -545,15 +545,16 @@ tfoot td{font-weight:700;border-top:2px solid var(--line);border-bottom:none}
   </div>
  </div>
  <div id="viewOtif" style="display:none">
+  <div class="hint" id="otifCoverage" role="status"></div><div class="note" id="otifIntegrationStatus"></div>
   <div class="hint">OTIF = entregas a tiempo y completas / total de entregas. Si una entrega llega fuera de ventana o con rechazo, no cumple OTIF.
    <span class="tip" tabindex="0" aria-label="Informacion sobre OTIF">?
     <span class="tipbox" role="tooltip"><b>Cuando una entrega es OTIF</b><br>Debe cumplir ambas condiciones al mismo tiempo: llego a tiempo y llego completa. Si falla una de las dos, no es OTIF.<ul><li>Puntual y completa: cumple OTIF.</li><li>Puntual con faltantes: no cumple.</li><li>Completa pero fuera de horario: no cumple.</li><li>Tarde y con faltantes: no cumple.</li></ul><br><b>Formula:</b> entregas a tiempo y completas / total de entregas x 100. Ejemplo: 960 / 1.000 x 100 = 96%.</span>
    </span>
   </div>
   <div class="cards c4" style="margin-bottom:22px">
-   <div class="card" id="cOTIF"><div class="badge" id="gOTIF"></div><div class="k">OTIF pedidos</div><div class="v" id="kOTIF">–</div><div class="obj">objetivo ≥ 95%</div><div class="bar"><i id="bOTIF"></i></div></div>
+   <div class="card" id="cOTIF"><div class="badge" id="gOTIF"></div><div class="k">OTIF pedidos</div><div class="v" style="font-size:clamp(18px,2vw,28px)" id="kOTIF">–</div><div class="obj">objetivo ≥ 95%</div><div class="bar"><i id="bOTIF"></i></div></div>
    <div class="card" id="cOTIFNoPct"><div class="badge" id="gOTIFNoPct"></div><div class="k">No OTIF pedidos</div><div class="v" id="kOTIFNoPct">–</div><div class="obj">objetivo ≤ 5%</div><div class="bar"><i id="bOTIFNoPct"></i></div></div>
-   <div class="card" id="cOTIFVol"><div class="k">Entregas totales</div><div class="v" id="kOTIFVol">–</div><div class="obj">pedidos evaluados</div><div class="bar"><i id="bOTIFVol"></i></div></div>
+   <div class="card" id="cOTIFVol"><div class="k">Pedidos identificados</div><div class="v" id="kOTIFVol">–</div><div class="obj">total verificado por pedido</div><div class="bar"><i id="bOTIFVol"></i></div></div>
    <div class="card" id="cOTIFEnt"><div class="k">A tiempo y completas</div><div class="v" id="kOTIFEnt">–</div><div class="obj">cumplen ambas condiciones</div><div class="bar"><i id="bOTIFEnt"></i></div></div>
    <div class="card" id="cOTIFNo"><div class="k">No OTIF</div><div class="v" id="kOTIFNo">–</div><div class="obj">fuera de horario o con rechazo</div><div class="bar"><i id="bOTIFNo"></i></div></div>
   </div>
@@ -562,8 +563,8 @@ tfoot td{font-weight:700;border-top:2px solid var(--line);border-bottom:none}
    <div class="panel"><h2>No OTIF por mes</h2><div class="note">% fuera de horario o con rechazo.</div><div class="chartbox" style="height:300px"><canvas id="chNoOtifMes"></canvas></div></div>
   </div>
   <div class="grid" style="grid-template-columns:1fr">
-   <div class="panel"><h2>Mes por mes</h2><div class="note">Detalle mensual de pedidos totales, on time, rechazos y cumplimiento OTIF.</div>
-    <table><thead><tr><th>Mes</th><th>Entregas totales</th><th>On time</th><th>Con rechazo</th><th>A tiempo y completas</th><th>No OTIF</th><th>OTIF</th></tr></thead><tbody id="tbodyOtif"></tbody></table></div>
+   <div class="panel"><h2>Mes por mes</h2><div class="note">Detalle por pedido: no se descuentan rechazos agregados. Sin detalle completo, el porcentaje queda sin evaluar.</div>
+    <table><thead><tr><th>Mes</th><th>Pedidos identificados</th><th>A tiempo</th><th>Incompletos</th><th>A tiempo y completas</th><th>Sin resolver</th><th>Rutas sin detalle</th><th>No OTIF</th><th>OTIF</th></tr></thead><tbody id="tbodyOtif"></tbody></table></div>
   </div>
  </div>
 </div>
@@ -786,8 +787,33 @@ function rechazosNdsChart(id,items){if(!chartsReady())return;if(ch[id])ch[id].de
 function rechazoPedidos(rows){return rows.reduce((s,r)=>s+(r.rechazos||0),0)}
 function rankRechDetalle(rows,field,limit=12){const g={};rows.forEach(r=>{const k=r[field]||'Sin dato',x=g[k]||(g[k]={key:k,pedidos:0,ocurrencias:0,bultos:0,hl:0,pallets:0});x.pedidos+=r.pedidos_rechazo||0;x.ocurrencias+=r.ocurrencias||0;x.bultos+=r.bultos_rechazo||0;x.hl+=r.hl_rechazo||0;x.pallets+=r.pallets_rechazo||0});return Object.values(g).sort((a,b)=>b.pedidos-a.pedidos||b.bultos-a.bultos).slice(0,limit)}
 function rechRankRows(items){return items.length?items.map(r=>'<tr><td>'+esc(r.key)+'</td><td class="r">'+fmt0(r.pedidos)+'</td><td>'+fmt1(r.bultos)+'</td><td>'+fmt1(r.hl)+'</td></tr>').join(''):emptyRow(4,'No hay detalle de rechazos para el filtro actual.')}
-function otifCalc(routeScope,rechScope){const ot=onTime(routeScope),rech=rechazoPedidos(rechScope),total=Math.max(ot.ev||0,rechScope.reduce((s,r)=>s+(r.pedidos_pdv_atendidos||0),0));const ok=Math.max(0,(ot.ok||0)-rech),no=Math.max(0,total-ok);return{total,onTime:ot.ok||0,rech,ok,no,otif:total?ok/total*100:null,noOtif:total?no/total*100:null}}
-function otifMes(routeScope,rechScope){const keys=new Set();routeScope.forEach(r=>keys.add(r.mes));rechScope.forEach(r=>keys.add(r.fecha.slice(0,7)));return Array.from(keys).sort().map(k=>({key:k,...otifCalc(routeScope.filter(r=>r.mes===k),rechScope.filter(r=>r.fecha.slice(0,7)===k))}))}
+function otifCalc(routeScope){
+ const orders=new Map();let missingRoutes=0,invalid=0;
+ routeScope.forEach(route=>{
+  const details=route.otif_pedidos;
+  if(route.otif_detalle_completo!==true||!Array.isArray(details)){missingRoutes++;return}
+  details.forEach(item=>{
+   if(!item||typeof item!=='object'||!String(item.pedido_id??'').trim()){invalid++;return}
+   const key=JSON.stringify([sucNorm(route.suc),String(item.pedido_id).trim()]);
+   const value={onTime:typeof item.a_tiempo==='boolean'?item.a_tiempo:null,complete:typeof item.completo==='boolean'?item.completo:null,route:route.rid,date:route.fecha};
+   const previous=orders.get(key);
+   if(!previous){orders.set(key,value)}else if(previous.onTime!==value.onTime||previous.complete!==value.complete||previous.route!==value.route||previous.date!==value.date){previous.conflict=true}
+  });
+ });
+ let ok=0,no=0,unknown=invalid,onTime=0,rech=0;
+ orders.forEach(item=>{
+  if(item.conflict){unknown++;return}
+  if(item.onTime===true)onTime++;
+  if(item.complete===false)rech++;
+  if(item.onTime===false||item.complete===false)no++;
+  else if(item.onTime===true&&item.complete===true)ok++;
+  else unknown++;
+ });
+ const identified=orders.size,total=identified+invalid,ready=total>0&&missingRoutes===0&&unknown===0;
+ return{total:missingRoutes?null:total,identified,onTime,rech,ok,no,unknown,missingRoutes,otif:ready?ok/total*100:null,noOtif:ready?no/total*100:null};
+}
+function otifMes(routeScope){const keys=[...new Set(routeScope.map(r=>r.mes))].sort();return keys.map(key=>({key,...otifCalc(routeScope.filter(r=>r.mes===key))}))}
+
 function wavg(rows,val,w){const den=rows.reduce((s,r)=>s+(r[w]||0),0);return den?rows.reduce((s,r)=>s+(r[val]||0)*(r[w]||0),0)/den:null}
 function fmt0(v){return Math.round(v||0).toLocaleString('es-AR')}
 function fmt1(v){return (v==null||isNaN(v))?'–':Number(v).toLocaleString('es-AR',{minimumFractionDigits:1,maximumFractionDigits:1})}
@@ -936,14 +962,20 @@ function renderRechazos(){const rows=rechazosScope(),total=rows.reduce((s,r)=>s+
  const det=rechazosDetalleScope();tbodyRechChofer.innerHTML=rechRankRows(rankRechDetalle(det,'chofer'));tbodyRechMotivo.innerHTML=rechRankRows(rankRechDetalle(det,'motivo'));tbodyRechSector.innerHTML=rechRankRows(rankRechDetalle(det,'sector'));
  tbodyRechDetalle.innerHTML=det.length?det.slice().sort((a,b)=>b.fecha.localeCompare(a.fecha)||(b.pedidos_rechazo||0)-(a.pedidos_rechazo||0)).slice(0,250).map(r=>'<tr><td>'+dLbl(r.fecha)+'</td><td>'+esc(r.sucursal)+'</td><td>'+esc(r.chofer)+'</td><td>'+esc(r.sector)+'</td><td>'+esc(r.motivo)+'</td><td class="r">'+fmt0(r.pedidos_rechazo)+'</td><td>'+fmt0(r.ocurrencias)+'</td><td>'+fmt1(r.bultos_rechazo)+'</td><td>'+fmt1(r.hl_rechazo)+'</td><td>'+fmt1(r.pallets_rechazo)+'</td></tr>').join(''):emptyRow(10,'No hay detalle de rechazos importado para el filtro actual.');
  tbodyRech.innerHTML=rows.length?rows.map(r=>{const aus=100-(r.nds||0),ev=r.evento||r.feriado||'';return '<tr><td title="'+esc(r.fecha)+'">'+dLbl(r.fecha)+'</td><td>'+fmt1(r.bultos)+'</td><td class="'+((r.rechazo_bultos||0)?'r':'g')+'">'+fmt1(r.rechazo_bultos)+'</td><td class="'+((r.rechazo_bultos_total||0)?'r':'g')+'">'+fmt1(r.rechazo_bultos_total)+'</td><td>'+fmt1(r.hl)+'</td><td class="'+((r.rechazo_hl||0)?'r':'g')+'">'+fmt1(r.rechazo_hl)+'</td><td class="'+((r.rechazo_hl_total||0)?'r':'g')+'">'+fmt1(r.rechazo_hl_total)+'</td><td>'+fmt0(r.salidas)+'</td><td>'+fmt0(r.pedidos_pdv_atendidos)+'</td><td>'+fmt0(r.pdv_unicos)+'</td><td>'+pctPill(r.nds,(r.nds||0)>=95)+'</td><td>'+fmt1(aus)+'</td><td>'+rechazoPill(r.pct_rechazo_pedidos,(r.pct_rechazo_pedidos||0)<=OBJ_RECH.pdv)+'</td><td>'+rechazoPill(r.pct_rechazo_bultos,(r.pct_rechazo_bultos||0)<=OBJ_RECH.bultos)+'</td><td>'+rechazoPill(r.pct_rechazo_hl,(r.pct_rechazo_hl||0)<=OBJ_RECH.hl)+'</td><td class="event">'+esc(ev)+'</td></tr>'}).join(''):emptyRow(16,'No hay rechazos cargados para el filtro actual.');}
-function renderOtif(){const routeScope=R.filter(scopeCards),rows=rechazosScope(),o=otifCalc(routeScope,rows),ok=o.otif!=null&&o.otif>=95,col=o.otif==null?C.obj:(ok?C.good:C.bad),noOk=o.noOtif!=null&&o.noOtif<=5,noCol=o.noOtif==null?C.obj:(noOk?C.good:C.bad);
- kOTIFNoPct.textContent=fmtPct(o.noOtif);kOTIF.textContent=fmtPct(o.otif);kOTIFVol.textContent=fmt0(o.total);kOTIFEnt.textContent=fmt0(o.ok);kOTIFNo.textContent=fmt0(o.no);
- cOTIFNoPct.style.setProperty('--accent',noCol);bOTIFNoPct.style.background=noCol;bOTIFNoPct.style.width=Math.min(100,(o.noOtif||0)*20)+'%';gOTIFNoPct.className='badge '+(noOk?'ok':'no');gOTIFNoPct.textContent=o.noOtif==null?'SIN DATOS':(noOk?'OK':'ALTO');
- cOTIF.style.setProperty('--accent',col);bOTIF.style.background=col;bOTIF.style.width=Math.min(100,o.otif||0)+'%';gOTIF.className='badge '+(ok?'ok':'no');gOTIF.textContent=o.otif==null?'SIN DATOS':(ok?'OK':'BAJO');
- [[cOTIFVol,bOTIFVol,C.obj],[cOTIFEnt,bOTIFEnt,C.good],[cOTIFNo,bOTIFNo,o.no?C.bad:C.good]].forEach(([c,b,color])=>{c.style.setProperty('--accent',color);b.style.background=color;b.style.width='100%'});
- const mes=otifMes(routeScope,rows),otifMonthSelect=chartFilter('mes',mes.map(r=>r.key));barGen('chOtifMes',mes.map(r=>mLbl(r.key)),mes.map(r=>r.otif),v=>fmtPct(v),v=>v>=95?C.good:C.bad,95,true,otifMonthSelect);
- barGen('chNoOtifMes',mes.map(r=>mLbl(r.key)),mes.map(r=>r.noOtif),v=>fmtPct(v),v=>v>5?C.bad:C.good,5,true,otifMonthSelect);
- tbodyOtif.innerHTML=mes.length?mes.map(r=>'<tr><td>'+mLbl(r.key)+'</td><td>'+fmt0(r.total)+'</td><td class="g">'+fmt0(r.onTime)+'</td><td class="'+(r.rech?'r':'g')+'">'+fmt0(r.rech)+'</td><td class="g">'+fmt0(r.ok)+'</td><td class="'+((r.noOtif||0)>5?'r':'g')+'">'+fmtPct(r.noOtif)+'</td><td class="'+(r.otif>=95?'g':'r')+'">'+fmtPct(r.otif)+'</td></tr>').join(''):emptyRow(7,'No hay datos OTIF cargados para el filtro actual.');}
+function renderOtif(){const routeScope=R.filter(full),o=otifCalc(routeScope),ok=o.otif!=null&&o.otif>=95,noOk=o.noOtif!=null&&o.noOtif<=5;
+ const count=v=>v==null?'—':fmt0(v);
+ kOTIF.textContent=o.otif==null?'Datos insuficientes':fmtPct(o.otif);kOTIFNoPct.textContent=o.noOtif==null?'—':fmtPct(o.noOtif);
+ kOTIFVol.textContent=count(o.total);kOTIFEnt.textContent=o.identified?count(o.ok):'—';kOTIFNo.textContent=o.identified?count(o.no):'—';
+ const integration=DATA.otif_integracion||{},last=integration.ultima_consulta||{},diagnostic=last.diagnostico;
+ document.getElementById('otifIntegrationStatus').textContent=!integration.configured?'API de pedidos: falta configurar la clave de integración en el servidor.':diagnostic?'Última consulta API: '+last.desde+' al '+last.hasta+'; sucursal '+last.sucursal+'. '+diagnostic.pedidos+' pedidos; '+diagnostic.vinculos_candidatos+' vínculos candidatos, '+diagnostic.sin_vinculo+' sin vínculo, '+diagnostic.ambiguos+' ambiguos y '+diagnostic.sin_identificador+' sin identificador. Estos datos aún no acreditan OTIF.':'API configurada. Consultá los pedidos desde Admin para revisar su cobertura y vinculación.';
+ const status=document.getElementById('otifCoverage');status.textContent=o.otif==null?'No se publica OTIF sin detalle completo por pedido. '+o.missingRoutes+' rutas sin detalle verificable; '+o.unknown+' pedidos sin resolver. Se necesita identificar el pedido y comprobar puntualidad y entrega completa.':'Cruce por pedido verificado: '+o.total+' pedidos. Cada incumplimiento se cuenta una sola vez.';
+ [[cOTIF,bOTIF,gOTIF,o.otif,ok],[cOTIFNoPct,bOTIFNoPct,gOTIFNoPct,o.noOtif,noOk]].forEach(([card,bar,badge,value,passed])=>{const color=value==null?C.obj:passed?C.good:C.bad;card.style.setProperty('--accent',color);bar.style.background=color;bar.style.width=(value==null?0:Math.min(100,value))+'%';badge.className='badge '+(value==null?'':passed?'ok':'no');badge.textContent=value==null?'SIN EVALUAR':passed?'OK':'NO'});
+ [[cOTIFVol,bOTIFVol,C.obj],[cOTIFEnt,bOTIFEnt,C.good],[cOTIFNo,bOTIFNo,C.bad]].forEach(([card,bar,color])=>{card.style.setProperty('--accent',o.identified?color:C.obj);bar.style.background=color;bar.style.width=o.identified?'100%':'0%'});
+ const months=otifMes(routeScope),selection=chartFilter('mes',months.map(r=>r.key));
+ barGen('chOtifMes',months.map(r=>mLbl(r.key)),months.map(r=>r.otif),fmtPct,v=>v==null?C.obj:v>=95?C.good:C.bad,95,true,selection);
+ barGen('chNoOtifMes',months.map(r=>mLbl(r.key)),months.map(r=>r.noOtif),fmtPct,v=>v==null?C.obj:v<=5?C.good:C.bad,5,true,selection);
+ tbodyOtif.innerHTML=months.length?months.map(r=>'<tr><td>'+mLbl(r.key)+' '+r.key.slice(0,4)+'</td><td>'+count(r.total)+'</td><td>'+(r.identified?count(r.onTime):'—')+'</td><td>'+(r.identified?count(r.rech):'—')+'</td><td>'+(r.identified?count(r.ok):'—')+'</td><td>'+r.unknown+'</td><td>'+r.missingRoutes+'</td><td class="'+(r.noOtif==null?'':r.noOtif<=5?'g':'r')+'">'+(r.noOtif==null?'Sin evaluar':fmtPct(r.noOtif))+'</td><td class="'+(r.otif==null?'':r.otif>=95?'g':'r')+'">'+(r.otif==null?'Datos insuficientes':fmtPct(r.otif))+'</td></tr>').join(''):emptyRow(9,'No hay rutas para los filtros activos.');}
+
 function renderCards(){const cards=R.filter(scopeCards),us=cards.filter(r=>r.usable),jUs=jornadas(us);
  const aTml=avg(us.map(r=>r.tml)),aTi=avg(us.map(r=>r.ti)),aHr=avg(jUs.map(r=>r.horas));
  kTml.textContent=r1(aTml);kTi.textContent=r1(aTi);kHr.textContent=hhmmH(aHr);kN.textContent=jUs.length;

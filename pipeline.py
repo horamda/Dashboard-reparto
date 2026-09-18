@@ -2219,6 +2219,7 @@ def procesar_export(xls_file, xls_name="", csv_files=None, visitas=None):
 
 DASHBOARD_ROUTE_FIELDS = {
     "rid", "suc", "chofer", "mes", "fecha", "anio", "inicio_foxtrot", "fin_foxtrot",
+    "otif_pedidos", "otif_detalle_completo",
     "camion", "usable", "alerta", "ti", "tml", "tml_ti_origen", "horas", "adhsec",
     "adhcli", "disp_km_plan", "disp_km_real", "disp_hs_plan", "disp_hs_real", "dispkm",
     "disphs", "disp_descartada", "disp_motivo", "pdv_total", "pdv_ontime",
@@ -2358,6 +2359,18 @@ def aplicar_ventanas_actuales_clientes(rutas, clientes):
     return rutas
 
 
+def sincronizar_pedidos_otif(desde, hasta, sucursal="TODAS"):
+    from otif_integration import fetch_orders, diagnose_links
+    snapshot = fetch_orders(_logistics_integration_config(), desde, hasta, sucursal)
+    snapshot["diagnostico"] = diagnose_links(snapshot["datos"], storage.load_attempts().values(), storage.load_all())
+    # Separate snapshots keep earlier ranges intact and do not alter routes or KPIs.
+    key = "otif_pedidos:" + desde + ":" + hasta + ":" + sucursal
+    storage.save_setting(key, {"valor": snapshot})
+    storage.save_setting("otif_ultima_consulta", {"valor": {k: v for k, v in snapshot.items() if k != "datos"}})
+    clear_dashboard_cache()
+    return snapshot["diagnostico"]
+
+
 def _data_desde_base(base):
     rutas = sorted((_dashboard_route(r) for r in base.values()), key=lambda r: (r["fecha"], r["suc"], r["chofer"]))
     _calibrar_tiempos_historicos_casa_central(rutas)
@@ -2386,6 +2399,7 @@ def _data_desde_base(base):
         dqi = dqi_future.result()
         dpo = dpo_future.result()
     return {"rutas": rutas,
+            "otif_integracion": {"configured": logistics_integration_status()["configured"], "ultima_consulta": (storage.load_settings().get("otif_ultima_consulta") or {}).get("valor", {})},
             "rechazos": rechazos,
             "rechazos_detalle": rechazos_detalle,
             "satisfaccion": satisfaction,

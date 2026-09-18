@@ -193,6 +193,14 @@ a{{color:#1E3A8A;font-size:13.5px}}hr{{border:0;border-top:1px solid #DCE2EA;mar
 </form>
 <p style="margin-top:18px"><a href="/inicio">Panel principal</a> · <a href="/dashboard">Dashboard</a> · <a href="/datos">Revisar datos cargados</a> · <a href="/foxtrot-calidad">Calidad Foxtrot</a> · <a href="/reporte-fichaya-foxtrot">Reporte FichaYA/Foxtrot</a> · <a href="/pedidos">Análisis de pedidos</a> · <a href="/costos-distribucion">Costos</a> · <a href="/logout">Cerrar sesión</a></p>
 <hr>
+<h1>Pedidos para OTIF</h1>
+<p>Consulta pedidos y estados de entrega. Guarda una copia y diagnostica el vinculo con Foxtrot; no convierte cruces ambiguos en cumplimiento.</p>
+<form method=post action="/actualizar-otif-pedidos">
+<label>Desde</label><input type=date name=desde value="2026-01-01" required>
+<label>Hasta</label><input type=date name=hasta value="{hasta_default}" required>
+<label>Sucursal (codigo o TODAS)</label><input name=sucursal value="TODAS" required>
+<button class=btn type=submit>Consultar pedidos OTIF</button>
+</form><hr>
 <h1>Importar rechazos</h1>
 <p>Consume el endpoint CSV de rechazos diarios de Dolores y lo guarda en la base.</p>
 <form method=post action="/actualizar-rechazos" enctype="multipart/form-data">
@@ -2016,6 +2024,21 @@ def actualizar_vehiculos_rutas():
         return Response(_admin_page(f"Error importando vehículos: {e}", err=True), mimetype="text/html", status=400)
     msg = f"Asignaciones válidas: {stats['filas_validas']}. Rutas actualizadas: {stats['rutas_actualizadas']}. Filas inválidas: {stats['filas_invalidas']}."
     return Response(_admin_page(msg), mimetype="text/html")
+
+
+@app.route("/actualizar-otif-pedidos", methods=["POST"])
+def actualizar_otif_pedidos():
+    blocked = _require_login()
+    if blocked:
+        return blocked
+    try:
+        result = pipeline.sincronizar_pedidos_otif(request.form.get("desde", ""), request.form.get("hasta", ""), request.form.get("sucursal") or "TODAS")
+    except Exception as exc:
+        return Response(_admin_page(f"No se pudo consultar pedidos OTIF: {exc}", err=True), mimetype="text/html", status=400)
+    message = (f"Pedidos guardados: {result['pedidos']}. Vinculos candidatos: {result['vinculos_candidatos']}; "
+               f"sin vinculo: {result['sin_vinculo']}; ambiguos: {result['ambiguos']}; "
+               f"sin identificador: {result['sin_identificador']}. No se modificaron indicadores OTIF.")
+    return Response(_admin_page(message), mimetype="text/html")
 
 
 @app.route("/actualizar-logistica-api", methods=["POST"])

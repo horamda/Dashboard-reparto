@@ -190,3 +190,39 @@ Los respaldos no caducan automaticamente. La restauracion requiere una accion
 separada: no se mezclan ni sobrescriben registros actuales automaticamente.
 Solo se respaldan las tablas que esta accion borra; no es una copia completa
 de toda la DB ni protege contra la perdida de la propia instancia PostgreSQL.
+
+
+### OTIF por pedido
+
+OTIF ya no resta rechazos diarios agregados de visitas puntuales. El dashboard
+requiere en cada ruta `otif_detalle_completo: true` y una lista `otif_pedidos`
+con `pedido_id` (identificador estable del pedido en la sucursal), `a_tiempo`
+y `completo` (booleanos o null cuando no se sabe). Estos campos constituyen el
+contrato para una futura fuente de entregas verificadas: las importaciones
+actuales de Foxtrot y rechazos agrupados NO los generan automaticamente.
+No se debe marcar detalle completo sin verificar la cobertura de pedidos.
+
+Solo cumple un pedido con ambas condiciones verdaderas. Si cualquiera es
+falsa, incumple una sola vez. Duplicados identicos se cuentan una sola vez;
+conflictos o multiples rutas/fechas para el mismo pedido quedan sin resolver.
+No se publica un porcentaje si falta detalle de rutas o hay pedidos sin
+resolver. Los filtros de chofer y sucursal se aplican a las mismas rutas para
+ambas condiciones. TI/TML y sus simulaciones no intervienen en OTIF.
+
+Prueba del calculo en el navegador: `node tests/test_otif.cjs`.
+
+
+La seccion **Admin > Pedidos para OTIF** consulta el contrato
+`/api/v1/integracion/logistica/pedidos` usando `LOGISTICS_INTEGRATION_API_KEY`
+y la URL base logistica existente. Consulta todos los bloques de hasta 31 dias
+y todas sus paginas, sin enviar `empresa_id` (no soportado por ese endpoint).
+Una respuesta incompleta o inconsistente no reemplaza la copia anterior.
+Las copias quedan en settings `otif_pedidos:<desde>:<hasta>:<sucursal>`;
+`otif_ultima_consulta` contiene solo metadatos y diagnostico.
+
+La consulta diagnostica referencias explicitas de pedido en Foxtrot. No une
+solo por cliente/dia ni interpreta rutas comerciales como rutas Foxtrot. No
+escribe `otif_detalle_completo` ni convierte candidatos en OTIF automaticamente:
+falta validar evidencia de entrega, ventana comprometida y cobertura. El estado
+`completa` del proveedor indica lineas entregadas, no conciliacion de cantidades
+contra el pedido original. `clientes-diario` no sustituye este control por pedido.
