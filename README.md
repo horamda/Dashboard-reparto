@@ -245,3 +245,10 @@ aborta la consulta y conserva el snapshot anterior.
 La ruta autenticada `/datos-logistica` consulta `ventas_detalle` de la base externa mediante `LOGISTICS_DATABASE_URL`. Esta variable es independiente de `DATABASE_URL`, que sigue apuntando a la base de esta app. Las transacciones externas son de solo lectura, con timeout de 30 segundos. No se usa la API ni se guarda una copia de las ventas.
 
 La vista de analisis usa las visitas y los resumenes historicos conciliados de esta app. Expone coincidencias por cliente, sucursal y fecha, y candidatos dentro de dos dias, conservando las fechas originales. No identifica pedidos ni acredita entregas completas y no cambia el calculo OTIF. Cada fila es una linea de venta. Los filtros se aplican en PostgreSQL y los JSON incluyen todos los campos de origen. Las descargas requieren un filtro de hasta 20.000 lineas; nunca se truncan silenciosamente.
+
+
+## OTIF operativo por comprobante
+
+`/cumplimiento-comprobantes` agrupa las lineas de mercaderia por empresa, sucursal, cliente, fecha y referencia completa del comprobante. Excluye remitos y comodatos. Rechazo total o parcial invalida ese comprobante. On Time se deriva de visitas del mismo cliente/sucursal/dia usando ventanas del dashboard, o clasificaciones historicas conciliadas. Las visitas cercanas no acreditan puntualidad.
+
+El indicador operativo es comprobantes a tiempo y sin rechazo / comprobantes con ambos componentes evaluables. Los pendientes quedan separados y se informa cobertura; no se acredita entrega fisica completa ni fecha prometida por pedido. Los porcentajes se calculan sobre todo el filtro, antes de paginar; no se promedian porcentajes diarios. Se conserva la consulta API anterior como referencia historica desplegable.

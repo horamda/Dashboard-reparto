@@ -105,6 +105,7 @@ def read_source(args, export=False):
 def attach_visits(rows):
     """Expose candidates within two days; never turn a candidate into OTIF compliance."""
     import storage
+    from pipeline import _otif_window_check
     from otif_customer_day import branch, historical_visits
     if not rows:
         return
@@ -130,13 +131,16 @@ def attach_visits(rows):
         detailed_ids = {str(v.get('route_id') or v.get('Route ID')) for v in all_visits}
         visits = [v for v in all_visits if str(v.get('cliente')) in customers]
     candidates = []
+    clients = storage.load_clientes()
     for v in visits:
         rid = str(v.get('route_id') or v.get('Route ID'))
         r = routes.get(rid)
         if r:
             candidates.append((str(v.get('cliente')), branch(r.get('sucursal_id') or r.get('suc')), dict(
                 ruta=rid, fecha=r['fecha'], hora=v.get('driver_click') or v.get('visit_start'),
-                chofer=r.get('chofer'), estado=v.get('Aggregate Visit Status'), fuente='Visita Foxtrot')))
+                chofer=r.get('chofer'), estado=v.get('Aggregate Visit Status'), fuente='Visita Foxtrot',
+                a_tiempo=_otif_window_check(v.get('driver_click') or v.get('visit_start'),
+                    clients.get(str(v.get('cliente')), {}).get('ventanas', []), r['fecha']))))
     for v in historical_visits(routes, detailed_ids):
         if v['cliente'] in customers:
             r = routes[v['route_id']]
@@ -151,13 +155,14 @@ def match_candidates(rows, candidates):
     indexed = defaultdict(list)
     for customer, sid, visit in candidates:
         if customer and sid:
-            indexed[(customer.strip(), sid)].append(visit)
+            indexed[(customer.strip(), sid, visit['fecha'])].append(visit)
     for row in rows:
         found = []
-        for visit in indexed.get((str(row.get('cliente') or '').strip(), branch(row.get('sucursal'))), []):
-            if row.get('fecha'):
-                delta = (date.fromisoformat(visit['fecha'])-date.fromisoformat(str(row['fecha'])[:10])).days
-                if abs(delta) <= 2:
+        if row.get('fecha'):
+            day = date.fromisoformat(str(row['fecha'])[:10])
+            for delta in range(-2,3):
+                key=(str(row.get('cliente') or '').strip(), branch(row.get('sucursal')), (day+timedelta(days=delta)).isoformat())
+                for visit in indexed.get(key, []):
                     found.append(dict(visit, diferencia_dias=delta))
         row['foxtrot_candidatos'] = found
         same_day = [v for v in found if v['diferencia_dias'] == 0]

@@ -2,7 +2,7 @@
 <title>Ventas y entregas: consulta directa</title>{{ css|safe }}<style>
 .tools label{display:flex;flex-direction:column;gap:5px;font-size:13px}.tools{align-items:end}.tools input{min-width:120px;max-width:200px}.tools select{padding:10px;border:1px solid #dce2ea;border-radius:8px;max-width:260px}
 .info{padding:16px;margin:16px 0}.info p{margin:6px 0}pre{white-space:pre-wrap;overflow-wrap:anywhere;min-width:180px;max-width:540px;font-size:12px}td{min-width:140px;max-width:540px;white-space:normal;overflow-wrap:anywhere}td details{padding:0;border:0}.nav{margin:12px 0}.table-wrap{max-height:65vh}.alert{background:#fff5dd;padding:12px;border-radius:8px}
-</style></head><body><main class="wrap"><div class="top"><div><h1>Ventas y entregas</h1><p class="muted">Ventas desde la base logística · Visitas desde la base de esta app</p></div><nav class="nav"><a href="/dashboard">Dashboard</a><a href="/datos-api">Importación API guardada</a><a href="/admin">Admin</a></nav></div>
+</style></head><body><main class="wrap"><div class="top"><div><h1>Ventas y entregas</h1><p class="muted">Ventas desde la base logística · Visitas desde la base de esta app</p></div><nav class="nav"><a href="/cumplimiento-comprobantes">OTIF por comprobante</a><a href="/dashboard">Dashboard</a><a href="/datos-api">Importación API guardada</a><a href="/admin">Admin</a></nav></div>
 {% if error %}<p class="msg err">{{ error }}</p><a class="btn" href="/datos-logistica">Volver a consultar</a>
 {% else %}
 <section class="panel info"><strong>Lectura directa, sin importar ni modificar registros</strong><p>Consultado: {{ data.consulted_at }} · Fuente de ventas: {{ data.table }}</p>

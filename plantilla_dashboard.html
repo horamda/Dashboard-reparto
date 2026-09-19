@@ -175,7 +175,7 @@ tfoot td{font-weight:700;border-top:2px solid var(--line);border-bottom:none}
 </style></head><body>
 <header><div class="wrap"><div class="brand-title"><img class="brand-logo" src="/static/logot2.png" alt="T2"><div><h1>Tiempos de reparto · Foxtrot - FichaYA - 2026 </h1>
 <div class="sub" id="periodo">del Palacio S.A.</div></div></div>
-<div class="head-actions"><a href="/inicio">Inicio</a><a href="/pedidos">Pedidos</a><a href="/costos-distribucion/dashboard">Costos</a><a href="/reporte-fichaya-foxtrot">FichaYA</a><a href="/asociar-fichaya">Asociar</a><a href="/foxtrot-calidad">Calidad</a><a href="/datos">Datos</a><a href="/datos-api">Datos API</a><a href="/datos-logistica">Ventas y entregas</a><a href="/admin">Admin</a><a href="/logout">Salir</a></div>
+<div class="head-actions"><a href="/inicio">Inicio</a><a href="/pedidos">Pedidos</a><a href="/costos-distribucion/dashboard">Costos</a><a href="/reporte-fichaya-foxtrot">FichaYA</a><a href="/asociar-fichaya">Asociar</a><a href="/foxtrot-calidad">Calidad</a><a href="/datos">Datos</a><a href="/datos-api">Datos API</a><a href="/datos-logistica">Ventas y entregas</a><a href="/cumplimiento-comprobantes">OTIF comprobantes</a><a href="/admin">Admin</a><a href="/logout">Salir</a></div>
 <div class="hcount"><b id="hc">0</b>jornadas analizadas</div></div></header>
 <div class="wrap">
  <div class="alert" id="alert"><span>&#9888;</span><span><b id="alertN">0</b> rutas no confiables : se consideran <b>datos corruptos o no confiables</b> y quedan fuera de los indicadores operativos.</span></div>
@@ -545,6 +545,8 @@ tfoot td{font-weight:700;border-top:2px solid var(--line);border-bottom:none}
   </div>
  </div>
  <div id="viewOtif" style="display:none">
+  <div class="panel"><h2>OTIF por comprobante</h2><p>La nueva tabla evalúa cada comprobante con On Time y rechazos totales o parciales. Incluye filtros por día, mes y rango de fechas.</p><a href="/cumplimiento-comprobantes">Abrir tabla y cálculo por comprobante</a></div>
+  <details><summary>Ver cálculo anterior por cliente/día (consulta API guardada)</summary>
   <div class="hint" id="otifCoverage" role="status"></div><div class="note" id="otifIntegrationStatus"></div>
   <div class="hint">OTIF por cliente/día = clientes/día a tiempo y completos / clientes/día evaluados. Se agrupan todos los pedidos de la misma sucursal, cliente y fecha de origen. Los comprobantes de ventas usan fecha de movimiento y no confirman entrega. Un rechazo acreditado cuenta una sola vez. Los pendientes se muestran aparte.</div>
   <div class="note">Entrega completa según el estado ENTREGADO de todas las líneas de repartos; no compara cantidades contra el pedido original. Puntualidad con horarios Foxtrot y ventanas actuales, o con clasificaciones históricas guardadas cuando sus listas y conteos coinciden. Rechazos de ventas con fecha contable diferente solo se atribuyen mediante comprobantes coincidentes dentro del período consultado. La cobertura corresponde a registros recibidos, no garantiza todos los pedidos comprometidos.</div>
@@ -563,6 +565,7 @@ tfoot td{font-weight:700;border-top:2px solid var(--line);border-bottom:none}
    <div class="panel"><h2>Mes por mes</h2><div class="note">Cada cliente/día se cuenta una vez. Los porcentajes son parciales si hay pendientes.</div>
     <table><thead><tr><th>Mes</th><th>Clientes/día</th><th>Pedidos / comprobantes</th><th>Cumplen</th><th>No cumplen</th><th>Pendientes</th><th>Cobertura</th><th>No OTIF</th><th>OTIF</th></tr></thead><tbody id="tbodyOtif"></tbody></table></div>
    <div class="panel"><h2>Detalle por cliente y día</h2><div style="overflow:auto"><table><thead><tr><th>Fecha</th><th>Sucursal</th><th>Cliente</th><th>Pedidos / comprobantes</th><th>Puntualidad</th><th>Entrega</th><th>Rechazo</th><th>Resultado</th><th>Detalle</th></tr></thead><tbody id="tbodyOtifClientes"></tbody></table></div><button id="otifPrev" type="button">Anterior</button> <span id="otifPageLabel"></span> <button id="otifNext" type="button">Siguiente</button></div>
+  </details>
   </div>
  </div>
 </div>
