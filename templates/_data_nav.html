@@ -1,0 +1,5 @@
+<nav class="nav" aria-label="Consultas de datos">
+{% for path, label in [('/inicio','Inicio'),('/dashboard','Dashboard'),('/datos','Datos locales'),('/cumplimiento-comprobantes','Evidencia por comprobante'),('/datos-logistica','Ventas en origen'),('/datos-api','Archivo API'),('/admin','Actualizar datos')] %}
+{% if request.path != path %}<a href="{{ path }}">{{ label }}</a>{% endif %}
+{% endfor %}
+</nav>

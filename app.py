@@ -193,16 +193,26 @@ a{{color:#1E3A8A;font-size:13.5px}}hr{{border:0;border-top:1px solid #DCE2EA;mar
 </form>
 <p style="margin-top:18px"><a href="/inicio">Panel principal</a> · <a href="/dashboard">Dashboard</a> · <a href="/datos">Revisar datos cargados</a> · <a href="/foxtrot-calidad">Calidad Foxtrot</a> · <a href="/reporte-fichaya-foxtrot">Reporte FichaYA/Foxtrot</a> · <a href="/pedidos">Análisis de pedidos</a> · <a href="/costos-distribucion">Costos</a> · <a href="/logout">Cerrar sesión</a></p>
 <hr>
-<h1>Pedidos para OTIF</h1>
+<section id="sincronizacion-logistica"><h1>Sincronizar ventas para In Full y OTIF</h1>
+<p>Importación manual desde la base externa. Actualiza todas las sucursales del período y cruza las visitas guardadas de Foxtrot. Repetir el período recoge correcciones de rechazos sin duplicar comprobantes.</p>
+<form method=post action="/cumplimiento-comprobantes/sincronizar">
+<input type=hidden name=csrf value="{logistics_csrf}"><input type=hidden name=volver value=admin>
+<label>Desde</label><input type=date name=desde value="{logistics_desde_default}" required>
+<label>Hasta</label><input type=date name=hasta value="{hasta_default}" required>
+<label>Acción</label><select name=modo><option value=ventas>Actualizar ventas y cruzar Foxtrot</option><option value=foxtrot>Solo recalcular Foxtrot con las ventas guardadas</option></select>
+<button class=btn type=submit>Ejecutar actualización</button></form>
+<p>Si falla, se conserva la versión anterior. Los filtros y el botón «Recargar resultados guardados» del dashboard no consultan la base externa. Después de modificar visitas o ventanas horarias, recalculá Foxtrot para el período afectado.</p>
+<p><a href="/dashboard?tab=otif">Ver OTIF</a> · <a href="/dashboard?tab=infull">Ver In Full</a> · <a href="/cumplimiento-comprobantes">Consultar evidencia y fecha de actualización</a></p></section>
+<hr><details><summary>Consulta histórica de pedidos por API</summary>
 <p><a href="/datos-logistica">Ventas y entregas: lectura directa de la base</a></p>
 <p><a href="/datos-api">Ver todos los datos importados de la API</a></p>
-<p>Consulta pedidos y rechazos por cliente/dia. Cruza visitas Foxtrot y ventanas horarias; los casos sin evidencia quedan pendientes.</p>
+<p>Conserva la consulta API anterior para revisión. No actualiza los comprobantes procesados de las solapas In Full y OTIF.</p>
 <form method=post action="/actualizar-otif-pedidos">
 <label>Desde</label><input type=date name=desde value="2026-01-01" required>
 <label>Hasta</label><input type=date name=hasta value="{hasta_default}" required>
 <label>Sucursal (codigo o TODAS)</label><input name=sucursal value="TODAS" required>
-<button class=btn type=submit>Consultar pedidos OTIF</button>
-</form><hr>
+<button class=btn type=submit>Actualizar consulta histórica API</button>
+</form></details><hr>
 <h1>Importar rechazos</h1>
 <p>Consume el endpoint CSV de rechazos diarios de Dolores y lo guarda en la base.</p>
 <form method=post action="/actualizar-rechazos" enctype="multipart/form-data">
@@ -392,6 +402,7 @@ def _admin_page(msg="", err=False):
         msg=m,
         fichaya_status=fichaya_status,
         logistics_api_status=logistics_api_status,
+        logistics_csrf=escape(session.setdefault('logistics_csrf', secrets.token_urlsafe(32)), quote=True),
         token_field=token_field,
         hasta_default=date.today().strftime("%Y-%m-%d"),
         logistics_desde_default=(date.today() - timedelta(days=30)).strftime("%Y-%m-%d"),
@@ -450,7 +461,7 @@ def _main_page():
         return blocked
     groups = [
         ("Operación", [
-            ("Dashboard operativo", "Indicadores principales, Team Room, DPO, rechazos, OTIF y calidad.", "/dashboard", "Abrir"),
+            ("Dashboard operativo", "Indicadores principales, Team Room, DPO, On Time, In Full, OTIF y calidad.", "/dashboard", "Abrir"),
             ("Costos de distribución", "Costo por ruta, kilómetro, entrega y cliente con asignación configurable.", "/costos-distribucion", "Calcular"),
             ("Dashboard de costos", "Histórico vigente, comparaciones y rankings logísticos.", "/costos-distribucion/dashboard", "Analizar"),
             ("Análisis de pedidos", "Importación y análisis por franja horaria, corte, canal, vendedor y bultos estimados.", "/pedidos", "Abrir"),
@@ -459,6 +470,8 @@ def _main_page():
             ("KPIs a FichaYA", "Resultados diarios por integrante, vista previa y seguimiento de envíos.", "/kpis-fichaya", "Preparar"),
         ]),
         ("Datos y calidad", [
+            ("Evidencia por comprobante", "Documentos procesados, visitas vinculadas y exportaciones para revisar el OTIF.", "/cumplimiento-comprobantes", "Consultar"),
+            ("Ventas en origen", "Todas las columnas de ventas externas en modo consulta.", "/datos-logistica", "Consultar"),
             ("Calidad Foxtrot", "Auditoría de columnas vacías y autocompletado de campos Foxtrot.", "/foxtrot-calidad", "Ver"),
             ("Datos cargados", "Revisión y edición directa de rutas, clientes, rechazos, artículos y configuración.", "/datos", "Revisar"),
             ("Asociar nombres", "Vinculación de choferes y ayudantes de reparto con legajos FichaYA.", "/asociar-fichaya", "Asociar"),
@@ -797,7 +810,7 @@ def _datos_page(table="rutas", q="", msg="", err=False, edit_key="", page=1):
     return f"""<!doctype html><html lang=es><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><title>Datos cargados</title><link rel="icon" type="image/png" href="/static/logot2.png">{DATOS_CSS}</head>
 <body><div class=wrap><div class=top><div class=brand-title><img class=brand-logo src="/static/logot2.png" alt="T2"><div><h1>Datos cargados</h1><p class=muted>Revisión y edición directa de las tablas usadas por el dashboard.</p></div></div>
 <div class=nav><a class=secondary href="/inicio">Inicio</a><a class=secondary href="/dashboard">Dashboard</a><a class=secondary href="/pedidos">Pedidos</a><a class=secondary href="/costos-distribucion">Costos</a><a class=secondary href="/foxtrot-calidad">Calidad Foxtrot</a><a class=secondary href="/reporte-fichaya-foxtrot">Reporte FichaYA/Foxtrot</a><a class=secondary href="/admin">Admin</a><a href="/logout">Salir</a></div></div>{alert}
-<p><a href="/datos-logistica">Ventas y entregas en vivo</a> ? <a href="/datos-api">Ver datos importados de la API</a></p><div class=tabs>{tabs}</div><form class=tools method=get action="/datos"><input type=hidden name=tabla value="{escape(table)}"><input name=q value="{escape(q)}" placeholder="Buscar en esta tabla"><button class=btn type=submit>Buscar</button><a class="btn secondary" href="/datos?tabla={escape(table)}">Limpiar</a></form>
+<p><a href="/cumplimiento-comprobantes">Evidencia por comprobante</a> &middot; <a href="/datos-logistica">Ventas en origen</a> &middot; <a href="/datos-api">Archivo API</a></p><div class=tabs>{tabs}</div><form class=tools method=get action="/datos"><input type=hidden name=tabla value="{escape(table)}"><input name=q value="{escape(q)}" placeholder="Buscar en esta tabla"><button class=btn type=submit>Buscar</button><a class="btn secondary" href="/datos?tabla={escape(table)}">Limpiar</a></form>
 <div class=panel><div class=table-wrap><table><thead><tr>{header}</tr></thead><tbody>{body}</tbody></table></div></div>
 {pagination}<p class=muted style="margin-top:12px">Se muestran 100 registros por página. Editar JSON incorrecto puede afectar el dashboard.</p>
 </div></body></html>"""
@@ -1317,7 +1330,7 @@ def admin():
     blocked = _require_login()
     if blocked:
         return blocked
-    return Response(_admin_page(), mimetype="text/html")
+    return Response(_admin_page(session.pop('logistics_notice', '')), mimetype="text/html")
 
 
 from api_import_view import register_api_import_view
@@ -2045,7 +2058,7 @@ def actualizar_otif_pedidos():
         return Response(_admin_page(f"No se pudo consultar pedidos OTIF: {exc}", err=True), mimetype="text/html", status=400)
     message = (f"Pedidos guardados: {result['pedidos']}. Clientes/dia: {result['clientes_dia']}; "
                f"cumplen: {result['cumplen']}; no cumplen: {result['no_cumplen']}; "
-               f"pendientes: {result['pendientes']}. Ver detalle en OTIF.")
+               f"pendientes: {result['pendientes']}. Ver detalle en Consulta histórica API. Esta consulta no actualiza el OTIF por comprobante.")
     return Response(_admin_page(message), mimetype="text/html")
 
 

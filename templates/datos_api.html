@@ -1,16 +1,16 @@
 <!doctype html>
 <html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Datos importados de la API</title>{{ css|safe }}
+<title>Archivo de consultas API</title>{{ css|safe }}
 <style>
 .tools label{display:flex;flex-direction:column;gap:5px;font-size:13px}.tools input{min-width:150px}.tools select{padding:10px;border:1px solid #dce2ea;border-radius:8px}.tools{align-items:end}
 pre{white-space:pre-wrap;overflow-wrap:anywhere;min-width:230px;max-width:600px;font-size:12px;margin:0}td{max-width:600px;white-space:normal;overflow-wrap:anywhere;min-width:150px}td details{padding:0;border:0}td details pre{margin-top:10px}.meta{padding:16px;margin:16px 0}.meta pre{max-width:none}.badge{display:inline-block;padding:5px 10px;background:#e8eef8;border-radius:6px;margin:4px}nav{margin-bottom:16px}
 </style></head><body><main class="wrap">
-<div class="top"><div><h1>Datos importados de la API</h1><p class="muted">Consulta de la última importación guardada. Todos los campos recibidos y conservados, sin recalcular valores.</p></div>
-<nav class="nav"><a href="/datos-logistica">Ventas y entregas en vivo</a><a href="/dashboard">Dashboard</a><a href="/datos">Datos</a><a href="/admin">Admin</a></nav></div>
+<div class="top"><div><h1>Archivo de consultas API</h1><p class="muted">Consulta de la última importación guardada. Todos los campos recibidos y conservados, sin recalcular valores.</p></div>
+{% include '_data_nav.html' %}</div>
 {% if error %}<p class="msg err">No se pudo leer la importación guardada. Intentá nuevamente.</p>
 {% elif not snapshot %}<div class="panel empty">Todavía no hay una importación API guardada. Podés realizarla desde Admin.</div>
 {% else %}
-<section class="panel meta"><strong>Importación guardada: {{ snapshot.get('generado_en', 'Sin fecha registrada') }}</strong>
+<p class="muted">Archivo de la integración anterior. Los indicadores actuales In Full y OTIF usan los comprobantes procesados desde la base externa.</p><section class="panel meta"><strong>Importación guardada: {{ snapshot.get('generado_en', 'Sin fecha registrada') }}</strong>
 <p>Período solicitado: {{ snapshot.get('desde') }} al {{ snapshot.get('hasta') }} · Sucursal: {{ snapshot.get('sucursal', 'TODAS') }} · Contrato: {{ snapshot.get('contrato', 'repartos_v1') }}</p>
 <p class="muted">Las fechas de movimiento y de entrega se muestran por separado. Un valor null significa que la API no informó un valor. Esta página no realiza nuevas consultas a la API.</p>
 <span class="badge">{{ snapshot.get('datos', [])|length }} pedidos / comprobantes</span><span class="badge">{{ snapshot.get('rechazos_clientes', [])|length }} registros de rechazos por cliente/día</span>

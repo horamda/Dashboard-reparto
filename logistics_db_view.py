@@ -62,6 +62,10 @@ def register_logistics_db_view(app, require_login, css):
         from processed_logistics import sync_processed
         try:
             result=sync_processed(request.form.get('desde',''),request.form.get('hasta',''),request.form.get('modo','ventas'))
+            if request.form.get('volver') == 'admin':
+                session['logistics_notice'] = (f"Actualización completada: {result['documentos']} comprobantes del "
+                                               f"{result['desde']} al {result['hasta']}. Recargá los resultados del dashboard.")
+                return redirect(url_for('admin', _anchor='sincronizacion-logistica'))
             return redirect(url_for('logistics_db.comprobantes',desde=result['desde'],hasta=result['hasta']))
         except ValueError as exc:
             return render_template('datos_logistica.html',css=css,error=str(exc)),400
