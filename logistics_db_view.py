@@ -1,7 +1,8 @@
 """Authenticated live sales explorer, separate from the saved API snapshot."""
 import json
+import secrets
 from datetime import date
-from flask import Blueprint, Response, render_template, request, url_for
+from flask import Blueprint, Response, render_template, request, url_for, session, redirect
 from logistics_db import read_source, SOURCES, SourceNotConfigured
 
 
@@ -27,13 +28,32 @@ def register_logistics_db_view(app, require_login, css):
                 values.pop('descargar',None)
                 values.update(changes)
                 return url_for('logistics_db.comprobantes',**values)
-            return render_template('comprobantes.html',css=css,data=data,link=link,
+            token=session.setdefault('logistics_csrf',secrets.token_urlsafe(32))
+            return render_template('comprobantes.html',css=css,data=data,link=link,token=token,
                                    dumps=lambda v:json.dumps(v,ensure_ascii=False,indent=2,default=str))
         except (ValueError, SourceNotConfigured) as exc:
             return render_template('datos_logistica.html',css=css,error=str(exc)),400
         except Exception:
             app.logger.error('No se pudo calcular el resumen de comprobantes')
             return render_template('datos_logistica.html',css=css,error='No se pudo completar la consulta de comprobantes. Acotá el período e intentá nuevamente.'),503
+
+    @bp.route('/cumplimiento-comprobantes/sincronizar',methods=['POST'])
+    def sincronizar():
+        blocked=require_login()
+        if blocked:
+            return blocked
+        expected=session.get('logistics_csrf','')
+        if not expected or not secrets.compare_digest(expected,request.form.get('csrf','')):
+            return Response('Sesión vencida. Volvé a abrir la página.',status=403)
+        from processed_logistics import sync_processed
+        try:
+            result=sync_processed(request.form.get('desde',''),request.form.get('hasta',''),request.form.get('modo','ventas'))
+            return redirect(url_for('logistics_db.comprobantes',desde=result['desde'],hasta=result['hasta']))
+        except ValueError as exc:
+            return render_template('datos_logistica.html',css=css,error=str(exc)),400
+        except Exception:
+            app.logger.error('La sincronización procesada falló; se conservaron los datos anteriores')
+            return render_template('datos_logistica.html',css=css,error='No se pudo completar la sincronización. Los datos procesados anteriores se conservan.'),503
 
     @bp.route('/datos-logistica')
     def view():

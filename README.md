@@ -252,3 +252,10 @@ La vista de analisis usa las visitas y los resumenes historicos conciliados de e
 `/cumplimiento-comprobantes` agrupa las lineas de mercaderia por empresa, sucursal, cliente, fecha y referencia completa del comprobante. Excluye remitos y comodatos. Rechazo total o parcial invalida ese comprobante. On Time se deriva de visitas del mismo cliente/sucursal/dia usando ventanas del dashboard, o clasificaciones historicas conciliadas. Las visitas cercanas no acreditan puntualidad.
 
 El indicador operativo es comprobantes a tiempo y sin rechazo / comprobantes con ambos componentes evaluables. Los pendientes quedan separados y se informa cobertura; no se acredita entrega fisica completa ni fecha prometida por pedido. Los porcentajes se calculan sobre todo el filtro, antes de paginar; no se promedian porcentajes diarios. Se conserva la consulta API anterior como referencia historica desplegable.
+
+
+## Almacenamiento procesado y consultas rapidas
+
+OTIF por comprobante ahora consulta `logistics_processed_docs` en la base de esta app. `logistics_processed_runs` registra los periodos sincronizados. Cambiar filtros no consulta la base externa ni recalcula visitas. La accion autenticada y protegida con CSRF permite sincronizar ventas del rango y recalcular Foxtrot, o recalcular solo Foxtrot desde los comprobantes locales.
+
+La actualizacion reemplaza atomicamente solo el rango solicitado; conserva la version anterior si falla la lectura, el cruce o la escritura. Un bloqueo transaccional impide sincronizaciones simultaneas. No modifica las tablas originales de rutas/visitas ni ventas. La copia contiene resumen por documento, referencias a lineas originales, cantidades, motivos, rechazos, evidencia de visitas y resultado operativo. Los campos originales completos siguen accesibles en la vista de origen. Cambios de visitas o ventanas requieren recalcular Foxtrot.

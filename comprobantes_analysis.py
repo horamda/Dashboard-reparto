@@ -6,7 +6,7 @@ from psycopg2 import sql
 from logistics_db import connection, filters, predicate, attach_visits
 
 
-def read_comprobantes(args, export=False):
+def source_query(args):
     args = dict(args)
     if args.get('dia'):
         args['desde'] = args['hasta'] = date.fromisoformat(args['dia']).isoformat()
@@ -39,6 +39,12 @@ def read_comprobantes(args, export=False):
     ), documentos AS MATERIALIZED (
       SELECT empresa_key AS empresa,sucursal_key AS sucursal,trim(cliente) AS cliente,fecha,doc_key,
         max(descripcion_cliente) AS nombre, count(*) AS lineas,
+        max(detalle_documento) AS documento_origen,
+        array_agg(DISTINCT motivo_rechazo) FILTER(WHERE nullif(trim(motivo_rechazo),'') IS NOT NULL) AS motivos,
+        CASE WHEN count(bultos)=count(*) THEN sum(bultos) END AS bultos,
+        CASE WHEN count(bultos_rechazados)=count(*) THEN sum(bultos_rechazados) END AS bultos_rechazados,
+        CASE WHEN count(unidad_medida)=count(*) THEN sum(unidad_medida) END AS hl,
+        CASE WHEN count(unidad_medida_rechazado)=count(*) THEN sum(unidad_medida_rechazado) END AS hl_rechazados,
         array_agg(id ORDER BY id) AS ids,
         CASE WHEN doc_key->>0='fila' OR nullif(trim(cliente),'') IS NULL THEN 'sin_determinar'
              WHEN bool_and(rechazado AND total_afirmativo) THEN 'total'
@@ -47,56 +53,26 @@ def read_comprobantes(args, export=False):
              WHEN bool_or(faltantes OR total_afirmativo) THEN 'sin_determinar'
              ELSE 'sin_rechazo' END AS estado_rechazo
       FROM base GROUP BY empresa_key,sucursal_key,trim(cliente),fecha,doc_key
-      HAVING bool_or(strpos(lower(to_jsonb(base)::text),lower(%s))>0)
-    ) ''').format(where=where)
-    params += [query]
-    try:
-        page = max(1, int(args.get('pagina', 1)))
-    except (ValueError, TypeError):
-        page = 1
-    with connection() as cn, cn.cursor() as cur:
+      HAVING {search}
+    ) ''').format(where=where,search=sql.SQL('bool_or(strpos(lower(to_jsonb(base)::text),lower(%s))>0)') if query else sql.SQL('TRUE'))
+    if query:
+        params += [query]
+    return f, cte, params
+
+
+def load_source_documents(args):
+    f,cte,params=source_query(args)
+    with connection() as cn,cn.cursor() as cur:
         cur.execute(cte + sql.SQL('SELECT to_jsonb(d) FROM documentos d ORDER BY fecha,empresa,sucursal,cliente,doc_key LIMIT 100001'),params)
-        all_rows=[r[0] for r in cur.fetchall()]
-        if len(all_rows)>100000:
-            raise ValueError('Acota el filtro a un maximo de 100.000 comprobantes.')
-        count=len(all_rows)
-        if export and count>20000:
-            raise ValueError('Acota el filtro a 20.000 comprobantes para descargar.')
-        pages=max(1,(count+49)//50)
-        page=min(page,pages)
-        rows=all_rows if export else all_rows[(page-1)*50:page*50]
-        ids=[i for r in rows for i in r['ids']]
-        cur.execute('SELECT id,to_jsonb(v) FROM public.ventas_detalle v WHERE id=ANY(%s) ORDER BY id',(ids,))
-        detail=dict(cur.fetchall())
-        for row in rows:
-            row['detalle']=[detail[i] for i in row['ids']]
-    attach_visits(all_rows)
-    evaluate_documents(all_rows)
-    counts=Counter(r['estado_rechazo'] for r in all_rows)
-    outcomes=Counter(r['resultado_otif'] for r in all_rows)
-    evaluated=outcomes['cumple']+outcomes['no_cumple']
-    grouped=defaultdict(list)
-    for row in all_rows:
-        row['comprobante']=' / '.join(str(v) for v in row['doc_key'][1:])
-        grouped[(row['fecha'],row['empresa'],row['sucursal'],row['cliente'])].append(row)
-    days=[]
-    for (day,company,branch,customer),docs in grouped.items():
-        results=Counter(r['resultado_otif'] for r in docs)
-        ev=results['cumple']+results['no_cumple']
-        days.append(dict(fecha=day,empresa=company,sucursal=branch,cliente=customer,nombre=docs[0]['nombre'],
-                         comprobantes=len(docs),cumplen=results['cumple'],no_cumplen=results['no_cumple'],
-                         pendientes=results['pendiente'],otif=100*results['cumple']/ev if ev else None))
-    day_count=len(days)
-    day_pages=max(1,(day_count+49)//50)
-    try:
-        day_page=min(day_pages,max(1,int(args.get('pagina_dias',1))))
-    except (TypeError,ValueError):
-        day_page=1
-    return dict(day_page=day_page,day_pages=day_pages,day_count=day_count,
-                rows=rows,days=days if export else days[(day_page-1)*50:day_page*50],counts=dict(counts),
-                outcomes=dict(outcomes),evaluated=evaluated,otif=100*outcomes['cumple']/evaluated if evaluated else None,
-                coverage=100*evaluated/count if count else None,
-                count=count,page=page,pages=pages,filters=f,consulted_at=datetime.now(timezone.utc).isoformat())
+        rows=[r[0] for r in cur.fetchall()]
+    if len(rows)>100000:
+        raise ValueError('Acota la sincronizacion a un maximo de 100.000 comprobantes.')
+    return rows
+
+
+def read_comprobantes(args, export=False):
+    from processed_logistics import read_processed
+    return read_processed(args,export=export)
 
 
 def evaluate_documents(rows):
