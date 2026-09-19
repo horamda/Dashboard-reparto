@@ -194,6 +194,7 @@ a{{color:#1E3A8A;font-size:13.5px}}hr{{border:0;border-top:1px solid #DCE2EA;mar
 <p style="margin-top:18px"><a href="/inicio">Panel principal</a> · <a href="/dashboard">Dashboard</a> · <a href="/datos">Revisar datos cargados</a> · <a href="/foxtrot-calidad">Calidad Foxtrot</a> · <a href="/reporte-fichaya-foxtrot">Reporte FichaYA/Foxtrot</a> · <a href="/pedidos">Análisis de pedidos</a> · <a href="/costos-distribucion">Costos</a> · <a href="/logout">Cerrar sesión</a></p>
 <hr>
 <h1>Pedidos para OTIF</h1>
+<p><a href="/datos-logistica">Ventas y entregas: lectura directa de la base</a></p>
 <p><a href="/datos-api">Ver todos los datos importados de la API</a></p>
 <p>Consulta pedidos y rechazos por cliente/dia. Cruza visitas Foxtrot y ventanas horarias; los casos sin evidencia quedan pendientes.</p>
 <form method=post action="/actualizar-otif-pedidos">
@@ -796,7 +797,7 @@ def _datos_page(table="rutas", q="", msg="", err=False, edit_key="", page=1):
     return f"""<!doctype html><html lang=es><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><title>Datos cargados</title><link rel="icon" type="image/png" href="/static/logot2.png">{DATOS_CSS}</head>
 <body><div class=wrap><div class=top><div class=brand-title><img class=brand-logo src="/static/logot2.png" alt="T2"><div><h1>Datos cargados</h1><p class=muted>Revisión y edición directa de las tablas usadas por el dashboard.</p></div></div>
 <div class=nav><a class=secondary href="/inicio">Inicio</a><a class=secondary href="/dashboard">Dashboard</a><a class=secondary href="/pedidos">Pedidos</a><a class=secondary href="/costos-distribucion">Costos</a><a class=secondary href="/foxtrot-calidad">Calidad Foxtrot</a><a class=secondary href="/reporte-fichaya-foxtrot">Reporte FichaYA/Foxtrot</a><a class=secondary href="/admin">Admin</a><a href="/logout">Salir</a></div></div>{alert}
-<p><a href="/datos-api">Ver datos importados de la API</a></p><div class=tabs>{tabs}</div><form class=tools method=get action="/datos"><input type=hidden name=tabla value="{escape(table)}"><input name=q value="{escape(q)}" placeholder="Buscar en esta tabla"><button class=btn type=submit>Buscar</button><a class="btn secondary" href="/datos?tabla={escape(table)}">Limpiar</a></form>
+<p><a href="/datos-logistica">Ventas y entregas en vivo</a> ? <a href="/datos-api">Ver datos importados de la API</a></p><div class=tabs>{tabs}</div><form class=tools method=get action="/datos"><input type=hidden name=tabla value="{escape(table)}"><input name=q value="{escape(q)}" placeholder="Buscar en esta tabla"><button class=btn type=submit>Buscar</button><a class="btn secondary" href="/datos?tabla={escape(table)}">Limpiar</a></form>
 <div class=panel><div class=table-wrap><table><thead><tr>{header}</tr></thead><tbody>{body}</tbody></table></div></div>
 {pagination}<p class=muted style="margin-top:12px">Se muestran 100 registros por página. Editar JSON incorrecto puede afectar el dashboard.</p>
 </div></body></html>"""
@@ -1321,6 +1322,8 @@ def admin():
 
 from api_import_view import register_api_import_view
 register_api_import_view(app, _require_login, DATOS_CSS)
+from logistics_db_view import register_logistics_db_view
+register_logistics_db_view(app, _require_login, DATOS_CSS)
 
 
 @app.route("/datos")

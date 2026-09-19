@@ -238,3 +238,10 @@ No se convierte fecha contable en fecha de entrega: esos grupos quedan pendiente
 confirmar entrega incluso cuando hay un rechazo registrado. El contrato previo de
 repartos sigue validando fecha_entrega. Un cambio de contrato durante la paginacion
 aborta la consulta y conserva el snapshot anterior.
+
+
+## Consulta directa de ventas y cruce con Foxtrot
+
+La ruta autenticada `/datos-logistica` consulta `ventas_detalle` de la base externa mediante `LOGISTICS_DATABASE_URL`. Esta variable es independiente de `DATABASE_URL`, que sigue apuntando a la base de esta app. Las transacciones externas son de solo lectura, con timeout de 30 segundos. No se usa la API ni se guarda una copia de las ventas.
+
+La vista de analisis usa las visitas y los resumenes historicos conciliados de esta app. Expone coincidencias por cliente, sucursal y fecha, y candidatos dentro de dos dias, conservando las fechas originales. No identifica pedidos ni acredita entregas completas y no cambia el calculo OTIF. Cada fila es una linea de venta. Los filtros se aplican en PostgreSQL y los JSON incluyen todos los campos de origen. Las descargas requieren un filtro de hasta 20.000 lineas; nunca se truncan silenciosamente.

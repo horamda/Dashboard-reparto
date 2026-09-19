@@ -1,0 +1,24 @@
+<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Ventas y entregas: consulta directa</title>{{ css|safe }}<style>
+.tools label{display:flex;flex-direction:column;gap:5px;font-size:13px}.tools{align-items:end}.tools input{min-width:120px;max-width:200px}.tools select{padding:10px;border:1px solid #dce2ea;border-radius:8px;max-width:260px}
+.info{padding:16px;margin:16px 0}.info p{margin:6px 0}pre{white-space:pre-wrap;overflow-wrap:anywhere;min-width:180px;max-width:540px;font-size:12px}td{min-width:140px;max-width:540px;white-space:normal;overflow-wrap:anywhere}td details{padding:0;border:0}.nav{margin:12px 0}.table-wrap{max-height:65vh}.alert{background:#fff5dd;padding:12px;border-radius:8px}
+</style></head><body><main class="wrap"><div class="top"><div><h1>Ventas y entregas</h1><p class="muted">Ventas desde la base logística · Visitas desde la base de esta app</p></div><nav class="nav"><a href="/dashboard">Dashboard</a><a href="/datos-api">Importación API guardada</a><a href="/admin">Admin</a></nav></div>
+{% if error %}<p class="msg err">{{ error }}</p><a class="btn" href="/datos-logistica">Volver a consultar</a>
+{% else %}
+<section class="panel info"><strong>Lectura directa, sin importar ni modificar registros</strong><p>Consultado: {{ data.consulted_at }} · Fuente de ventas: {{ data.table }}</p>
+<p>Cobertura de la tabla de ventas: {{ data.first or 'Sin datos' }} al {{ data.last or 'Sin datos' }} · {{ data.total }} líneas en origen.</p>
+<p class="muted">Cada fila es una línea de venta, no un pedido ni una entrega. El mismo comprobante puede ocupar varias filas.</p></section>
+<form class="tools" method="get"><label>Vista<select name="fuente">{% for key, spec in sources.items() %}<option value="{{ key }}" {{ 'selected' if data.filters.fuente == key }}>{{ spec[0] }}</option>{% endfor %}</select></label>
+<label>Movimiento desde<input name="desde" type="date" value="{{ data.filters.desde }}"></label><label>Movimiento hasta<input name="hasta" type="date" value="{{ data.filters.hasta }}"></label>
+<label>Cliente exacto<input name="cliente" value="{{ data.filters.cliente }}" placeholder="Código"></label><label>Sucursal exacta<input name="sucursal" value="{{ data.filters.sucursal }}" placeholder="Código de origen"></label>
+<label>Buscar en ventas<input name="q" value="{{ data.filters.q }}" placeholder="Comprobante, artículo, motivo…"></label><button class="btn">Consultar</button><a class="btn secondary" href="/datos-logistica">Limpiar</a></form>
+{% if data.filters.fuente == 'analisis' %}<p class="alert">El cruce usa cliente y sucursal, comparando la fecha de movimiento con la fecha de visita. Muestra coincidencias del mismo día y candidatos hasta dos días antes o después. No confirma qué pedido se entregó, ni modifica el OTIF. Los resúmenes históricos se identifican como tales.</p>{% endif %}
+<nav class="nav"><a href="{{ link(descargar='json') }}">Descargar todos los resultados del filtro (JSON)</a></nav><p class="muted">Hasta 20.000 líneas por descarga. Todos los campos originales están disponibles en la tabla y en el JSON.</p>
+<p>{{ data.count }} líneas encontradas · Página {{ data.page }} de {{ data.pages }} · 50 filas por página</p>
+<div class="panel"><div class="table-wrap"><table><thead><tr><th>Detalle completo</th>{% if data.filters.fuente == 'analisis' %}<th>Cruce con visitas</th>{% endif %}{% for col in data.columns %}<th>{{ col }}</th>{% endfor %}</tr></thead><tbody>
+{% for row in data.rows %}<tr><td><details><summary>Ver todos los campos</summary><pre>{{ dumps(row) }}</pre></details></td>
+{% if data.filters.fuente == 'analisis' %}<td>{{ row.estado_cruce }}<details><summary>{{ row.foxtrot_candidatos|length }} visitas candidatas</summary><pre>{{ dumps(row.foxtrot_candidatos) }}</pre></details></td>{% endif %}
+{% for col in data.columns %}<td>{% if row[col] is mapping or (row[col] is sequence and row[col] is not string) %}<details><summary>Ver contenido</summary><pre>{{ dumps(row[col]) }}</pre></details>{% else %}{{ 'null' if row[col] is none else row[col] }}{% endif %}</td>{% endfor %}</tr>
+{% else %}<tr><td colspan="{{ data.columns|length+2 }}">Sin resultados para estos filtros.</td></tr>{% endfor %}</tbody></table></div></div>
+<div class="pagination"><span>{{ data.count }} líneas</span>{% if data.page > 1 %}<a class="btn secondary" href="{{ link(pagina=data.page-1) }}">Anterior</a>{% endif %}{% if data.page < data.pages %}<a class="btn secondary" href="{{ link(pagina=data.page+1) }}">Siguiente</a>{% endif %}</div>
+{% endif %}</main></body></html>
