@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Datos importados de la API</title>{{ css|safe }}
+<style>
+.tools label{display:flex;flex-direction:column;gap:5px;font-size:13px}.tools input{min-width:150px}.tools select{padding:10px;border:1px solid #dce2ea;border-radius:8px}.tools{align-items:end}
+pre{white-space:pre-wrap;overflow-wrap:anywhere;min-width:230px;max-width:600px;font-size:12px;margin:0}td{max-width:600px;white-space:normal;overflow-wrap:anywhere;min-width:150px}td details{padding:0;border:0}td details pre{margin-top:10px}.meta{padding:16px;margin:16px 0}.meta pre{max-width:none}.badge{display:inline-block;padding:5px 10px;background:#e8eef8;border-radius:6px;margin:4px}nav{margin-bottom:16px}
+</style></head><body><main class="wrap">
+<div class="top"><div><h1>Datos importados de la API</h1><p class="muted">Consulta de la última importación guardada. Todos los campos recibidos y conservados, sin recalcular valores.</p></div>
+<nav class="nav"><a href="/dashboard">Dashboard</a><a href="/datos">Datos</a><a href="/admin">Admin</a></nav></div>
+{% if error %}<p class="msg err">No se pudo leer la importación guardada. Intentá nuevamente.</p>
+{% elif not snapshot %}<div class="panel empty">Todavía no hay una importación API guardada. Podés realizarla desde Admin.</div>
+{% else %}
+<section class="panel meta"><strong>Importación guardada: {{ snapshot.get('generado_en', 'Sin fecha registrada') }}</strong>
+<p>Período solicitado: {{ snapshot.get('desde') }} al {{ snapshot.get('hasta') }} · Sucursal: {{ snapshot.get('sucursal', 'TODAS') }} · Contrato: {{ snapshot.get('contrato', 'repartos_v1') }}</p>
+<p class="muted">Las fechas de movimiento y de entrega se muestran por separado. Un valor null significa que la API no informó un valor. Esta página no realiza nuevas consultas a la API.</p>
+<span class="badge">{{ snapshot.get('datos', [])|length }} pedidos / comprobantes</span><span class="badge">{{ snapshot.get('rechazos_clientes', [])|length }} registros de rechazos por cliente/día</span>
+<details><summary>Metadatos completos y cobertura de la importación</summary><pre>{{ dumps(metadata) }}</pre></details></section>
+<div class="tabs"><a class="{{ 'on' if source == 'datos' }}" href="{{ url_for('api_import.view', fuente='datos') }}">Pedidos / comprobantes</a><a class="{{ 'on' if source == 'rechazos_clientes' }}" href="{{ url_for('api_import.view', fuente='rechazos_clientes') }}">Rechazos por cliente/día</a></div>
+<form class="tools" method="get"><input type="hidden" name="fuente" value="{{ source }}">
+<label>Buscar en todos los campos<input name="q" value="{{ request.args.get('q','') }}" placeholder="Cliente, pedido, comprobante, motivo…"></label>
+<label>Filtrar por fecha<select name="campo_fecha">{% for key, label in [('fecha_entrega','Entrega'),('fecha_movimiento','Movimiento'),('fecha','Fecha del rechazo')] %}<option value="{{ key }}" {{ 'selected' if date_field == key }}>{{ label }}</option>{% endfor %}</select></label>
+<label>Desde<input type="date" name="desde" value="{{ request.args.get('desde','') }}"></label><label>Hasta<input type="date" name="hasta" value="{{ request.args.get('hasta','') }}"></label>
+<button class="btn">Filtrar</button><a class="btn secondary" href="{{ url_for('api_import.view', fuente=source) }}">Limpiar</a></form>
+<nav class="nav"><a href="{{ link(descargar='filtrado') }}">Descargar JSON filtrado ({{ count }})</a><a class="secondary" href="{{ link(descargar='completo') }}">Descargar importación completa</a></nav>
+<p>{{ count }} de {{ total }} registros · {{ columns|length }} campos · 50 registros por página. Desplazá la tabla horizontalmente para ver todas las columnas.</p>
+<div class="panel"><div class="table-wrap"><table><thead><tr><th>Registro completo</th>{% for col in columns %}<th>{{ col }}</th>{% endfor %}</tr></thead><tbody>
+{% for row in rows %}<tr><td><details><summary>Ver JSON completo</summary><pre>{{ dumps(row) }}</pre></details></td>
+{% for col in columns %}<td>{% if col not in row %}<em>No incluido</em>{% elif row[col] is mapping or (row[col] is sequence and row[col] is not string) %}<details><summary>Ver contenido</summary><pre>{{ dumps(row[col]) }}</pre></details>{% else %}<pre>{{ dumps(row[col]) }}</pre>{% endif %}</td>{% endfor %}</tr>
+{% else %}<tr><td colspan="{{ columns|length + 1 }}">No hay registros para estos filtros.</td></tr>{% endfor %}</tbody></table></div></div>
+<div class="pagination"><span>Página {{ page }} de {{ pages }}</span>{% if page > 1 %}<a class="btn secondary" href="{{ link(pagina=page-1) }}">Anterior</a>{% endif %}{% if page < pages %}<a class="btn secondary" href="{{ link(pagina=page+1) }}">Siguiente</a>{% endif %}</div>
+{% endif %}</main></body></html>
