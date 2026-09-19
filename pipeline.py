@@ -1749,6 +1749,13 @@ def guardar_rechazos_payload(payload, desde="", hasta="", origen="archivo"):
             recs[key]["rechazo_pallets"] += rec.get("rechazo_pallets", 0)
             if rec["motivo"] and not recs[key].get("motivo"):
                 recs[key]["motivo"] = rec["motivo"]
+    from rechazo_metrics import enrich_customer_ids
+    try:
+        enrich_customer_ids(recs)
+    except Exception:
+        # Daily summaries remain usable when the optional source is unavailable.
+        for rec in recs.values():
+            rec['pdv_clientes'] = None
     guardados = storage.upsert_rechazos(recs)
     det_recs = {}
     if detalle is not None:
@@ -2424,7 +2431,8 @@ def _data_desde_base(base):
                 rechazos_base = storage.load_rechazos()
         except Exception:
             rechazos_base = {}
-    rechazos = sorted(rechazos_base.values(), key=lambda r: r["fecha"])
+    from rechazo_metrics import normalize_saved
+    rechazos = normalize_saved(rechazos_base.values())
     rechazos_detalle = sorted(storage.load_rechazos_detalle().values(), key=lambda r: (r["fecha"], r.get("chofer", ""), r.get("motivo", "")))
     with ThreadPoolExecutor(max_workers=3, thread_name_prefix="dashboard-external") as executor:
         satisfaction_future = executor.submit(cargar_satisfaccion)
