@@ -14,3 +14,14 @@ assert.equal(ctx.rechMotivos([{fecha:'2026-01-01',motivo:'Zero',bultos_rechazo:0
 assert.equal(ctx.rechMotivos([]).values.length,0);
 for(const m of data.months)assert(Math.abs(m.values.reduce((s,r)=>s+r.pctB,0)-100)<1e-9);
 console.log('Reason volumes, monthly denominators, ordering by unit, zero and empty states OK');
+
+vm.runInContext(html.slice(html.indexOf('function rechTrendData('),html.indexOf('function renderRechTrend(')),ctx);
+const trend=ctx.rechTrendData(rows,'2026','bultos','B');
+assert.equal(trend.months.length,12);
+assert.equal(trend.series.length,1);
+assert.equal(trend.series[0].values[0],60);
+assert.equal(trend.series[0].values[1],0);
+assert.equal(trend.series[0].values[2],null);
+assert.equal(ctx.rechTrendData(rows,'2025','hl').series.length,0);
+assert.equal(ctx.rechTrendData(rows,'2026','hl','A').series[0].values[0],2);
+console.log('Annual trend: reason/year/unit selection and missing months OK');

@@ -588,6 +588,14 @@ tfoot td{font-weight:700;border-top:2px solid var(--line);border-bottom:none}
     <div style="overflow-x:auto;padding-bottom:8px"><div id="rechMotParetoArea" style="height:440px;position:relative"><canvas id="chRechMotPareto"></canvas></div></div>
     <h3>Participación por mes</h3><p class="note">Cinco motivos principales del período y el resto agrupado. Tocá un mes para aplicar el filtro.</p>
     <div style="height:340px;position:relative"><canvas id="chRechMotMonth"></canvas></div>
+    <h3>Evolución anual de los motivos</h3>
+    <p class="note">Volumen rechazado por mes. Conserva unidad, sucursal y chofer; muestra el año completo independientemente del mes o día seleccionado arriba. Los meses sin detalle importado aparecen sin punto.</p>
+    <div style="display:flex;flex-wrap:wrap;gap:12px;margin-bottom:12px">
+     <label>Año <select id="rechTrendYear" onchange="renderRechTrend()"></select></label>
+     <label>Motivo <select id="rechTrendReason" onchange="renderRechTrend()"><option value="__all">Todos los motivos</option></select></label>
+    </div>
+    <p id="rechTrendStatus" role="status" class="note"></p>
+    <div style="height:440px;position:relative"><canvas id="chRechMotTrend"></canvas></div>
     <h3>Volumen y porcentaje por motivo</h3>
     <div class="tblscroll rechazo-ranking-scroll"><table style="min-width:650px;width:100%"><thead><tr><th>Motivo</th><th>Bultos</th><th>% bultos</th><th>HL</th><th>% HL</th><th>% acumulado seleccionado</th></tr></thead><tbody id="tbodyRechMotivo"></tbody></table></div>
     <h3>Detalle mensual por motivo</h3><div class="tblscroll rechazo-ranking-scroll"><table style="min-width:700px;width:100%"><thead><tr><th>Mes</th><th>Motivo</th><th>Bultos</th><th>% bultos del mes</th><th>HL</th><th>% HL del mes</th></tr></thead><tbody id="tbodyRechMotMonthly"></tbody></table></div>
@@ -981,7 +989,23 @@ function rechMotivos(rows,unit='bultos'){
  const months=new Map();rows.forEach(r=>{const key=String(r.fecha||'').slice(0,7);if(!/^\d{4}-\d{2}$/.test(key))return;if(!months.has(key))months.set(key,[]);months.get(key).push(r)});
  return {...summarize(rows),months:[...months].sort(([a],[b])=>a.localeCompare(b)).map(([key,items])=>({key,...summarize(items)}))};
 }
+function rechTrendData(rows,year,unit,reason='__all'){
+ const scoped=rows.filter(r=>r.fecha.slice(0,4)===year),summary=rechMotivos(scoped,unit),months=Array.from({length:12},(_,i)=>year+'-'+String(i+1).padStart(2,'0'));
+ return{months,series:summary.values.filter(r=>reason==='__all'||r.key===reason).map(r=>({key:r.key,values:months.map(key=>{const month=summary.months.find(m=>m.key===key);return month?(month.values.find(v=>v.key===r.key)?.[unit]??0):null})}))};
+}
+function renderRechTrend(){
+ const rows=RECHDET.filter(r=>rechazoBase(r)&&(state.cho==='__all'||cleanPersona(r.chofer)===state.cho)),yearEl=document.getElementById('rechTrendYear'),reasonEl=document.getElementById('rechTrendReason'),unit=document.getElementById('rechMotUnit').value;
+ const years=[...new Set(RECHDET.map(r=>r.fecha.slice(0,4)))].sort(),previousYear=yearEl.value;
+ yearEl.innerHTML=years.map(y=>'<option value="'+esc(y)+'">'+esc(y)+'</option>').join('');yearEl.value=years.includes(previousYear)?previousYear:years.at(-1)||'';
+ const reasons=[...new Set(rows.filter(r=>r.fecha.slice(0,4)===yearEl.value).map(r=>String(r.motivo||'Sin motivo').trim()||'Sin motivo'))].sort(),previousReason=reasonEl.value;
+ reasonEl.innerHTML='<option value="__all">Todos los motivos</option>'+reasons.map(r=>'<option value="'+esc(r)+'">'+esc(r)+'</option>').join('');reasonEl.value=reasons.includes(previousReason)?previousReason:'__all';
+ const data=rechTrendData(rows,yearEl.value,unit,reasonEl.value),label=unit==='hl'?'HL':'Bultos';
+ document.getElementById('rechTrendStatus').textContent=data.series.length?label+' rechazados · '+yearEl.value+' · '+data.series.length+' motivos. Tocá una leyenda para ocultar o mostrar su línea.':'Sin detalle para el año y los filtros seleccionados.';
+ if(!chartsReady())return;if(ch.chRechMotTrend){ch.chRechMotTrend.destroy();delete ch.chRechMotTrend}if(!data.series.length)return;
+ ch.chRechMotTrend=new Chart(document.getElementById('chRechMotTrend'),{type:'line',data:{labels:data.months.map(mLbl),datasets:data.series.map((s,i)=>({label:s.key,data:s.values,_fmt:fmt2,borderColor:'hsl('+((reasons.indexOf(s.key)*137.5)%360)+',65%,38%)',backgroundColor:'hsl('+((reasons.indexOf(s.key)*137.5)%360)+',65%,38%)',borderWidth:2,pointRadius:3,tension:0,spanGaps:false,fill:false}))},options:{responsive:true,maintainAspectRatio:false,layout:{padding:{top:18}},plugins:{legend:{position:'bottom'},tooltip:{callbacks:{label:c=>c.dataset.label+': '+fmt2(c.raw)+' '+label}}},scales:{y:{beginAtZero:true,grace:'12%',title:{display:true,text:label}},x:{ticks:{autoSkip:false}}}},plugins:data.series.length===1?[dLabels([0])]:[]});
+}
 function renderRechMotivos(rows){
+ renderRechTrend();
  const unit=document.getElementById('rechMotUnit').value,unitLabel=unit==='hl'?'HL':'bultos',data=rechMotivos(rows,unit),pct=v=>v==null?'—':fmtPct(v);
  document.getElementById('rechMotSummary').textContent=rows.length?data.values.length+' motivos · '+fmt1(data.totals.bultos)+' bultos rechazados · '+fmt2(data.totals.hl)+' HL rechazados':'Sin detalle de motivos para los filtros seleccionados.';
  document.getElementById('tbodyRechMotivo').innerHTML=data.values.length?data.values.map(r=>'<tr><td>'+esc(r.key)+'</td><td>'+fmt1(r.bultos)+'</td><td>'+pct(r.pctB)+'</td><td>'+fmt2(r.hl)+'</td><td>'+pct(r.pctH)+'</td><td>'+pct(r.acc)+'</td></tr>').join(''):emptyRow(6,'Sin datos para los filtros seleccionados.');
