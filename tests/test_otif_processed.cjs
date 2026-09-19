@@ -15,3 +15,15 @@ ctx.state.mes=ctx.state.fecha='__all';ctx.state.cho='ANA';assert.equal(run().len
 ctx.state.cho='Nobody';assert.equal(ctx.docOtifStats(run()).otif,null);
 const stats=ctx.docOtifStats(ctx.rows);assert.equal(stats.pending,1);assert.equal(stats.coverage,75);assert.ok(Math.abs(stats.otif-200/3)<1e-9);
 console.log('Processed OTIF: all dashboard filters, separate branches, pending denominator OK');
+vm.runInContext(html.split('\n').find(l=>l.startsWith('function docOtifDrivers(')),ctx);
+ctx.state.cho='__all';
+const sample=[row('Mar de Ajo','2026-05-01',['ANA','ANA RECARGA'],'cumple'),row('Mar de Ajo','2026-05-01',['ANA','BOB'],'no_cumple'),row('Mar de Ajo','2026-05-01',['BOB'],'pendiente'),row('Mar de Ajo','2026-05-01',[],'pendiente')];
+let ranking=ctx.docOtifDrivers(sample);
+assert.equal(ranking.unassigned,1);assert.equal(ranking.drivers.length,2);
+let ana=ranking.drivers.find(r=>r.key==='ANA'),bob=ranking.drivers.find(r=>r.key==='BOB');
+assert.equal(ana.total,2);assert.equal(ana.shared,1);assert.equal(ana.otif,50);
+assert.equal(bob.total,2);assert.equal(bob.otif,0);assert.equal(bob.coverage,50);assert.equal(bob.pending,1);
+ctx.state.cho='ANA';ranking=ctx.docOtifDrivers(sample);assert.equal(ranking.drivers.length,1);assert.equal(ranking.drivers[0].key,'ANA');
+ctx.state.cho='__all';assert.equal(ctx.docOtifDrivers([row('Dolores','2026-06-01',['BOB'],'pendiente')]).drivers[0].otif,null);
+assert.equal(ctx.docOtifDrivers([]).drivers.length,0);
+console.log('Driver OTIF: unique documents, shared drivers, missing assignments, pending and selection OK');
