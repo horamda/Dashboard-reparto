@@ -181,6 +181,19 @@ tfoot td{font-weight:700;border-top:2px solid var(--line);border-bottom:none}
 #viewOtif .panel>p>a,#viewInFull .panel>p>a{display:inline-block;color:#1e3a8a;margin:6px 8px 6px 0}
 #docOtifStatus,#inFullStatus{color:#657085;font-size:12px;overflow-wrap:anywhere}
 @media(max-width:700px){#docOtifCards,#inFullCards{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.rechazo-rankings{grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr));align-items:start;gap:18px}
+.rechazo-rankings .panel{min-width:0;padding:18px}
+.rechazo-rankings .note{margin-bottom:12px}
+.rechazo-ranking-scroll{max-height:440px;margin:0;padding:0;border:1px solid var(--line);border-radius:9px;scrollbar-width:thin}
+.tblscroll table.rechazo-ranking-table{min-width:0;width:100%;table-layout:fixed;font-size:12px}
+.rechazo-ranking-table th:first-child{width:46%}
+.rechazo-ranking-table th,.rechazo-ranking-table td{padding:11px 7px;white-space:normal;overflow-wrap:anywhere;vertical-align:middle}
+.rechazo-ranking-table thead th{position:sticky;top:0;background:#f3f6fa;color:#526079;z-index:2;font-size:10px}
+.rechazo-ranking-table td:first-child{font-weight:600;line-height:1.45;color:#24344f}
+.rechazo-ranking-table td:not(:first-child){font-variant-numeric:tabular-nums}
+.rechazo-ranking-table tbody tr:nth-child(even){background:#f8fafc}
+.rechazo-ranking-table tbody tr:hover{background:#eef3fa}
+@media(max-width:720px){.rechazo-rankings{grid-template-columns:1fr}.rechazo-rankings .panel{padding:14px}.rechazo-ranking-scroll{margin:0;padding:0}}
 </style></head><body>
 <header><div class="wrap"><div class="brand-title"><img class="brand-logo" src="/static/logo-t2-v2.webp" width="108" height="108" fetchpriority="high" decoding="async" alt="T2"><div><h1>Tiempos de reparto · Foxtrot - FichaYA - 2026 </h1>
 <div class="sub" id="periodo">del Palacio S.A.</div></div></div>
@@ -543,10 +556,10 @@ tfoot td{font-weight:700;border-top:2px solid var(--line);border-bottom:none}
    <div class="panel"><h2>Día por día</h2><div class="note">Datos diarios importados desde el endpoint.</div>
     <div class="tblscroll rechlist"><table class="rech-table"><thead><tr><th>Fecha</th><th>Bultos</th><th>Rechazo bultos</th><th>Rechazo bultos total</th><th>HL</th><th>Rechazo HL</th><th>Rechazo HL total</th><th>Salidas</th><th>PDV atendidos</th><th>PDV únicos</th><th>NDS</th><th>No entregados (%)</th><th>% rechazo PDV</th><th>% rechazo blt.</th><th>% rechazo HL</th><th class="event">Evento</th></tr></thead><tbody id="tbodyRech"></tbody></table></div></div>
   </div>
-  <div class="grid" style="grid-template-columns:1fr 1fr 1fr">
-   <div class="panel"><h2>Top choferes</h2><div class="note">Ranking por pedidos con rechazo.</div><div class="tblscroll"><table><thead><tr><th>Chofer</th><th>Pedidos</th><th>Bultos</th><th>HL</th></tr></thead><tbody id="tbodyRechChofer"></tbody></table></div></div>
-   <div class="panel"><h2>Top motivos</h2><div class="note">Causas con mayor impacto.</div><div class="tblscroll"><table><thead><tr><th>Motivo</th><th>Pedidos</th><th>Bultos</th><th>HL</th></tr></thead><tbody id="tbodyRechMotivo"></tbody></table></div></div>
-   <div class="panel"><h2>Por sector</h2><div class="note">Agrupado por sector del motivo.</div><div class="tblscroll"><table><thead><tr><th>Sector</th><th>Pedidos</th><th>Bultos</th><th>HL</th></tr></thead><tbody id="tbodyRechSector"></tbody></table></div></div>
+  <div class="grid rechazo-rankings">
+   <div class="panel"><h2>Top choferes</h2><div class="note">Ranking por pedidos con rechazo.</div><div class="tblscroll rechazo-ranking-scroll"><table class="rechazo-ranking-table"><thead><tr><th>Chofer</th><th>Pedidos</th><th>Bultos</th><th>HL</th></tr></thead><tbody id="tbodyRechChofer"></tbody></table></div></div>
+   <div class="panel"><h2>Top motivos</h2><div class="note">Causas con mayor impacto.</div><div class="tblscroll rechazo-ranking-scroll"><table class="rechazo-ranking-table"><thead><tr><th>Motivo</th><th>Pedidos</th><th>Bultos</th><th>HL</th></tr></thead><tbody id="tbodyRechMotivo"></tbody></table></div></div>
+   <div class="panel"><h2>Por sector</h2><div class="note">Agrupado por sector del motivo.</div><div class="tblscroll rechazo-ranking-scroll"><table class="rechazo-ranking-table"><thead><tr><th>Sector</th><th>Pedidos</th><th>Bultos</th><th>HL</th></tr></thead><tbody id="tbodyRechSector"></tbody></table></div></div>
   </div>
   <div class="grid" style="grid-template-columns:1fr">
    <div class="panel"><h2>Detalle por chofer y motivo</h2><div class="note">Filas del endpoint de integración, filtradas por mes.</div>
