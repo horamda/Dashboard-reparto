@@ -596,6 +596,9 @@ tfoot td{font-weight:700;border-top:2px solid var(--line);border-bottom:none}
     </div>
     <p id="rechTrendStatus" role="status" class="note"></p>
     <div style="height:440px;position:relative"><canvas id="chRechMotTrend"></canvas></div>
+    <h3>Evolución mensual del porcentaje por motivo</h3>
+    <p class="note">Mismos selectores de año, motivo y unidad de volumen. Porcentaje = volumen del motivo / total rechazado del mes. Elegir un motivo no reduce el denominador. Los meses sin detalle o sin volumen quedan sin punto.</p>
+    <div style="height:440px;position:relative"><canvas id="chRechMotTrendPct"></canvas></div>
     <h3>Volumen y porcentaje por motivo</h3>
     <div class="tblscroll rechazo-ranking-scroll"><table style="min-width:650px;width:100%"><thead><tr><th>Motivo</th><th>Bultos</th><th>% bultos</th><th>HL</th><th>% HL</th><th>% acumulado seleccionado</th></tr></thead><tbody id="tbodyRechMotivo"></tbody></table></div>
     <h3>Detalle mensual por motivo</h3><div class="tblscroll rechazo-ranking-scroll"><table style="min-width:700px;width:100%"><thead><tr><th>Mes</th><th>Motivo</th><th>Bultos</th><th>% bultos del mes</th><th>HL</th><th>% HL del mes</th></tr></thead><tbody id="tbodyRechMotMonthly"></tbody></table></div>
@@ -991,8 +994,9 @@ function rechMotivos(rows,unit='bultos'){
 }
 function rechTrendData(rows,year,unit,reason='__all'){
  const scoped=rows.filter(r=>r.fecha.slice(0,4)===year),summary=rechMotivos(scoped,unit),months=Array.from({length:12},(_,i)=>year+'-'+String(i+1).padStart(2,'0'));
- return{months,series:summary.values.filter(r=>reason==='__all'||r.key===reason).map(r=>({key:r.key,values:months.map(key=>{const month=summary.months.find(m=>m.key===key);return month?(month.values.find(v=>v.key===r.key)?.[unit]??0):null})}))};
+ return{months,totals:months.map(key=>summary.months.find(m=>m.key===key)?.totals[unit]??null),series:summary.values.filter(r=>reason==='__all'||r.key===reason).map(r=>({key:r.key,values:months.map(key=>{const month=summary.months.find(m=>m.key===key);return month?(month.values.find(v=>v.key===r.key)?.[unit]??0):null})}))};
 }
+function rechTrendPercent(values,totals){return values.map((v,i)=>v!=null&&totals[i]>0?100*v/totals[i]:null)}
 function renderRechTrend(){
  const rows=RECHDET.filter(r=>rechazoBase(r)&&(state.cho==='__all'||cleanPersona(r.chofer)===state.cho)),yearEl=document.getElementById('rechTrendYear'),reasonEl=document.getElementById('rechTrendReason'),unit=document.getElementById('rechMotUnit').value;
  const years=[...new Set(RECHDET.map(r=>r.fecha.slice(0,4)))].sort(),previousYear=yearEl.value;
@@ -1001,8 +1005,9 @@ function renderRechTrend(){
  reasonEl.innerHTML='<option value="__all">Todos los motivos</option>'+reasons.map(r=>'<option value="'+esc(r)+'">'+esc(r)+'</option>').join('');reasonEl.value=reasons.includes(previousReason)?previousReason:'__all';
  const data=rechTrendData(rows,yearEl.value,unit,reasonEl.value),label=unit==='hl'?'HL':'Bultos';
  document.getElementById('rechTrendStatus').textContent=data.series.length?label+' rechazados · '+yearEl.value+' · '+data.series.length+' motivos. Tocá una leyenda para ocultar o mostrar su línea.':'Sin detalle para el año y los filtros seleccionados.';
- if(!chartsReady())return;if(ch.chRechMotTrend){ch.chRechMotTrend.destroy();delete ch.chRechMotTrend}if(!data.series.length)return;
+ if(!chartsReady())return;['chRechMotTrend','chRechMotTrendPct'].forEach(id=>{if(ch[id]){ch[id].destroy();delete ch[id]}});if(!data.series.length)return;
  ch.chRechMotTrend=new Chart(document.getElementById('chRechMotTrend'),{type:'line',data:{labels:data.months.map(mLbl),datasets:data.series.map((s,i)=>({label:s.key,data:s.values,_fmt:fmt2,borderColor:'hsl('+((reasons.indexOf(s.key)*137.5)%360)+',65%,38%)',backgroundColor:'hsl('+((reasons.indexOf(s.key)*137.5)%360)+',65%,38%)',borderWidth:2,pointRadius:3,tension:0,spanGaps:false,fill:false}))},options:{responsive:true,maintainAspectRatio:false,layout:{padding:{top:18}},plugins:{legend:{position:'bottom'},tooltip:{callbacks:{label:c=>c.dataset.label+': '+fmt2(c.raw)+' '+label}}},scales:{y:{beginAtZero:true,grace:'12%',title:{display:true,text:label}},x:{ticks:{autoSkip:false}}}},plugins:data.series.length===1?[dLabels([0])]:[]});
+ ch.chRechMotTrendPct=new Chart(document.getElementById('chRechMotTrendPct'),{type:'line',data:{labels:data.months.map(mLbl),datasets:data.series.map((s,i)=>({label:s.key,data:rechTrendPercent(s.values,data.totals),_fmt:fmtPct,borderColor:'hsl('+((reasons.indexOf(s.key)*137.5)%360)+',65%,38%)',backgroundColor:'hsl('+((reasons.indexOf(s.key)*137.5)%360)+',65%,38%)',borderWidth:2,pointRadius:3,tension:0,spanGaps:false,fill:false}))},options:{responsive:true,maintainAspectRatio:false,layout:{padding:{top:18}},plugins:{legend:{position:'bottom'},tooltip:{callbacks:{label:c=>c.dataset.label+': '+fmtPct(c.raw)}}},scales:{y:{beginAtZero:true,min:0,max:100,ticks:{callback:v=>v+'%'},title:{display:true,text:'% del rechazo mensual'}},x:{ticks:{autoSkip:false}}}},plugins:data.series.length===1?[dLabels([0])]:[]});
 }
 function renderRechMotivos(rows){
  renderRechTrend();

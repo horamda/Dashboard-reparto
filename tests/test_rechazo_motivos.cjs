@@ -25,3 +25,11 @@ assert.equal(trend.series[0].values[2],null);
 assert.equal(ctx.rechTrendData(rows,'2025','hl').series.length,0);
 assert.equal(ctx.rechTrendData(rows,'2026','hl','A').series[0].values[0],2);
 console.log('Annual trend: reason/year/unit selection and missing months OK');
+
+assert.equal(ctx.rechTrendPercent(trend.series[0].values,trend.totals)[0],60);
+assert.equal(ctx.rechTrendPercent(trend.series[0].values,trend.totals)[1],0);
+assert.equal(ctx.rechTrendPercent(trend.series[0].values,trend.totals)[2],null);
+assert.equal(ctx.rechTrendPercent([0],[0])[0],null);
+const allTrend=ctx.rechTrendData(rows,'2026','bultos');
+assert.equal(allTrend.series.reduce((sum,s)=>sum+ctx.rechTrendPercent(s.values,allTrend.totals)[0],0),100);
+console.log('Monthly percentage: full denominator preserved for selected reason, zero/missing excluded OK');
