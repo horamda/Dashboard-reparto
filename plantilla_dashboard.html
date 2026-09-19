@@ -193,6 +193,9 @@ tfoot td{font-weight:700;border-top:2px solid var(--line);border-bottom:none}
 .rechazo-ranking-table td:not(:first-child){font-variant-numeric:tabular-nums}
 .rechazo-ranking-table tbody tr:nth-child(even){background:#f8fafc}
 .rechazo-ranking-table tbody tr:hover{background:#eef3fa}
+.rechazo-ranking-scroll thead th{position:sticky;top:0;background:#f3f6fa;z-index:2}
+.rechazo-ranking-scroll tbody tr:nth-child(even){background:#f8fafc}
+.rechazo-ranking-scroll td:first-child{white-space:normal;min-width:150px}
 @media(max-width:720px){.rechazo-rankings{grid-template-columns:1fr}.rechazo-rankings .panel{padding:14px}.rechazo-ranking-scroll{margin:0;padding:0}}
 .dpo-rankings{grid-template-columns:repeat(auto-fit,minmax(min(100%,440px),1fr));gap:18px;align-items:start}
 .dpo-rankings .panel{min-width:0;padding:18px}
@@ -574,11 +577,22 @@ tfoot td{font-weight:700;border-top:2px solid var(--line);border-bottom:none}
   </div>
   <div class="grid rechazo-rankings">
    <div class="panel"><h2>Top choferes</h2><div class="note">Ranking por pedidos con rechazo.</div><div class="tblscroll rechazo-ranking-scroll"><table class="rechazo-ranking-table"><thead><tr><th>Chofer</th><th>Pedidos</th><th>Bultos</th><th>HL</th></tr></thead><tbody id="tbodyRechChofer"></tbody></table></div></div>
-   <div class="panel"><h2>Top motivos</h2><div class="note">Causas con mayor impacto.</div><div class="tblscroll rechazo-ranking-scroll"><table class="rechazo-ranking-table"><thead><tr><th>Motivo</th><th>Pedidos</th><th>Bultos</th><th>HL</th></tr></thead><tbody id="tbodyRechMotivo"></tbody></table></div></div>
    <div class="panel"><h2>Por sector</h2><div class="note">Agrupado por sector del motivo.</div><div class="tblscroll rechazo-ranking-scroll"><table class="rechazo-ranking-table"><thead><tr><th>Sector</th><th>Pedidos</th><th>Bultos</th><th>HL</th></tr></thead><tbody id="tbodyRechSector"></tbody></table></div></div>
   </div>
   <div class="grid" style="grid-template-columns:1fr">
-   <div class="panel"><h2>Detalle por chofer y motivo</h2><div class="note">Filas del endpoint de integración, filtradas por mes.</div>
+   <div class="panel"><h2>Análisis de motivos de rechazo</h2>
+    <p class="note">Detalle importado con los filtros de unidad, sucursal, mes, día y chofer. Participación = volumen del motivo / volumen rechazado del período. No es el porcentaje sobre ventas. Los pedidos de distintos motivos pueden coincidir.</p>
+    <label for="rechMotUnit">Analizar volumen en</label> <select id="rechMotUnit" onchange="renderRechMotivos(rechazosDetalleScope())"><option value="bultos">Bultos</option><option value="hl">HL</option></select>
+    <p id="rechMotSummary" role="status"></p>
+    <h3>Pareto de motivos</h3><p class="note">Motivos ordenados por volumen; la línea indica el porcentaje acumulado.</p>
+    <div style="height:380px;position:relative"><canvas id="chRechMotPareto"></canvas></div>
+    <h3>Participación por mes</h3><p class="note">Cinco motivos principales del período y el resto agrupado. Tocá un mes para aplicar el filtro.</p>
+    <div style="height:340px;position:relative"><canvas id="chRechMotMonth"></canvas></div>
+    <h3>Volumen y porcentaje por motivo</h3>
+    <div class="tblscroll rechazo-ranking-scroll"><table style="min-width:650px;width:100%"><thead><tr><th>Motivo</th><th>Bultos</th><th>% bultos</th><th>HL</th><th>% HL</th><th>% acumulado seleccionado</th></tr></thead><tbody id="tbodyRechMotivo"></tbody></table></div>
+    <h3>Detalle mensual por motivo</h3><div class="tblscroll rechazo-ranking-scroll"><table style="min-width:700px;width:100%"><thead><tr><th>Mes</th><th>Motivo</th><th>Bultos</th><th>% bultos del mes</th><th>HL</th><th>% HL del mes</th></tr></thead><tbody id="tbodyRechMotMonthly"></tbody></table></div>
+   </div>
+   <div class="panel"><h2>Detalle por chofer y motivo</h2><div class="note">Filas del endpoint de integración, con los filtros activos.</div>
     <div class="tblscroll rechlist"><table class="rech-table"><thead><tr><th>Fecha</th><th>Sucursal</th><th>Chofer</th><th>Sector</th><th>Motivo</th><th>Pedidos</th><th>Ocurr.</th><th>Bultos</th><th>HL</th><th>Pallets</th></tr></thead><tbody id="tbodyRechDetalle"></tbody></table></div></div>
   </div>
  </div>
@@ -957,6 +971,28 @@ function renderSatisfaccion(){const rows=satScope(),months=satByMonth(rows),late
  [[cSatMeses,bSatMeses,C.obj],[cSatDias,bSatDias,C.cli]].forEach(([c,b,col])=>{c.style.setProperty('--accent',col);b.style.background=col;b.style.width='100%'});
  lineSat('chSatScore',months,'score','RMD Puntaje',3,5);lineSat('chSatResp',months,'resp','% respuestas',0,100);lineSat('chSatNps',months,'nps','NPS general',0,100);lineSat('chSatNpsDel',months,'npsDel','NPS delivery',0,100);
  tbodySat.innerHTML=months.length?months.map(r=>'<tr><td>'+mLbl(r.key)+' '+r.key.slice(0,4)+'</td><td>'+r.dias+'</td><td class="'+(r.score>=OBJ_SAT.score?'g':'r')+'">'+fmt2(r.score)+'</td><td class="'+(r.resp>=OBJ_SAT.resp?'g':'r')+'">'+fmtPct(r.resp)+'</td><td class="'+(r.nps>=OBJ_SAT.nps?'g':'r')+'">'+fmt1(r.nps)+'</td><td class="'+(r.npsDel>=OBJ_SAT.nps?'g':'r')+'">'+fmt1(r.npsDel)+'</td><td>'+fmtPct(r.det)+'</td></tr>').join(''):emptyRow(7,'No hay datos de satisfaccion para el filtro actual.');}
+function rechMotivos(rows,unit='bultos'){
+ const summarize=items=>{
+  const groups=new Map();
+  items.forEach(r=>{const key=String(r.motivo||'Sin motivo').trim()||'Sin motivo';if(!groups.has(key))groups.set(key,{key,bultos:0,hl:0});const g=groups.get(key);['bultos','hl'].forEach(u=>{const n=Number(r[u+'_rechazo']);if(Number.isFinite(n))g[u]+=n})});
+  const values=[...groups.values()].sort((a,b)=>b[unit]-a[unit]||a.key.localeCompare(b.key)),totals={bultos:0,hl:0};values.forEach(r=>{totals.bultos+=r.bultos;totals.hl+=r.hl});let acc=0;
+  values.forEach(r=>{r.pctB=totals.bultos>0?100*r.bultos/totals.bultos:null;r.pctH=totals.hl>0?100*r.hl/totals.hl:null;acc+=r[unit];r.acc=totals[unit]>0?100*acc/totals[unit]:null});return{values,totals};
+ };
+ const months=new Map();rows.forEach(r=>{const key=String(r.fecha||'').slice(0,7);if(!/^\d{4}-\d{2}$/.test(key))return;if(!months.has(key))months.set(key,[]);months.get(key).push(r)});
+ return {...summarize(rows),months:[...months].sort(([a],[b])=>a.localeCompare(b)).map(([key,items])=>({key,...summarize(items)}))};
+}
+function renderRechMotivos(rows){
+ const unit=document.getElementById('rechMotUnit').value,unitLabel=unit==='hl'?'HL':'bultos',data=rechMotivos(rows,unit),pct=v=>v==null?'—':fmtPct(v);
+ document.getElementById('rechMotSummary').textContent=rows.length?data.values.length+' motivos · '+fmt1(data.totals.bultos)+' bultos rechazados · '+fmt2(data.totals.hl)+' HL rechazados':'Sin detalle de motivos para los filtros seleccionados.';
+ document.getElementById('tbodyRechMotivo').innerHTML=data.values.length?data.values.map(r=>'<tr><td>'+esc(r.key)+'</td><td>'+fmt1(r.bultos)+'</td><td>'+pct(r.pctB)+'</td><td>'+fmt2(r.hl)+'</td><td>'+pct(r.pctH)+'</td><td>'+pct(r.acc)+'</td></tr>').join(''):emptyRow(6,'Sin datos para los filtros seleccionados.');
+ document.getElementById('tbodyRechMotMonthly').innerHTML=data.months.length?data.months.map(m=>m.values.map(r=>'<tr><td>'+mLbl(m.key)+' '+m.key.slice(0,4)+'</td><td>'+esc(r.key)+'</td><td>'+fmt1(r.bultos)+'</td><td>'+pct(r.pctB)+'</td><td>'+fmt2(r.hl)+'</td><td>'+pct(r.pctH)+'</td></tr>').join('')).join(''):emptyRow(6,'Sin datos mensuales.');
+ if(!chartsReady())return;
+ ['chRechMotPareto','chRechMotMonth'].forEach(id=>{if(ch[id]){ch[id].destroy();delete ch[id]}});
+ if(!rows.length)return;
+ ch.chRechMotPareto=new Chart(document.getElementById('chRechMotPareto'),{type:'bar',data:{labels:data.values.map(r=>r.key),datasets:[{label:unitLabel,data:data.values.map(r=>r[unit]),backgroundColor:C.amber,yAxisID:'volume'},{type:'line',label:'% acumulado',data:data.values.map(r=>r.acc),borderColor:C.obj,backgroundColor:C.obj,yAxisID:'percent',tension:0,pointRadius:3}]},options:{responsive:true,maintainAspectRatio:false,plugins:{datalabels:{display:false},tooltip:{callbacks:{label:c=>c.datasetIndex===1?'Acumulado: '+pct(c.raw):unitLabel+': '+fmt2(c.raw)}}},scales:{volume:{beginAtZero:true,title:{display:true,text:unitLabel}},percent:{position:'right',min:0,max:100,grid:{drawOnChartArea:false},ticks:{callback:v=>v+'%'}},x:{ticks:{callback:function(v){const s=this.getLabelForValue(v);return s.length>22?s.slice(0,21)+'…':s},maxRotation:60,minRotation:30}}}}});
+ const top=data.values.slice(0,5).map(r=>r.key),colors=[C.amber,C.obj,C.cli,C.sec,C.bad,'#94a3b8'],series=top.map(key=>({key}));if(data.values.length>5)series.push({key:'Otros motivos',other:true});
+ ch.chRechMotMonth=new Chart(document.getElementById('chRechMotMonth'),{type:'bar',data:{labels:data.months.map(m=>mLbl(m.key)+' '+m.key.slice(0,4)),datasets:series.map((s,i)=>({label:s.key,backgroundColor:colors[i],data:data.months.map(m=>{const amount=m.values.filter(r=>s.other?!top.includes(r.key):r.key===s.key).reduce((sum,r)=>sum+r[unit],0);return m.totals[unit]>0?100*amount/m.totals[unit]:null})}))},options:{responsive:true,maintainAspectRatio:false,...chartInteraction(chartFilter('mes',data.months.map(m=>m.key))),plugins:{datalabels:{display:false},tooltip:{callbacks:{label:c=>c.dataset.label+': '+pct(c.raw)}}},scales:{x:{stacked:true},y:{stacked:true,min:0,max:100,ticks:{callback:v=>v+'%'}}}}});
+}
 function renderRechazos(){const rows=rechazosScope(),total=rows.reduce((s,r)=>s+(r.rechazos||0),0),pedTotal=rows.reduce((s,r)=>s+(r.pedidos_pdv_atendidos||0),0),pdvTotal=rechUniquePdv(rows),dias=rows.filter(r=>(r.pedidos_pdv_atendidos||0)>0).length,peak=rows.reduce((m,r)=>(r.rechazos||0)>(m.rechazos||0)?r:m,{}),tasa=pedTotal?total/pedTotal*100:0,nds=rechNds(rows),pctB=wavg(rows,'pct_rechazo_bultos','bultos')??0,pctHl=wavg(rows,'pct_rechazo_hl','hl')??0;
  kRTotal.textContent=fmt0(total);kRProm.textContent=dias?r1(total/dias):'–';kRPeak.textContent=peak.fecha?dLbl(peak.fecha):'–';oRPeak.textContent=peak.fecha?(peak.rechazos||0)+' rechazos':'mayor cantidad diaria';kRTasa.textContent=rechazoPct(tasa);
  kRPed.textContent=fmt0(pedTotal);const knownPdv=rows.filter(r=>Array.isArray(r.pdv_clientes)),partialPdv=rows.length-knownPdv.length;kRPdv.textContent=pdvTotal!=null?fmt0(pdvTotal):knownPdv.length?fmt0(rechUniquePdv(knownPdv))+'*':'Sin detalle';document.getElementById('oRPdv').textContent=partialPdv?'Conteo parcial: falta detalle de clientes en '+partialPdv+' registros diarios.':'Clientes distintos del período, sin repetir entre sucursales ni días.';kRNds.textContent=fmtPct(nds);kRBl.textContent=rechazoPct(pctB);kRHl.textContent=rechazoPct(pctHl);
@@ -965,7 +1001,7 @@ function renderRechazos(){const rows=rechazosScope(),total=rows.reduce((s,r)=>s+
  barGen('chRechDia',rows.map(r=>dLbl(r.fecha)),rows.map(r=>r.rechazos||0),v=>v,()=>C.amber,null,rows.length<=31,chartFilter('fecha',rows.map(r=>r.fecha)));
  const mes=rechazosMes(rows);barGen('chRechMes',mes.map(r=>mLbl(r.key)),mes.map(r=>r.n),v=>v,()=>C.amber,null,true,chartFilter('mes',mes.map(r=>r.key)));
  const pctMes=rechazosPctMes(rows);rechazosPctChart('chRechPctPdvMes',pctMes,'pdv','% rechazo PDV',C.amber,OBJ_RECH.pdv);rechazosPctChart('chRechPctBultosMes',pctMes,'bultos','% rechazo bultos',C.bad,OBJ_RECH.bultos);rechazosPctChart('chRechPctHlMes',pctMes,'hl','% rechazo HL',C.sec,OBJ_RECH.hl);rechazosNdsChart('chRechNdsMes',pctMes);
- const det=rechazosDetalleScope();tbodyRechChofer.innerHTML=rechRankRows(rankRechDetalle(det,'chofer'));tbodyRechMotivo.innerHTML=rechRankRows(rankRechDetalle(det,'motivo'));tbodyRechSector.innerHTML=rechRankRows(rankRechDetalle(det,'sector'));
+ const det=rechazosDetalleScope();tbodyRechChofer.innerHTML=rechRankRows(rankRechDetalle(det,'chofer'));renderRechMotivos(det);tbodyRechSector.innerHTML=rechRankRows(rankRechDetalle(det,'sector'));
  tbodyRechDetalle.innerHTML=det.length?det.slice().sort((a,b)=>b.fecha.localeCompare(a.fecha)||(b.pedidos_rechazo||0)-(a.pedidos_rechazo||0)).slice(0,250).map(r=>'<tr><td>'+dLbl(r.fecha)+'</td><td>'+esc(r.sucursal)+'</td><td>'+esc(r.chofer)+'</td><td>'+esc(r.sector)+'</td><td>'+esc(r.motivo)+'</td><td class="r">'+fmt0(r.pedidos_rechazo)+'</td><td>'+fmt0(r.ocurrencias)+'</td><td>'+fmt1(r.bultos_rechazo)+'</td><td>'+fmt1(r.hl_rechazo)+'</td><td>'+fmt1(r.pallets_rechazo)+'</td></tr>').join(''):emptyRow(10,'No hay detalle de rechazos importado para el filtro actual.');
  tbodyRech.innerHTML=rows.length?rows.map(r=>{const aus=r.nds==null?null:100-r.nds,ev=r.evento||r.feriado||'';return '<tr><td title="'+esc(r.fecha)+'">'+dLbl(r.fecha)+'</td><td>'+fmt1(r.bultos)+'</td><td class="'+((r.rechazo_bultos||0)?'r':'g')+'">'+fmt1(r.rechazo_bultos)+'</td><td class="'+((r.rechazo_bultos_total||0)?'r':'g')+'">'+fmt1(r.rechazo_bultos_total)+'</td><td>'+fmt1(r.hl)+'</td><td class="'+((r.rechazo_hl||0)?'r':'g')+'">'+fmt1(r.rechazo_hl)+'</td><td class="'+((r.rechazo_hl_total||0)?'r':'g')+'">'+fmt1(r.rechazo_hl_total)+'</td><td>'+fmt0(r.salidas)+'</td><td>'+fmt0(r.pedidos_pdv_atendidos)+'</td><td>'+fmt0(r.pdv_unicos)+'</td><td>'+pctPill(r.nds,(r.nds||0)>=95)+'</td><td>'+fmt1(aus)+'</td><td>'+rechazoPill(r.pct_rechazo_pedidos,(r.pct_rechazo_pedidos||0)<=OBJ_RECH.pdv)+'</td><td>'+rechazoPill(r.pct_rechazo_bultos,(r.pct_rechazo_bultos||0)<=OBJ_RECH.bultos)+'</td><td>'+rechazoPill(r.pct_rechazo_hl,(r.pct_rechazo_hl||0)<=OBJ_RECH.hl)+'</td><td class="event">'+esc(ev)+'</td></tr>'}).join(''):emptyRow(16,'No hay rechazos cargados para el filtro actual.');}
 

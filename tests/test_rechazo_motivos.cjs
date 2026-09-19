@@ -1,0 +1,16 @@
+const fs=require('fs'),vm=require('vm'),assert=require('assert');
+const html=fs.readFileSync('plantilla_dashboard.html','utf8'),ctx={};vm.createContext(ctx);
+vm.runInContext(html.slice(html.indexOf('function rechMotivos('),html.indexOf('function renderRechMotivos(')),ctx);
+const rows=[{fecha:'2026-01-01',motivo:'A',bultos_rechazo:30,hl_rechazo:1},{fecha:'2026-01-02',motivo:'A',bultos_rechazo:10,hl_rechazo:1},{fecha:'2026-01-02',motivo:'B',bultos_rechazo:60,hl_rechazo:8},{fecha:'2026-02-01',motivo:'A',bultos_rechazo:100,hl_rechazo:2}];
+let data=ctx.rechMotivos(rows);
+assert.equal(data.totals.bultos,200);assert.equal(data.totals.hl,12);
+assert.equal(data.values[0].key,'A');assert.equal(data.values[0].pctB,70);
+assert.equal(data.values.at(-1).acc,100);
+assert.equal(data.months[0].values[0].key,'B');assert.equal(data.months[0].values[0].pctB,60);
+assert.equal(data.months[1].values[0].pctB,100);
+assert.equal(ctx.rechMotivos(rows,'hl').values[0].key,'B');
+assert.equal(ctx.rechMotivos(rows.filter(r=>r.fecha==='2026-01-01')).totals.bultos,30);
+assert.equal(ctx.rechMotivos([{fecha:'2026-01-01',motivo:'Zero',bultos_rechazo:0,hl_rechazo:0}]).values[0].acc,null);
+assert.equal(ctx.rechMotivos([]).values.length,0);
+for(const m of data.months)assert(Math.abs(m.values.reduce((s,r)=>s+r.pctB,0)-100)<1e-9);
+console.log('Reason volumes, monthly denominators, ordering by unit, zero and empty states OK');
