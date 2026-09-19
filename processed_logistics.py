@@ -123,6 +123,7 @@ def dashboard_record(r):
                 suc={'1': 'Mar de Ajo', '2': 'Dolores', '3': 'Chascomus'}.get(sid, sid),
                 empresa=r.get('empresa'), cliente=r.get('cliente'), nombre=r.get('nombre'),
                 comprobante=r.get('comprobante'), rechazo_total=r.get('rechazo_total'),
+                estado_rechazo=r.get('estado_rechazo'), tiene_rechazo=r.get('tiene_rechazo'),
                 rechazo_parcial=r.get('rechazo_parcial'), on_time=r.get('on_time'),
                 resultado=r.get('resultado_otif', 'pendiente'),
                 choferes=sorted({v['chofer'] for v in r.get('foxtrot_candidatos', [])

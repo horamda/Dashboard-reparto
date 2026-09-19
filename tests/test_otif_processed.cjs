@@ -27,3 +27,18 @@ ctx.state.cho='ANA';ranking=ctx.docOtifDrivers(sample);assert.equal(ranking.driv
 ctx.state.cho='__all';assert.equal(ctx.docOtifDrivers([row('Dolores','2026-06-01',['BOB'],'pendiente')]).drivers[0].otif,null);
 assert.equal(ctx.docOtifDrivers([]).drivers.length,0);
 console.log('Driver OTIF: unique documents, shared drivers, missing assignments, pending and selection OK');
+for(const name of ['inFullStats','inFullDrivers'])vm.runInContext(html.split('\n').find(l=>l.startsWith('function '+name+'(')),ctx);
+const inf=[{tiene_rechazo:false,estado_rechazo:'sin_rechazo',choferes:['ANA','ANA RECARGA']},{tiene_rechazo:true,estado_rechazo:'total',choferes:['ANA','BOB']},{tiene_rechazo:true,estado_rechazo:'parcial',choferes:['ANA']},{tiene_rechazo:true,estado_rechazo:'rechazo_sin_alcance',choferes:[]},{tiene_rechazo:null,estado_rechazo:'sin_determinar',choferes:['BOB']}];
+let full=ctx.inFullStats(inf);assert.equal(full.value,25);assert.equal(full.coverage,80);assert.equal(full.full,1);assert.equal(full.partial,1);assert.equal(full.unknownScope,1);assert.equal(full.pending,1);
+assert.equal(ctx.inFullStats([]).value,null);assert.equal(ctx.inFullStats([{tiene_rechazo:null}]).value,null);
+ctx.state.cho='__all';let ds=ctx.inFullDrivers(inf);assert.equal(ds.find(r=>r.key==='ANA').total,3);assert.equal(ds.find(r=>r.key==='BOB').coverage,50);
+ctx.state.cho='ANA';assert.equal(ctx.inFullDrivers(inf).length,1);
+assert.ok(html.includes("else if(state.tab==='infull')renderInFull()"));assert.ok(html.includes("document.getElementById('viewInFull').style.display=t==='infull'?''"));
+console.log('In Full: total/partial/unknown rejection, missing evidence, unique driver attribution and navigation OK');
+const elements={};ctx.document={getElementById:id=>(elements[id]??={style:{},innerHTML:'',textContent:''})};
+Object.assign(ctx,{fmt0:String,esc:v=>String(v??''),mLbl:v=>v,emptyRow:()=>'<tr>empty</tr>',barMetric:()=>{},chartFilter:()=>({}),C:{cli:'',good:'',bad:'',amber:'',sec:'',obj:''},docOtifData:{rows:inf.map((r,i)=>({...r,fecha:'2026-05-01',mes:'2026-05',suc:'Mar de Ajo',comprobante:String(i),resultado:'pendiente'}))}});
+ctx.state.cho='__all';vm.runInContext("let inFullPage=0,inFullKey='';",ctx);
+vm.runInContext(html.slice(html.indexOf('function renderInFull(){'),html.indexOf("document.getElementById('inFullPrev').addEventListener")),ctx);
+ctx.renderInFull();assert.ok(elements.inFullRows.innerHTML.includes('Total'));assert.ok(elements.inFullCards.innerHTML.includes('25'));
+ctx.state.mes='2026-06';ctx.renderInFull();assert.equal(elements.inFullRows.innerHTML,'<tr>empty</tr>');
+console.log('In Full render: populated and empty filtered state OK');
