@@ -545,6 +545,9 @@ tfoot td{font-weight:700;border-top:2px solid var(--line);border-bottom:none}
   </div>
  </div>
  <div id="viewOtif" style="display:none">
+  <div class="panel"><h2>OTIF operativo por comprobante</h2><div id="docOtifStatus" role="status"></div><button type="button" onclick="reloadDocOtif()">Actualizar reporte local</button><p class="note">Respeta los filtros superiores. OTIF = comprobantes a tiempo y sin rechazo total ni parcial / evaluados. Pendientes fuera del porcentaje. El chofer selecciona visitas del mismo día; los casos compartidos no atribuyen responsabilidad individual.</p><div id="docOtifCards" class="cards c4"></div></div>
+  <div class="panel"><h2>OTIF por mes · comprobantes</h2><div class="chartbox" style="height:300px"><canvas id="chDocOtif"></canvas></div><div class="tblscroll"><table><thead><tr><th>Mes</th><th>Comprobantes</th><th>Cumplen</th><th>No cumplen</th><th>Pendientes</th><th>Cobertura</th><th>OTIF</th></tr></thead><tbody id="docOtifMonths"></tbody></table></div></div>
+  <div class="panel"><h2>Detalle por comprobante</h2><div class="tblscroll"><table><thead><tr><th>Día</th><th>Sucursal</th><th>Cliente</th><th>Comprobante</th><th>Rechazo total</th><th>Rechazo parcial</th><th>On Time</th><th>OTIF</th></tr></thead><tbody id="docOtifRows"></tbody></table></div><button type="button" id="docOtifPrev">Anterior</button> <span id="docOtifPage"></span> <button type="button" id="docOtifNext">Siguiente</button></div>
   <div class="panel"><h2>OTIF por comprobante</h2><p>La nueva tabla evalúa cada comprobante con On Time y rechazos totales o parciales. Incluye filtros por día, mes y rango de fechas.</p><a href="/cumplimiento-comprobantes">Abrir tabla y cálculo por comprobante</a></div>
   <details><summary>Ver cálculo anterior por cliente/día (consulta API guardada)</summary>
   <div class="hint" id="otifCoverage" role="status"></div><div class="note" id="otifIntegrationStatus"></div>
@@ -944,7 +947,34 @@ function renderRechazos(){const rows=rechazosScope(),total=rows.reduce((s,r)=>s+
  tbodyRechDetalle.innerHTML=det.length?det.slice().sort((a,b)=>b.fecha.localeCompare(a.fecha)||(b.pedidos_rechazo||0)-(a.pedidos_rechazo||0)).slice(0,250).map(r=>'<tr><td>'+dLbl(r.fecha)+'</td><td>'+esc(r.sucursal)+'</td><td>'+esc(r.chofer)+'</td><td>'+esc(r.sector)+'</td><td>'+esc(r.motivo)+'</td><td class="r">'+fmt0(r.pedidos_rechazo)+'</td><td>'+fmt0(r.ocurrencias)+'</td><td>'+fmt1(r.bultos_rechazo)+'</td><td>'+fmt1(r.hl_rechazo)+'</td><td>'+fmt1(r.pallets_rechazo)+'</td></tr>').join(''):emptyRow(10,'No hay detalle de rechazos importado para el filtro actual.');
  tbodyRech.innerHTML=rows.length?rows.map(r=>{const aus=100-(r.nds||0),ev=r.evento||r.feriado||'';return '<tr><td title="'+esc(r.fecha)+'">'+dLbl(r.fecha)+'</td><td>'+fmt1(r.bultos)+'</td><td class="'+((r.rechazo_bultos||0)?'r':'g')+'">'+fmt1(r.rechazo_bultos)+'</td><td class="'+((r.rechazo_bultos_total||0)?'r':'g')+'">'+fmt1(r.rechazo_bultos_total)+'</td><td>'+fmt1(r.hl)+'</td><td class="'+((r.rechazo_hl||0)?'r':'g')+'">'+fmt1(r.rechazo_hl)+'</td><td class="'+((r.rechazo_hl_total||0)?'r':'g')+'">'+fmt1(r.rechazo_hl_total)+'</td><td>'+fmt0(r.salidas)+'</td><td>'+fmt0(r.pedidos_pdv_atendidos)+'</td><td>'+fmt0(r.pdv_unicos)+'</td><td>'+pctPill(r.nds,(r.nds||0)>=95)+'</td><td>'+fmt1(aus)+'</td><td>'+rechazoPill(r.pct_rechazo_pedidos,(r.pct_rechazo_pedidos||0)<=OBJ_RECH.pdv)+'</td><td>'+rechazoPill(r.pct_rechazo_bultos,(r.pct_rechazo_bultos||0)<=OBJ_RECH.bultos)+'</td><td>'+rechazoPill(r.pct_rechazo_hl,(r.pct_rechazo_hl||0)<=OBJ_RECH.hl)+'</td><td class="event">'+esc(ev)+'</td></tr>'}).join(''):emptyRow(16,'No hay rechazos cargados para el filtro actual.');}
 let otifPage=0,otifFilterKey='';
+let docOtifData=null,docOtifLoading=false,docOtifPage=0,docOtifKey='';
+function docOtifScope(rows){return rows.filter(r=>unidadOk(r)&&(state.suc==='__all'||sucNorm(r.suc)===sucNorm(state.suc))&&periodOk(r)&&(state.cho==='__all'||r.choferes.some(c=>cleanPersona(c)===state.cho)))}
+function docOtifStats(rows){const total=rows.length,ok=rows.filter(r=>r.resultado==='cumple').length,no=rows.filter(r=>r.resultado==='no_cumple').length,evaluated=ok+no;return{total,ok,no,pending:total-evaluated,coverage:total?100*evaluated/total:null,otif:evaluated?100*ok/evaluated:null}}
+async function reloadDocOtif(){
+ if(docOtifLoading)return;docOtifLoading=true;docOtifData=null;
+ document.getElementById('docOtifStatus').textContent='Cargando comprobantes procesados…';
+ document.getElementById('docOtifCards').innerHTML='';document.getElementById('docOtifMonths').innerHTML='';document.getElementById('docOtifRows').innerHTML='';
+ try{const response=await fetch('/api/otif-comprobantes-dashboard',{headers:{Accept:'application/json'}});if(!response.ok||!response.headers.get('content-type')?.includes('application/json'))throw new Error();docOtifData=await response.json();if(!Array.isArray(docOtifData.rows))throw new Error();docOtifPage=0;renderDocOtif()}
+ catch(e){docOtifData=null;document.getElementById('docOtifStatus').textContent='No se pudo cargar el reporte. Usá Actualizar reporte local para reintentar.'}
+ finally{docOtifLoading=false}
+}
+function renderDocOtif(){
+ if(!docOtifData){if(!docOtifLoading)reloadDocOtif();return}
+ const key=JSON.stringify([state.unidad,state.suc,state.mes,state.fecha,state.cho]);if(key!==docOtifKey){docOtifPage=0;docOtifKey=key}
+ const rows=docOtifScope(docOtifData.rows),o=docOtifStats(rows),pct=v=>v==null?'Sin evaluar':fmtPct(v);
+ document.getElementById('docOtifStatus').textContent='Base local · Ventas: '+(docOtifData.ventas_sync_at||'sin sincronizar')+' · Cruce Foxtrot: '+(docOtifData.foxtrot_calculado_at||'sin calcular');
+ document.getElementById('docOtifCards').innerHTML=[['OTIF',pct(o.otif)],['Comprobantes',fmt0(o.total)],['Cumplen',fmt0(o.ok)],['No cumplen',fmt0(o.no)],['Pendientes',fmt0(o.pending)],['Cobertura',pct(o.coverage)]].map(([k,v])=>'<div class="card"><div class="k">'+k+'</div><div class="v">'+v+'</div></div>').join('');
+ const groups=new Map();rows.forEach(r=>{if(!groups.has(r.mes))groups.set(r.mes,[]);groups.get(r.mes).push(r)});const months=[...groups.keys()].sort().map(key=>({key,...docOtifStats(groups.get(key))}));
+ barGen('chDocOtif',months.map(r=>mLbl(r.key)),months.map(r=>r.otif),fmtPct,v=>v==null?C.obj:v>=95?C.good:C.bad,95,true,chartFilter('mes',months.map(r=>r.key)));
+ document.getElementById('docOtifMonths').innerHTML=months.map(r=>'<tr><td>'+esc(mLbl(r.key)+' '+r.key.slice(0,4))+'</td>'+[r.total,r.ok,r.no,r.pending].map(v=>'<td>'+fmt0(v)+'</td>').join('')+'<td>'+pct(r.coverage)+'</td><td>'+pct(r.otif)+'</td></tr>').join('')||emptyRow(7,'Sin comprobantes para los filtros activos.');
+ const pages=Math.max(1,Math.ceil(rows.length/100));docOtifPage=Math.min(docOtifPage,pages-1);const yn=v=>v==null?'Pendiente':v?'Sí':'No';
+ document.getElementById('docOtifRows').innerHTML=rows.slice(docOtifPage*100,(docOtifPage+1)*100).map(r=>'<tr>'+[r.fecha,r.suc,(r.cliente||'')+' · '+(r.nombre||''),r.comprobante,yn(r.rechazo_total),yn(r.rechazo_parcial),yn(r.on_time),({cumple:'CUMPLE',no_cumple:'NO CUMPLE',pendiente:'PENDIENTE'}[r.resultado]||'PENDIENTE')].map(v=>'<td>'+esc(v)+'</td>').join('')+'</tr>').join('')||emptyRow(8,'Sin comprobantes para los filtros activos.');
+ document.getElementById('docOtifPage').textContent='Página '+(docOtifPage+1)+' de '+pages;document.getElementById('docOtifPrev').disabled=docOtifPage===0;document.getElementById('docOtifNext').disabled=docOtifPage>=pages-1;
+}
+document.getElementById('docOtifPrev').addEventListener('click',()=>{docOtifPage=Math.max(0,docOtifPage-1);renderDocOtif()});
+document.getElementById('docOtifNext').addEventListener('click',()=>{docOtifPage++;renderDocOtif()});
 function renderOtif(){
+ renderDocOtif();
  const rows=otifFilteredRows(),o=otifCalc(rows),ok=o.otif!=null&&o.otif>=95,noOk=o.noOtif!=null&&o.noOtif<=5;
  const filterKey=JSON.stringify([state.unidad,state.suc,state.mes,state.fecha,state.cho]);if(filterKey!==otifFilterKey){otifPage=0;otifFilterKey=filterKey}
  kOTIF.textContent=o.otif==null?'Sin evaluar':fmtPct(o.otif);kOTIFNoPct.textContent=o.noOtif==null?'—':fmtPct(o.noOtif);

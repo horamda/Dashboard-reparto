@@ -9,6 +9,20 @@ from logistics_db import read_source, SOURCES, SourceNotConfigured
 def register_logistics_db_view(app, require_login, css):
     bp = Blueprint('logistics_db', __name__)
 
+    @bp.route('/api/otif-comprobantes-dashboard')
+    def dashboard_comprobantes():
+        blocked = require_login()
+        if blocked:
+            return blocked
+        from processed_logistics import dashboard_rows
+        try:
+            return Response(json.dumps(dashboard_rows(), ensure_ascii=False, default=str),
+                            mimetype='application/json', headers={'Cache-Control': 'private, no-store'})
+        except Exception:
+            app.logger.error('No se pudo leer OTIF procesado para el dashboard')
+            return Response('{"error":"No se pudo consultar OTIF. Reintentá la carga."}',
+                            status=503, mimetype='application/json')
+
     @bp.route('/cumplimiento-comprobantes')
     def comprobantes():
         blocked = require_login()

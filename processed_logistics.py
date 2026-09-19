@@ -116,6 +116,30 @@ def page_number(value,pages):
         return 1
 
 
+def dashboard_record(r):
+    from otif_customer_day import branch
+    sid = branch(r.get('sucursal'))
+    return dict(fecha=r['fecha'], mes=r['fecha'][:7],
+                suc={'1': 'Mar de Ajo', '2': 'Dolores', '3': 'Chascomus'}.get(sid, sid),
+                empresa=r.get('empresa'), cliente=r.get('cliente'), nombre=r.get('nombre'),
+                comprobante=r.get('comprobante'), rechazo_total=r.get('rechazo_total'),
+                rechazo_parcial=r.get('rechazo_parcial'), on_time=r.get('on_time'),
+                resultado=r.get('resultado_otif', 'pendiente'),
+                choferes=sorted({v['chofer'] for v in r.get('foxtrot_candidatos', [])
+                                if v.get('diferencia_dias') == 0 and v.get('chofer')}))
+
+
+def dashboard_rows():
+    ensure_schema()
+    with storage._conn() as cn, cn.cursor() as cur:
+        cur.execute('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY')
+        cur.execute('SELECT rec FROM logistics_processed_docs ORDER BY fecha DESC,key')
+        rows = [dashboard_record(r[0]) for r in cur.fetchall()]
+        cur.execute('SELECT max(ventas_sync_at),max(foxtrot_calculado_at) FROM logistics_processed_docs')
+        sales, visits = cur.fetchone()
+    return dict(rows=rows, ventas_sync_at=sales, foxtrot_calculado_at=visits)
+
+
 def read_processed(args,export=False):
     ensure_schema()
     f=period(args)
