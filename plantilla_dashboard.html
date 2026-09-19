@@ -194,6 +194,22 @@ tfoot td{font-weight:700;border-top:2px solid var(--line);border-bottom:none}
 .rechazo-ranking-table tbody tr:nth-child(even){background:#f8fafc}
 .rechazo-ranking-table tbody tr:hover{background:#eef3fa}
 @media(max-width:720px){.rechazo-rankings{grid-template-columns:1fr}.rechazo-rankings .panel{padding:14px}.rechazo-ranking-scroll{margin:0;padding:0}}
+.dpo-rankings{grid-template-columns:repeat(auto-fit,minmax(min(100%,440px),1fr));gap:18px;align-items:start}
+.dpo-rankings .panel{min-width:0;padding:18px}
+.dpo-rankings .note{margin-bottom:12px}
+.dpo-ranking-scroll{max-height:440px;margin:0;padding:0;border:1px solid var(--line);border-radius:9px;scrollbar-width:thin}
+.tblscroll table.dpo-ranking-table{min-width:0;width:100%;table-layout:fixed;font-size:12px}
+.dpo-ranking-table th:first-child{width:36%}
+.dpo-ranking-table th,.dpo-ranking-table td{padding:11px 7px;white-space:normal;overflow-wrap:anywhere;vertical-align:middle}
+.dpo-ranking-table thead th,.dpo-summary-table thead th{position:sticky;top:0;background:#f3f6fa;color:#526079;z-index:2;font-size:10px;white-space:normal}
+.dpo-ranking-table td:first-child,.dpo-summary-table td:first-child{font-weight:600;line-height:1.45;color:#24344f}
+.dpo-ranking-table td:not(:first-child),.dpo-summary-table td:not(:first-child){font-variant-numeric:tabular-nums}
+.dpo-ranking-table tbody tr:nth-child(even),.dpo-summary-table tbody tr:nth-child(even){background:#f8fafc}
+.dpo-ranking-table tbody tr:hover,.dpo-summary-table tbody tr:hover{background:#eef3fa}
+.dpo-summary-scroll{overflow:auto;margin-top:12px;border:1px solid var(--line);border-radius:9px;scrollbar-width:thin}
+.dpo-summary-table{min-width:760px;font-size:12px}
+.dpo-summary-table th,.dpo-summary-table td{padding:12px 9px}
+@media(max-width:720px){.dpo-rankings{grid-template-columns:1fr}.dpo-rankings .panel{padding:14px}.dpo-ranking-scroll{margin:0;padding:0}.dpo-ranking-table th:first-child{width:34%}}
 </style></head><body>
 <header><div class="wrap"><div class="brand-title"><img class="brand-logo" src="/static/logo-t2-v2.webp" width="108" height="108" fetchpriority="high" decoding="async" alt="T2"><div><h1>Tiempos de reparto · Foxtrot - FichaYA - 2026 </h1>
 <div class="sub" id="periodo">del Palacio S.A.</div></div></div>
@@ -463,12 +479,12 @@ tfoot td{font-weight:700;border-top:2px solid var(--line);border-bottom:none}
    <div class="panel"><h2>Camiones salidos por mes</h2><div class="note">Cantidad de salidas declaradas en DPO.</div><div class="chartbox" style="height:300px"><canvas id="chDpoSalidas"></canvas></div></div>
    <div class="panel"><h2>Personas promedio por mes</h2><div class="note">Dotacion promedio por camion salido.</div><div class="chartbox" style="height:300px"><canvas id="chDpoPersonas"></canvas></div></div>
   </div>
-  <div class="grid" style="grid-template-columns:1fr 1fr">
-   <div class="panel"><h2>Ranking por camion</h2><div class="note">Ordenado por cantidad de salidas.</div><div class="tblscroll"><table><thead><tr><th>Camion</th><th>Salidas</th><th>UP prom.</th><th>Clientes prom.</th><th>Personas prom.</th></tr></thead><tbody id="tbodyDpoCamion"></tbody></table></div></div>
-   <div class="panel"><h2>Ranking por chofer</h2><div class="note">Responsable billetera declarado.</div><div class="tblscroll"><table><thead><tr><th>Chofer</th><th>Salidas</th><th>Camiones</th><th>UP prom.</th><th>Clientes prom.</th></tr></thead><tbody id="tbodyDpoChofer"></tbody></table></div></div>
+  <div class="grid dpo-rankings">
+   <div class="panel"><h2>Ranking por camión</h2><div class="note">Ordenado por cantidad de salidas.</div><div class="tblscroll dpo-ranking-scroll"><table class="dpo-ranking-table"><thead><tr><th>Camión</th><th>Salidas</th><th>UP prom.</th><th>Clientes prom.</th><th>Personas prom.</th></tr></thead><tbody id="tbodyDpoCamion"></tbody></table></div></div>
+   <div class="panel"><h2>Ranking por chofer</h2><div class="note">Responsable billetera declarado.</div><div class="tblscroll dpo-ranking-scroll"><table class="dpo-ranking-table"><thead><tr><th>Chofer</th><th>Salidas</th><th>Camiones</th><th>UP prom.</th><th>Clientes prom.</th></tr></thead><tbody id="tbodyDpoChofer"></tbody></table></div></div>
   </div>
   <div class="grid" style="grid-template-columns:1fr">
-   <div class="panel"><h2>Resumen por sucursal</h2><div class="note">MDA se muestra como Casa Central; DOL como Sucursal Dolores.</div><table><thead><tr><th>Sucursal</th><th>Salidas</th><th>Camiones unicos</th><th>Personas prom.</th><th>UP prom.</th><th>Clientes prom.</th><th>Pallets prom.</th><th>Carga OK</th><th>Descarga OK</th></tr></thead><tbody id="tbodyDpoSuc"></tbody></table></div>
+   <div class="panel"><h2>Resumen por sucursal</h2><div class="note">Resumen de las sucursales incluidas en los filtros activos.</div><div class="dpo-summary-scroll"><table class="dpo-summary-table"><thead><tr><th>Sucursal</th><th>Salidas</th><th>Camiones únicos</th><th>Personas prom.</th><th>UP prom.</th><th>Clientes prom.</th><th>Pallets prom.</th><th>Carga OK</th><th>Descarga OK</th></tr></thead><tbody id="tbodyDpoSuc"></tbody></table></div></div>
   </div>
   <div class="grid" style="grid-template-columns:1fr">
    <div class="panel"><h2>Detalle DPO</h2><div class="note">Ultimas 250 filas del periodo filtrado. Las recargas se consolidan en los indicadores superiores.</div><div class="tblscroll"><table><thead><tr><th>Fecha</th><th>Sucursal</th><th>Tipo</th><th>Camion</th><th>Chofer</th><th>Ayudantes</th><th>Personas</th><th>UP</th><th>Clientes</th><th>Pallets</th><th>Carga</th><th>Descarga</th></tr></thead><tbody id="tbodyDpoDetalle"></tbody></table></div></div>
