@@ -2433,10 +2433,7 @@ def _data_desde_base(base):
         satisfaction = satisfaction_future.result()
         dqi = dqi_future.result()
         dpo = dpo_future.result()
-    otif_settings = storage.load_settings()
     return {"rutas": rutas,
-            "otif_clientes_dia": cargar_otif_clientes(otif_settings, base),
-            "otif_integracion": {"configured": logistics_integration_status()["configured"], "ultima_consulta": (otif_settings.get("otif_ultima_consulta") or {}).get("valor", {})},
             "rechazos": rechazos,
             "rechazos_detalle": rechazos_detalle,
             "satisfaccion": satisfaction,

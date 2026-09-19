@@ -15,6 +15,21 @@ def test_static_internal_links_resolve():
             assert not path or path in routes or path.startswith('/static/'), (p, link)
 
 
+def test_dashboard_does_not_build_unused_legacy_otif():
+    from contextlib import ExitStack
+    import pipeline
+    with ExitStack() as stack:
+        for name in ('storage.load_clientes', 'storage.load_rechazos', 'storage.load_rechazos_detalle',
+                     'cargar_satisfaccion', 'cargar_dqi', 'cargar_dpo_gkpis'):
+            stack.enter_context(patch('pipeline.' + name, return_value={}))
+        stack.enter_context(patch('pipeline.aplicar_tiempos_fichaya_guardados'))
+        stack.enter_context(patch('pipeline.dqi_objetivo_bultos_mes', return_value=1))
+        stack.enter_context(patch('pipeline.cargar_otif_clientes', side_effect=AssertionError('legacy calculation')))
+        result = pipeline._data_desde_base({})
+    assert result['rutas'] == []
+    assert 'otif_clientes_dia' not in result
+
+
 def test_sync_is_centralized_and_old_api_is_distinct():
     from app import _admin_page
     app.config.update(TESTING=True, SECRET_KEY='test')
