@@ -1,0 +1,11 @@
+const fs=require('fs'),vm=require('vm'),assert=require('assert');
+const html=fs.readFileSync('plantilla_dashboard.html','utf8'),ctx={};vm.createContext(ctx);
+vm.runInContext(html.slice(html.indexOf('function distanceStats('),html.indexOf('function renderDistances(')),ctx);
+const a={rid:'a',usable:true,disp_km_plan:10000,disp_km_real:12000},b={rid:'b',usable:true,disp_km_plan:5000,disp_km_real:null};
+let s=ctx.distanceStats([a,b,a,{rid:'bad',usable:false,disp_km_plan:999999}]);
+assert.equal(s.plan,15);assert.equal(s.real,12);assert.equal(s.diff,2);assert.equal(s.pct,20);assert.equal(s.nPair,1);
+assert.equal(ctx.distanceStats([]).plan,null);
+assert.equal(ctx.distanceStats([{...a,disp_descartada:true}]).diff,null);
+assert.equal(ctx.distanceStats([{...a,disp_km_plan:0,disp_km_real:0}]).pct,null);
+assert.equal(ctx.distanceStats([{...a,disp_km_real:-1}]).real,null);
+console.log('Distances: meters to km, unique routes, paired denominator, missing and anomalous data OK');

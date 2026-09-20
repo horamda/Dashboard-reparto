@@ -230,6 +230,15 @@ tfoot td{font-weight:700;border-top:2px solid var(--line);border-bottom:none}
  </div>
  <div class="filter-context" id="filterContext" aria-live="polite"><span>Filtros activos</span><div id="filterChips"></div></div>
  <div class="tabs"><button class="tab active" id="tabTeamRoom">Team Room</button><button class="tab" id="tabMes">Mensual</button><button class="tab" id="tabSem">Semanal</button><button class="tab" id="tabDia">Diario</button><button class="tab" id="tabHorarios">Horarios Foxtrot</button><button class="tab" id="tabOnTime">On time</button><button class="tab" id="tabRechazos">Rechazos</button><button class="tab" id="tabInFull">In Full</button><button class="tab" id="tabOtif">OTIF</button><button class="tab" id="tabDqi">DQI</button><button class="tab" id="tabSatisfaccion">Satisfaccion del cliente</button><button class="tab" id="tabDpo">DPO GKPIs</button><button class="tab" id="tabCalidad">Data Quality</button></div>
+ <div class="panel" style="margin-bottom:18px">
+  <h2>Distancias Foxtrot · km</h2>
+  <p id="distanceSummary" role="status"></p>
+  <details id="distanceDetails" ontoggle="if(this.open)renderDistances()"><summary>Ver comparación y detalle por período</summary>
+   <p class="note">Origen en metros, convertido a km. Rutas válidas con los filtros activos. La diferencia usa únicamente rutas con ambas distancias y sin anomalía de planificación. Los totales individuales pueden tener distinta cobertura.</p>
+   <div style="height:320px;position:relative"><canvas id="chDistanceKm"></canvas></div>
+   <div class="tblscroll"><table><thead><tr><th>Período</th><th>Planificados (km)</th><th>Rutas con plan</th><th>Reales (km)</th><th>Rutas con real</th><th>Rutas comparables</th><th>Diferencia (km)</th><th>Desvío (%)</th></tr></thead><tbody id="distanceRows"></tbody></table></div>
+  </details>
+ </div>
  <div id="operationalSummary" style="display:none">
  <div class="sectlbl">Tiempos</div>
  <div class="cards c5">
@@ -1098,7 +1107,22 @@ document.getElementById('docOtifNext').addEventListener('click',()=>{docOtifPage
 function renderOtif(){renderDocOtif()}
 
 
-function renderCards(){const cards=R.filter(scopeCards),us=cards.filter(r=>r.usable),jUs=jornadas(us);
+function distanceStats(rows){
+ const valid=v=>typeof v==='number'&&Number.isFinite(v)&&v>=0,unique=[...new Map(rows.filter(r=>r.usable).map((r,i)=>[r.rid??i,r])).values()];
+ const plans=unique.filter(r=>valid(r.disp_km_plan)),actuals=unique.filter(r=>valid(r.disp_km_real)),pairs=unique.filter(r=>valid(r.disp_km_plan)&&valid(r.disp_km_real)&&!r.disp_descartada),sum=(items,key)=>items.reduce((s,r)=>s+r[key],0)/1000,pairPlan=sum(pairs,'disp_km_plan'),pairReal=sum(pairs,'disp_km_real');
+ return{plan:plans.length?sum(plans,'disp_km_plan'):null,real:actuals.length?sum(actuals,'disp_km_real'):null,nPlan:plans.length,nReal:actuals.length,nPair:pairs.length,pairPlan:pairs.length?pairPlan:null,pairReal:pairs.length?pairReal:null,diff:pairs.length?pairReal-pairPlan:null,pct:pairPlan>0?100*(pairReal-pairPlan)/pairPlan:null};
+}
+function renderDistances(){
+ const rows=R.filter(scopeCards),stats=distanceStats(rows),km=v=>v==null?'Sin datos':fmt2(v)+' km';
+ document.getElementById('distanceSummary').textContent='Planificados: '+km(stats.plan)+' ('+stats.nPlan+' rutas) · Reales: '+km(stats.real)+' ('+stats.nReal+' rutas) · Diferencia comparable: '+km(stats.diff)+' ('+stats.nPair+' rutas)';
+ if(!document.getElementById('distanceDetails').open)return;
+ const daily=state.tab==='dia'||state.tab==='sem'||state.fecha!=='__all',groups=new Map();rows.forEach(r=>{const key=daily?r.fecha:r.mes;if(!groups.has(key))groups.set(key,[]);groups.get(key).push(r)});
+ const data=[...groups].sort(([a],[b])=>a.localeCompare(b)).map(([key,items])=>({key,...distanceStats(items)})),labels=data.map(r=>daily?r.key:mLbl(r.key)+' '+r.key.slice(0,4));
+ document.getElementById('distanceRows').innerHTML=data.map((r,i)=>'<tr><td>'+esc(labels[i])+'</td><td>'+km(r.plan)+'</td><td>'+r.nPlan+'</td><td>'+km(r.real)+'</td><td>'+r.nReal+'</td><td>'+r.nPair+'</td><td>'+km(r.diff)+'</td><td>'+fmtPct(r.pct)+'</td></tr>').join('')||emptyRow(8,'Sin rutas para los filtros activos.');
+ if(!chartsReady())return;if(ch.chDistanceKm)ch.chDistanceKm.destroy();
+ ch.chDistanceKm=new Chart(document.getElementById('chDistanceKm'),{type:'bar',data:{labels,datasets:[{label:'Planificados · rutas comparables',data:data.map(r=>r.pairPlan),backgroundColor:C.obj,_fmt:fmt1},{label:'Reales · rutas comparables',data:data.map(r=>r.pairReal),backgroundColor:C.cli,_fmt:fmt1}]},options:{responsive:true,maintainAspectRatio:false,scales:{y:{beginAtZero:true,grace:'15%',title:{display:true,text:'km'}}},plugins:{tooltip:{callbacks:{label:c=>c.dataset.label+': '+km(c.raw)}}}},plugins:[dLabels([0,1])]});
+}
+function renderCards(){renderDistances();const cards=R.filter(scopeCards),us=cards.filter(r=>r.usable),jUs=jornadas(us);
  const aTml=avg(us.map(r=>r.tml)),aTi=avg(us.map(r=>r.ti)),aHr=avg(jUs.map(r=>r.horas));
  kTml.textContent=r1(aTml);kTi.textContent=r1(aTi);kHr.textContent=hhmmH(aHr);kN.textContent=jUs.length;
  const set=(p,val,col,max)=>{document.getElementById('c'+p).style.setProperty('--accent',col);const b=document.getElementById('b'+p);b.style.background=col;b.style.width=Math.min(100,Math.abs(val/max)*100)+'%'};
