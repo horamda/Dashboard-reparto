@@ -2365,16 +2365,18 @@ def costos_distribucion_dashboard():
 def fuel_current_prices():
     if not _is_logged_in():
         return jsonify(error='Iniciá sesión para consultar precios'), 401
-    from fuel_prices import current_prices
+    from fuel_prices import current_prices, argly_gasoil
     from urllib.error import HTTPError
     try:
+        if request.args.get('source') == 'argly':
+            return jsonify(argly_gasoil())
         return jsonify(current_prices(request.args.get('city', '')))
     except ValueError:
         return jsonify(error='Ciudad o respuesta de precios inválida'), 400
     except HTTPError as exc:
-        return jsonify(error=f'Naftas respondió HTTP {exc.code}. Podés ingresar el precio manualmente.'), 502
+        return jsonify(error=f'El proveedor respondió HTTP {exc.code}. Podés ingresar el precio manualmente.'), 502
     except Exception:
-        return jsonify(error='No se pudo consultar Naftas. Podés ingresar el precio manualmente.'), 502
+        return jsonify(error='No se pudo consultar el proveedor. Podés ingresar el precio manualmente.'), 502
 
 
 @app.route("/costos-distribucion")

@@ -30,3 +30,20 @@ def test_current_prices_cache(monkeypatch):
     assert current_prices('test')['historical'] is False
     assert current_prices('TEST')['rows'][0]['price'] == 1000
     assert len(calls) == 1
+
+def test_argly_gasoil(monkeypatch):
+    import fuel_prices
+    from io import BytesIO
+    calls = []
+    def fake(req, timeout):
+        calls.append(req.full_url)
+        return BytesIO(b'{"data":{"provincia":"buenos-aires","combustible":"Gasoil Grado 2","precio_promedio":2269.13}}')
+    monkeypatch.setattr(fuel_prices, 'urlopen', fake)
+    monkeypatch.setattr(fuel_prices, '_cache', {})
+    result = fuel_prices.argly_gasoil()
+    assert result['rows'][0]['price'] == 2269.13
+    assert result['rows'][0]['effective_at'] is None
+    assert result['historical'] is False
+    fuel_prices.argly_gasoil()
+    assert len(calls) == 1
+    assert 'combustible=gasoil-grado-2' in calls[0]
