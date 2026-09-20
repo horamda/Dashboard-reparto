@@ -7,11 +7,21 @@ from text_encoding import repair_values
 KEY = 'pdv_time_targets_v1'
 DEFAULTS = [('Tradicionales', 8), ('Refrigerados', 11), ('Autoservicios', 16),
             ('Mayoristas', 33), ('SMK Bajo Drop', 60), ('SMK Alto Drop', 180)]
+STANDARD_GROUPS = {'Tradicionales': 'K+T', 'Refrigerados': 'REF', 'Autoservicios': 'AS', 'Mayoristas': 'MAY'}
 
 
 def defaults():
-    return {'rules': [dict(name=name, minutes=value, agrupacion=[], subcanal=[], cliente=[])
+    return {'rules': [dict(name=name, minutes=value, agrupacion=[STANDARD_GROUPS[name]] if name in STANDARD_GROUPS else [], subcanal=[], cliente=[])
                       for name, value in DEFAULTS]}
+
+
+def group_names():
+    from visit_metrics import customer_segments
+    if storage.backend_name() == 'postgres':
+        with storage._conn() as cn, cn.cursor() as cur:
+            cur.execute("SELECT DISTINCT COALESCE(NULLIF(trim(rec #>> '{raw_cliente,Descripcion agrupacion}'),''),'Sin clasificar') FROM clientes_dashboard ORDER BY 1")
+            return [row[0] for row in cur.fetchall()]
+    return sorted({customer_segments(r)['agrupacion'] for r in storage.load_clientes().values()})
 
 
 def config():

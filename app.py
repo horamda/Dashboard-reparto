@@ -2398,8 +2398,8 @@ def customer_visit_times():
         return jsonify(error='Iniciá sesión para consultar visitas'), 401
     from visit_metrics import dashboard_rows
     try:
-        from pdv_targets import config
-        return jsonify(rows=dashboard_rows(), targets=config())
+        from pdv_targets import config, group_names
+        return jsonify(rows=dashboard_rows(), targets=config(), groups=group_names())
     except Exception:
         return jsonify(error='No se pudieron cargar los tiempos de visita'), 503
 
