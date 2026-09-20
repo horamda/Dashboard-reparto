@@ -2,6 +2,7 @@
 import math
 import unicodedata
 import storage
+from text_encoding import repair_text
 
 FIELDS = ['route_id','Route ID','cliente','Customer ID','cliente_nombre','Customer Name',
           'Waypoint ID','Visit Start Timestamp','visit_start','Driver Click Timestamp',
@@ -12,7 +13,7 @@ def customer_segments(master):
     raw=master.get('raw_cliente') or {}
     def normalized(key):
         return ' '.join(''.join(c for c in unicodedata.normalize('NFD',str(key).lower()) if not unicodedata.combining(c)).split())
-    values={normalized(k):str(v).strip() if v is not None else '' for k,v in raw.items()}
+    values={normalized(k):repair_text(str(v).strip()) if v is not None else '' for k,v in raw.items()}
     return {field:values.get('descripcion '+name) or 'Sin clasificar'
             for field,name in [('subcanal','subcanal'),('agrupacion','agrupacion')]}
 

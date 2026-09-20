@@ -2,6 +2,7 @@
 import math
 from datetime import datetime, timezone
 import storage
+from text_encoding import repair_values
 
 KEY = 'pdv_time_targets_v1'
 DEFAULTS = [('Tradicionales', 8), ('Refrigerados', 11), ('Autoservicios', 16),
@@ -14,7 +15,7 @@ def defaults():
 
 
 def config():
-    return storage.load_setting(KEY) or defaults()
+    return repair_values(storage.load_setting(KEY) or defaults())
 
 
 def catalog():

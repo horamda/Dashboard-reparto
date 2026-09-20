@@ -1813,7 +1813,16 @@ def _fmt_ventanas(ventanas):
 
 
 def procesar_clientes(clientes_file):
-    c = pd.read_csv(clientes_file, sep=";", dtype=str, encoding="cp1252")
+    from text_encoding import repair_text, repair_values
+    payload = clientes_file.read()
+    if isinstance(payload, bytes):
+        try:
+            payload = payload.decode('utf-8-sig')
+        except UnicodeDecodeError:
+            payload = payload.decode('cp1252')
+    c = pd.read_csv(StringIO(payload), sep=";", dtype=str)
+    c.columns = [repair_text(column) for column in c.columns]
+    c = c.apply(lambda column: column.map(repair_text))
     out = {}
     for _, r in c.iterrows():
         cliente = _norm_id(r.get("Cliente"))
@@ -1826,26 +1835,26 @@ def procesar_clientes(clientes_file):
             "sucursal": _norm_id(r.get("Sucursal")),
             "razon_social": "" if pd.isna(r.get("Razon social")) else str(r.get("Razon social")).strip(),
             "nombre": "" if pd.isna(r.get("Nombre de fantasia")) else str(r.get("Nombre de fantasia")).strip(),
-            "direccion": _first_text(r, ("Direccion", "DirecciÃ³n", "Domicilio", "Calle")),
+            "direccion": _first_text(r, ("Dirección", "Direccion", "DirecciÃ³n", "Domicilio", "Calle")),
             "localidad": _first_text(r, (
                 "Nombre de localidad",
                 "Nombre localidad",
                 "Localidad de entrega",
                 "Localidad",
                 "Ciudad",
-                "Poblacion",
+                "Población", "Poblacion",
                 "Población",
                 "PoblaciÃ³n",
             )),
             "provincia": _first_text(r, ("Provincia",)),
-            "codigo_postal": _first_text(r, ("Codigo postal", "CÃ³digo postal", "CP")),
+            "codigo_postal": _first_text(r, ("Código postal", "Codigo postal", "CÃ³digo postal", "CP")),
             "latitud": _first_float_or_none(r, ("Latitud", "Latitude", "GPS Latitud", "GPS Latitude", "Coord Y de entrega", "Coord Y", "Y")),
             "longitud": _first_float_or_none(r, ("Longitud", "Longitude", "GPS Longitud", "GPS Longitude", "Coord X de entrega", "Coord X", "X")),
             "horario_entrega": "" if pd.isna(horario) else str(horario).strip(),
             "ventanas": ventanas,
             "raw_cliente": _row_raw_dict(r),
         }
-    return out
+    return repair_values(out)
 
 
 def actualizar_clientes(clientes_file):
