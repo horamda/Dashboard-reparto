@@ -54,3 +54,14 @@ assert.equal(segment[0].validas,10);
 assert.equal(segment[0].avg,1.9);
 assert.equal(ctx.pdvSegmentGroups([{validas:0,visitas:1,segundos:0}], 'agrupacion')[0].avg,null);
 console.log('Customer segment rankings: visit-weighted means and unclassified coverage OK');
+
+const monthlyVisits=[{rid:'jan',cliente:'1',nombre:'A',subcanal:'Shop',agrupacion:'Group',visitas:2,validas:1,segundos:600},{rid:'jan2',cliente:'2',nombre:'B',subcanal:'Shop',agrupacion:'Group',visitas:9,validas:9,segundos:540},{rid:'feb',cliente:'1',nombre:'A',subcanal:'Shop',agrupacion:'Group',visitas:1,validas:1,segundos:180}];
+const monthlyRoutes=[{rid:'jan',usable:true,mes:'2026-01'},{rid:'jan2',usable:true,mes:'2026-01'},{rid:'feb',usable:true,mes:'2026-02'}];
+const annual=ctx.pdvMonthlyGroups(monthlyVisits,monthlyRoutes,'subcanal','2026');
+assert.equal(annual.length,2);
+assert.equal(annual[0].avg,1.9);
+assert.equal(annual[1].avg,3);
+assert.equal(ctx.pdvMonthlyGroups(monthlyVisits,monthlyRoutes.filter(r=>r.mes==='2026-02'),'agrupacion','2026').length,1);
+assert.equal(ctx.pdvMonthlyGroups(monthlyVisits,monthlyRoutes,'subcanal','2025').length,0);
+assert.equal(ctx.pdvMonthlyGroups(monthlyVisits,monthlyRoutes,'subcanal','2026','Other').length,0);
+console.log('Annual customer analysis: weighted months, scoped routes, year and segment filters OK');
