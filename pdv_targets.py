@@ -17,6 +17,20 @@ def config():
     return storage.load_setting(KEY) or defaults()
 
 
+def catalog():
+    from visit_metrics import customer_segments
+    if storage.backend_name() == 'postgres':
+        with storage._conn() as cn, cn.cursor() as cur:
+            cur.execute("SELECT cliente, jsonb_build_object('nombre',COALESCE(rec->>'nombre',rec->>'razon_social',''),'raw_cliente',rec->'raw_cliente') FROM clientes_dashboard")
+            customers = dict(cur.fetchall())
+    else:
+        customers = storage.load_clientes()
+    segments = [customer_segments(r) for r in customers.values()]
+    return dict(agrupacion=sorted({r['agrupacion'] for r in segments}),
+                subcanal=sorted({r['subcanal'] for r in segments}),
+                cliente=[dict(value=str(k), label=str(k)+' — '+str(v.get('nombre') or v.get('razon_social') or '')) for k,v in sorted(customers.items())])
+
+
 def validate(rules):
     if not isinstance(rules, list) or not 1 <= len(rules) <= 100:
         raise ValueError('Se requiere entre 1 y 100 objetivos.')

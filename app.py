@@ -185,6 +185,7 @@ a{{color:#1E3A8A;font-size:13.5px}}hr{{border:0;border-top:1px solid #DCE2EA;mar
 <body><div class=box>
 <div id=busy class=busy role=status aria-live=polite>Procesando datos...</div>
 <h1>Actualizar dashboard</h1>
+<p><a href="/admin/objetivos-pdv">Administrar objetivos de tiempo en PDV</a></p>
 <p>Subí el export nuevo de Route Analytics y el Attempt Analytics. Las rutas existentes se actualizan con las columnas nuevas.</p>
 {msg}
 {fichaya_status}
@@ -486,6 +487,7 @@ def _main_page():
             ("Asociar nombres", "Vinculación de choferes y ayudantes de reparto con legajos FichaYA.", "/asociar-fichaya", "Asociar"),
         ]),
         ("Administración", [
+            ("Objetivos de tiempo en PDV", "Estándares del SOP y asignación a tipos de negocio y clientes.", "/admin/objetivos-pdv", "Administrar"),
             ("Actualizar datos", "Carga de Route Analytics, visitas Foxtrot, clientes, rechazos y artículos.", "/admin", "Ir a admin"),
         ]),
     ]
@@ -2403,6 +2405,7 @@ def customer_visit_times():
 
 
 @app.route('/clientes/objetivos-tiempo', methods=['GET', 'POST'])
+@app.route('/admin/objetivos-pdv', methods=['GET', 'POST'])
 def customer_time_targets():
     blocked = _require_login()
     if blocked:
@@ -2427,7 +2430,7 @@ def customer_time_targets():
         except ValueError as exc:
             cfg = {'rules': rules}
             message, status = str(exc), 400
-    return render_template('pdv_targets.html', cfg=cfg, token=token, message=message), status
+    return render_template('pdv_targets.html', cfg=cfg, token=token, message=message, catalog=pdv_targets.catalog()), status
 
 
 @app.route("/costos-distribucion")
