@@ -2390,6 +2390,17 @@ def fuel_stored_history():
         return jsonify(error='No se pudieron leer los precios guardados'), 503
 
 
+@app.get('/api/clientes/tiempos-visita')
+def customer_visit_times():
+    if not _is_logged_in():
+        return jsonify(error='Iniciá sesión para consultar visitas'), 401
+    from visit_metrics import dashboard_rows
+    try:
+        return jsonify(rows=dashboard_rows())
+    except Exception:
+        return jsonify(error='No se pudieron cargar los tiempos de visita'), 503
+
+
 @app.route("/costos-distribucion")
 def costos_distribucion():
     return _costos_distribucion_page()
