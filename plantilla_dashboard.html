@@ -233,6 +233,12 @@ tfoot td{font-weight:700;border-top:2px solid var(--line);border-bottom:none}
  <div id="viewKm" class="panel" style="display:none;margin-bottom:18px">
   <h2>Distancias Foxtrot · km</h2>
   <p id="distanceSummary" role="status"></p>
+  <h3>Combustible · 28 litros cada 100 km</h3>
+  <label for="fuelPrice">Precio por litro ($)</label>
+  <input id="fuelPrice" type="number" min="0" step="0.01" placeholder="Ingresar precio" oninput="saveFuelPrice();renderDistances()">
+  <p class="note">Consumo calculado: km × 0,28. Costo: litros × precio ingresado. Se aplica el mismo precio al período seleccionado y se recuerda en este navegador; no representa cargas de combustible registradas.</p>
+  <p id="fuelSummary" role="status"></p>
+  <div class="tblscroll"><table><thead><tr><th>Período</th><th>Litros según plan</th><th>Litros según km reales</th><th>Costo según plan ($)</th><th>Costo según km reales ($)</th><th>Diferencia comparable ($)</th></tr></thead><tbody id="fuelRows"></tbody></table></div>
   <div>
    <p class="note">Origen en metros, convertido a km. Rutas válidas con los filtros activos. La diferencia usa únicamente rutas con ambas distancias y sin anomalía de planificación. Los totales individuales pueden tener distinta cobertura.</p>
    <div style="height:320px;position:relative"><canvas id="chDistanceKm"></canvas></div>
@@ -1112,11 +1118,17 @@ function distanceStats(rows){
  const plans=unique.filter(r=>valid(r.disp_km_plan)),actuals=unique.filter(r=>valid(r.disp_km_real)),pairs=unique.filter(r=>valid(r.disp_km_plan)&&valid(r.disp_km_real)&&!r.disp_descartada),sum=(items,key)=>items.reduce((s,r)=>s+r[key],0)/1000,pairPlan=sum(pairs,'disp_km_plan'),pairReal=sum(pairs,'disp_km_real');
  return{plan:plans.length?sum(plans,'disp_km_plan'):null,real:actuals.length?sum(actuals,'disp_km_real'):null,nPlan:plans.length,nReal:actuals.length,nPair:pairs.length,pairPlan:pairs.length?pairPlan:null,pairReal:pairs.length?pairReal:null,diff:pairs.length?pairReal-pairPlan:null,pct:pairPlan>0?100*(pairReal-pairPlan)/pairPlan:null};
 }
+function fuelStats(stats,price){const liters=km=>km==null?null:km*0.28,cost=km=>km==null||price==null?null:liters(km)*price;return{plan:liters(stats.plan),real:liters(stats.real),costPlan:cost(stats.plan),costReal:cost(stats.real),costDiff:cost(stats.diff)}}
+function saveFuelPrice(){try{localStorage.setItem('dashboard-fuel-price',document.getElementById('fuelPrice').value)}catch(e){}}
+try{const saved=localStorage.getItem('dashboard-fuel-price');if(saved!==null&&saved!==''&&Number.isFinite(Number(saved))&&Number(saved)>=0)document.getElementById('fuelPrice').value=saved}catch(e){}
 function renderDistances(){
  const rows=R.filter(scopeCards),stats=distanceStats(rows),km=v=>v==null?'Sin datos':fmt2(v)+' km';
  document.getElementById('distanceSummary').textContent='Planificados: '+km(stats.plan)+' ('+stats.nPlan+' rutas) · Reales: '+km(stats.real)+' ('+stats.nReal+' rutas) · Diferencia comparable: '+km(stats.diff)+' ('+stats.nPair+' rutas)';
  const daily=state.tab==='dia'||state.tab==='sem'||state.fecha!=='__all',groups=new Map();rows.forEach(r=>{const key=daily?r.fecha:r.mes;if(!groups.has(key))groups.set(key,[]);groups.get(key).push(r)});
  const data=[...groups].sort(([a],[b])=>a.localeCompare(b)).map(([key,items])=>({key,...distanceStats(items)})),labels=data.map(r=>daily?r.key:mLbl(r.key)+' '+r.key.slice(0,4));
+ const priceInput=document.getElementById('fuelPrice'),rawPrice=priceInput.value,price=rawPrice!==''&&priceInput.validity.valid&&Number.isFinite(Number(rawPrice))&&Number(rawPrice)>=0?Number(rawPrice):null,fuel=fuelStats(stats,price),liters=v=>v==null?'Sin datos':fmt2(v)+' L',money=v=>v==null?'—':'$ '+fmt2(v);
+ document.getElementById('fuelSummary').textContent='Según plan: '+liters(fuel.plan)+' · Según km reales: '+liters(fuel.real)+' · Costo según km reales: '+money(fuel.costReal)+(price==null?' · Ingresá el precio por litro para calcular costos.':' · Diferencia comparable: '+money(fuel.costDiff));
+ document.getElementById('fuelRows').innerHTML=data.map((r,i)=>{const f=fuelStats(r,price);return '<tr><td>'+esc(labels[i])+'</td><td>'+liters(f.plan)+'</td><td>'+liters(f.real)+'</td><td>'+money(f.costPlan)+'</td><td>'+money(f.costReal)+'</td><td>'+money(f.costDiff)+'</td></tr>'}).join('')||emptyRow(6,'Sin rutas para los filtros activos.');
  document.getElementById('distanceRows').innerHTML=data.map((r,i)=>'<tr><td>'+esc(labels[i])+'</td><td>'+km(r.plan)+'</td><td>'+r.nPlan+'</td><td>'+km(r.real)+'</td><td>'+r.nReal+'</td><td>'+r.nPair+'</td><td>'+km(r.diff)+'</td><td>'+fmtPct(r.pct)+'</td></tr>').join('')||emptyRow(8,'Sin rutas para los filtros activos.');
  if(!chartsReady())return;if(ch.chDistanceKm)ch.chDistanceKm.destroy();
  ch.chDistanceKm=new Chart(document.getElementById('chDistanceKm'),{type:'bar',data:{labels,datasets:[{label:'Planificados · rutas comparables',data:data.map(r=>r.pairPlan),backgroundColor:C.obj,_fmt:fmt1},{label:'Reales · rutas comparables',data:data.map(r=>r.pairReal),backgroundColor:C.cli,_fmt:fmt1}]},options:{responsive:true,maintainAspectRatio:false,scales:{y:{beginAtZero:true,grace:'15%',title:{display:true,text:'km'}}},plugins:{tooltip:{callbacks:{label:c=>c.dataset.label+': '+km(c.raw)}}}},plugins:[dLabels([0,1])]});
