@@ -1,0 +1,17 @@
+/* Shared touch and narrow-screen refinements for report pages. */
+:focus-visible{outline:2px solid #c77d1a;outline-offset:3px}
+.table-wrap,.table-responsive{max-width:100%;overflow:auto;overscroll-behavior:contain;scrollbar-color:#94a3b8 #eef1f5}
+.tools,.pagination,.nav{flex-wrap:wrap;gap:10px}
+@media(max-width:720px){
+ main.wrap{width:calc(100% - 24px);max-width:100%;margin-inline:auto;padding-inline:0}
+ .top{flex-direction:column;align-items:stretch;gap:12px}
+ .tools{display:grid!important;grid-template-columns:minmax(0,1fr);width:100%}
+ .tools label{min-width:0;max-width:100%;width:100%}
+ .tools input,.tools select{width:100%!important;max-width:none!important;min-width:0!important;font-size:16px!important;min-height:44px}
+ .btn,.nav a{min-height:44px;display:inline-flex;align-items:center;justify-content:center}
+ .nav{display:flex;overflow-x:auto;flex-wrap:nowrap;max-width:100%;padding-block:6px}
+ .nav a{flex-shrink:0}
+ .pagination{display:flex;flex-wrap:wrap;gap:10px;margin-block:16px}
+ h1{font-size:clamp(22px,6vw,30px);overflow-wrap:anywhere}
+ pre{max-width:100%;overflow-wrap:anywhere}
+}

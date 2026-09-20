@@ -172,6 +172,51 @@ tfoot td{font-weight:700;border-top:2px solid var(--line);border-bottom:none}
 #exportClientesSin:hover:not(:disabled){background:#14532d;border-color:#14532d}
 #exportClientesSin:focus-visible{outline:3px solid #86efac;outline-offset:3px}
 #exportClientesSin:disabled{background:#e2e8f0;border-color:#cbd5e1;color:#64748b;cursor:not-allowed}
+
+/* Responsive dashboard navigation and analysis surfaces */
+.mobile-section{display:none}
+.panel h3{font-size:15px;line-height:1.4;margin:24px 0 8px;color:var(--ink2)}
+.panel p{line-height:1.6}
+.panel input[type=number]{font:inherit;color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:10px 12px;min-height:44px;max-width:100%;background:#fff}
+#viewKm>label{display:block;font-weight:650;margin:10px 0 6px}
+#fuelPrice{width:240px}
+#distanceCards{margin:20px 0;gap:14px}
+#distanceCards .card{align-items:flex-start;text-align:left;min-width:0;--accent:var(--cli);padding:20px}
+#distanceCards .v{font-size:clamp(20px,2vw,28px);line-height:1.25;max-width:100%;overflow-wrap:anywhere}
+#distanceCards .obj{line-height:1.5;margin-top:8px}
+#distanceBreakdowns>.panel{margin:18px 0}
+#viewKm .tblscroll,#distanceBreakdowns .tblscroll{margin-top:14px;border:1px solid var(--line);max-height:480px}
+#viewKm table,#distanceBreakdowns table{min-width:850px}
+#viewKm td,#distanceBreakdowns td{padding:12px 10px}
+#viewKm tbody tr:nth-child(even),#distanceBreakdowns tbody tr:nth-child(even){background:#f8fafc}
+.tblscroll{overscroll-behavior:contain;scrollbar-color:#94a3b8 #eef1f5;scrollbar-width:thin}
+.analysis-controls{display:flex;flex-wrap:wrap;gap:14px;align-items:end;margin:12px 0 20px}
+.analysis-controls label{flex:1 1 180px;min-width:0;font-weight:600;display:flex;flex-direction:column;gap:6px}
+#rechMotUnit{max-width:320px;margin:6px 0 12px}
+#rechMotSummary,#rechTrendStatus{padding:10px 12px;background:#f3f6fa;border-radius:8px;margin:10px 0}
+@media(min-width:1101px){.tabs{flex-wrap:wrap;overflow:visible;gap:8px}.tab{padding:10px 14px}}
+@media(max-width:720px){
+ .mobile-section{display:flex;flex-direction:column;gap:6px;margin:12px 0 18px;font-weight:650}
+ .tabs{display:none}
+ header .head-actions{width:100%;flex-wrap:nowrap;overflow-x:auto;padding-bottom:6px;justify-content:flex-start}
+ header .head-actions a{min-height:44px;display:flex;align-items:center}
+ .filters{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+ .filters .fg:last-of-type{grid-column:1/-1}
+ .filters .reset{grid-column:1/-1;min-height:44px}
+ select,.filters input,.panel input[type=number]{font-size:16px;min-height:44px}
+ .panel{border-radius:12px;padding:16px 12px}
+ .panel h2{font-size:14px}.panel .note{font-size:12px}
+ .panel h3{margin-top:22px}
+ #distanceCards{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:10px}
+ #distanceCards .card{padding:14px 12px;min-height:132px}
+ #distanceCards .v{font-size:20px}#distanceCards .k{font-size:10px}
+ #viewKm .tblscroll,#distanceBreakdowns .tblscroll{margin:12px 0;padding:0;border-radius:8px}
+ .analysis-controls{flex-direction:column;align-items:stretch}.analysis-controls label{flex:auto}
+ #rechMotUnit,#fuelPrice{width:100%;max-width:none}
+ .filter-chip{min-height:40px}
+}
+@media(max-width:360px){.filters,#distanceCards{grid-template-columns:1fr!important}}
+
 </style><style>
 #viewOtif>.panel,#viewInFull>.panel{margin-bottom:22px}
 #docOtifCards{grid-template-columns:repeat(3,minmax(0,1fr));margin-top:16px}
@@ -230,9 +275,10 @@ tfoot td{font-weight:700;border-top:2px solid var(--line);border-bottom:none}
  </div>
  <div class="filter-context" id="filterContext" aria-live="polite"><span>Filtros activos</span><div id="filterChips"></div></div>
  <div class="tabs"><button class="tab active" id="tabTeamRoom">Team Room</button><button class="tab" id="tabMes">Mensual</button><button class="tab" id="tabSem">Semanal</button><button class="tab" id="tabDia">Diario</button><button class="tab" id="tabHorarios">Horarios Foxtrot</button><button class="tab" id="tabKm">Kilómetros</button><button class="tab" id="tabOnTime">On time</button><button class="tab" id="tabRechazos">Rechazos</button><button class="tab" id="tabInFull">In Full</button><button class="tab" id="tabOtif">OTIF</button><button class="tab" id="tabDqi">DQI</button><button class="tab" id="tabSatisfaccion">Satisfaccion del cliente</button><button class="tab" id="tabDpo">DPO GKPIs</button><button class="tab" id="tabCalidad">Data Quality</button></div>
+ <label class="mobile-section" for="mobileSection">Sección del dashboard<select id="mobileSection" onchange="switchTab(this.value)"></select></label>
  <div id="viewKm" class="panel" style="display:none;margin-bottom:18px">
   <h2>Distancias Foxtrot · km</h2>
-  <p id="distanceSummary" role="status"></p>
+  <p id="distanceSummary" role="status" class="note" hidden></p>
   <h3>Combustible · 28 litros cada 100 km</h3>
   <label for="fuelPrice">Precio por litro ($)</label>
   <input id="fuelPrice" type="number" min="0" step="0.01" placeholder="Ingresar precio" oninput="saveFuelPrice();renderDistances()">
@@ -611,7 +657,7 @@ tfoot td{font-weight:700;border-top:2px solid var(--line);border-bottom:none}
     <div style="height:340px;position:relative"><canvas id="chRechMotMonth"></canvas></div>
     <h3>Evolución anual de los motivos</h3>
     <p class="note">Volumen rechazado por mes. Conserva unidad, sucursal y chofer; muestra el año completo independientemente del mes o día seleccionado arriba. Los meses sin detalle importado aparecen sin punto.</p>
-    <div style="display:flex;flex-wrap:wrap;gap:12px;margin-bottom:12px">
+    <div class="analysis-controls">
      <label>Año <select id="rechTrendYear" onchange="renderRechTrend()"></select></label>
      <label>Motivo <select id="rechTrendReason" onchange="renderRechTrend()"><option value="__all">Todos los motivos</option></select></label>
     </div>
@@ -1286,13 +1332,17 @@ fMes.addEventListener('change',e=>{state.mes=e.target.value;state.fecha='__all';
 fFecha.addEventListener('change',e=>{state.fecha=e.target.value||'__all';if(state.fecha!=='__all'){state.mes=state.fecha.slice(0,7);state.sem=weekKey(state.fecha);state.teamSem=state.sem}syncFilterControls();render()});
 fCho.addEventListener('change',e=>{state.cho=e.target.value;syncFilterControls();render()});
 reset.addEventListener('click',()=>{state.unidad=state.suc=state.mes=state.fecha=state.cho='__all';syncFilterControls();render()});
-function switchTab(t){state.tab=t;document.getElementById('tabKm').classList.toggle('active',t==='km');document.getElementById('viewKm').style.display=t==='km'?'':'none';document.getElementById('distanceBreakdowns').style.display=t==='km'?'':'none';document.getElementById('tabInFull').classList.toggle('active',t==='infull');document.getElementById('viewInFull').style.display=t==='infull'?'':'none';tabMes.classList.toggle('active',t==='mes');tabDia.classList.toggle('active',t==='dia');tabSem.classList.toggle('active',t==='sem');tabHorarios.classList.toggle('active',t==='horarios');tabDpo.classList.toggle('active',t==='dpo');tabOnTime.classList.toggle('active',t==='ontime');tabSatisfaccion.classList.toggle('active',t==='satisfaccion');tabTeamRoom.classList.toggle('active',t==='teamroom');tabDqi.classList.toggle('active',t==='dqi');tabRechazos.classList.toggle('active',t==='rechazos');tabOtif.classList.toggle('active',t==='otif');tabCalidad.classList.toggle('active',t==='calidad');
+function switchTab(t){state.tab=t;document.getElementById('mobileSection').value=t;document.getElementById('tabKm').classList.toggle('active',t==='km');document.getElementById('viewKm').style.display=t==='km'?'':'none';document.getElementById('distanceBreakdowns').style.display=t==='km'?'':'none';document.getElementById('tabInFull').classList.toggle('active',t==='infull');document.getElementById('viewInFull').style.display=t==='infull'?'':'none';tabMes.classList.toggle('active',t==='mes');tabDia.classList.toggle('active',t==='dia');tabSem.classList.toggle('active',t==='sem');tabHorarios.classList.toggle('active',t==='horarios');tabDpo.classList.toggle('active',t==='dpo');tabOnTime.classList.toggle('active',t==='ontime');tabSatisfaccion.classList.toggle('active',t==='satisfaccion');tabTeamRoom.classList.toggle('active',t==='teamroom');tabDqi.classList.toggle('active',t==='dqi');tabRechazos.classList.toggle('active',t==='rechazos');tabOtif.classList.toggle('active',t==='otif');tabCalidad.classList.toggle('active',t==='calidad');
  document.getElementById('operationalSummary').style.display=(t==='km'||t==='infull'||t==='rechazos'||t==='ontime'||t==='otif'||t==='calidad'||t==='satisfaccion'||t==='teamroom'||t==='dqi'||t==='horarios'||t==='dpo')?'none':'';
  document.getElementById('viewMes').style.display=t==='mes'?'':'none';document.getElementById('viewDia').style.display=t==='dia'?'':'none';document.getElementById('viewSem').style.display=t==='sem'?'':'none';document.getElementById('viewHorarios').style.display=t==='horarios'?'':'none';document.getElementById('viewDpo').style.display=t==='dpo'?'':'none';document.getElementById('viewCalidad').style.display=t==='calidad'?'':'none';document.getElementById('viewDqi').style.display=t==='dqi'?'':'none';document.getElementById('viewSatisfaccion').style.display=t==='satisfaccion'?'':'none';document.getElementById('viewTeamRoom').style.display=t==='teamroom'?'':'none';document.getElementById('viewOnTime').style.display=t==='ontime'?'':'none';document.getElementById('viewOtif').style.display=t==='otif'?'':'none';document.getElementById('viewRechazos').style.display=t==='rechazos'?'':'none';
  if(t==='sem'&&!state.sem&&WEEKS.length)state.sem=WEEKS[WEEKS.length-1];updateFilterUrl();render()}
 document.getElementById('tabKm').addEventListener('click',()=>switchTab('km'));
 tabMes.addEventListener('click',()=>switchTab('mes'));tabSem.addEventListener('click',()=>switchTab('sem'));tabDia.addEventListener('click',()=>switchTab('dia'));tabHorarios.addEventListener('click',()=>switchTab('horarios'));tabDpo.addEventListener('click',()=>switchTab('dpo'));tabOnTime.addEventListener('click',()=>switchTab('ontime'));tabTeamRoom.addEventListener('click',()=>switchTab('teamroom'));tabDqi.addEventListener('click',()=>switchTab('dqi'));tabSatisfaccion.addEventListener('click',()=>switchTab('satisfaccion'));tabRechazos.addEventListener('click',()=>switchTab('rechazos'));document.getElementById('tabInFull').addEventListener('click',()=>switchTab('infull'));tabOtif.addEventListener('click',()=>switchTab('otif'));tabCalidad.addEventListener('click',()=>switchTab('calidad'));
 document.querySelectorAll('[data-dqi-history-metric]').forEach(button=>button.addEventListener('click',()=>{dqiHistoryMetric=button.dataset.dqiHistoryMetric;renderDqiHistory()}));
+const mobileSections=[['teamroom','Team Room'],['mes','Mensual'],['sem','Semanal'],['dia','Diario'],['horarios','Horarios Foxtrot'],['km','Kilómetros'],['ontime','On time'],['rechazos','Rechazos'],['infull','In Full'],['otif','OTIF'],['dqi','DQI'],['satisfaccion','Satisfacción del cliente'],['dpo','DPO GKPIs'],['calidad','Data Quality']];
+document.getElementById('mobileSection').innerHTML=mobileSections.map(([value,label])=>'<option value="'+value+'">'+esc(label)+'</option>').join('');
+document.querySelectorAll('.fg').forEach(group=>{const label=group.querySelector('label'),control=group.querySelector('select,input');if(label&&control)label.htmlFor=control.id});
+document.querySelectorAll('.tblscroll').forEach(el=>{el.tabIndex=0;el.setAttribute('role','region');el.setAttribute('aria-label','Tabla con desplazamiento horizontal y vertical')});
 restoreFilterStateFromUrl();syncFilterControls();switchTab(state.tab);
 function loadDashboardCharts(){
  if(typeof Chart!=='undefined')return;
