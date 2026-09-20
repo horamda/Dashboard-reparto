@@ -282,6 +282,12 @@ tfoot td{font-weight:700;border-top:2px solid var(--line);border-bottom:none}
   <h3>Combustible · 28 litros cada 100 km</h3>
   <label for="fuelPrice">Precio por litro ($)</label>
   <input id="fuelPrice" type="number" min="0" step="0.01" placeholder="Ingresar precio" oninput="saveFuelPrice();renderDistances()">
+  <details style="margin:12px 0"><summary>Consultar precio actual en Naftas</summary>
+   <div class="analysis-controls"><label for="fuelCity">Ciudad<input id="fuelCity" type="text" maxlength="100" placeholder="Ej.: MAR DE AJO" style="padding:12px;min-height:44px"></label><button type="button" class="tab" id="fuelLookup" onclick="loadFuelPrices()">Consultar precios</button></div>
+   <label for="fuelQuote">Empresa, combustible y vigencia</label><select id="fuelQuote" disabled><option>Consultá una ciudad</option></select>
+   <button type="button" class="tab" id="fuelApply" disabled onclick="applyFuelQuote()">Usar precio seleccionado</button>
+   <p id="fuelApiStatus" class="note" role="status">Precios actuales en ARS por litro. Elegí el combustible que utiliza la flota. La API documentada no ofrece una serie histórica mensual.</p>
+  </details>
   <p class="note">Consumo calculado: km × 0,28. Costo: litros × precio ingresado. Se aplica el mismo precio al período seleccionado y se recuerda en este navegador; no representa cargas de combustible registradas.</p>
   <p id="fuelSummary" role="status"></p>
   <div id="distanceCards" class="cards" style="grid-template-columns:repeat(auto-fit,minmax(210px,1fr))"></div>
@@ -294,6 +300,9 @@ tfoot td{font-weight:700;border-top:2px solid var(--line);border-bottom:none}
   </div>
  </div>
  <div id="distanceBreakdowns" style="display:none">
+  <div class="panel"><h2>Km planificados y reales por camión</h2><p class="note">Mismas rutas comparables en ambas barras. Todos los camiones de los filtros activos.</p><div style="overflow:auto"><div id="truckChartArea" style="height:360px;position:relative"><canvas id="chDistanceTrucks"></canvas></div></div></div>
+  <div class="panel"><h2>Desvío de km por chofer</h2><p class="note">Real menos planificado sobre rutas comparables. Un desvío negativo indica menos km registrados; no acredita por sí solo mayor eficiencia.</p><div style="overflow:auto"><div id="driverChartArea" style="height:360px;position:relative"><canvas id="chDistanceDrivers"></canvas></div></div></div>
+  <div class="panel"><h2>Evolución del costo de combustible por período</h2><p class="note">Plan y km reales sobre las mismas rutas comparables, valorizados al precio por litro elegido. No representa precios históricos ni compras registradas.</p><p id="fuelTrendStatus" class="note"></p><div style="height:340px;position:relative"><canvas id="chFuelCostTrend"></canvas></div></div>
   <div class="panel"><h2>Por camión</h2><div class="tblscroll"><table><thead><tr><th>Camión</th><th>Km plan</th><th>Km reales</th><th>Litros según km reales</th><th>Costo ($)</th><th>Diferencia km</th><th>Diferencia costo ($)</th><th>Rutas con km reales / comparables</th></tr></thead><tbody id="distanceTrucks"></tbody></table></div></div>
   <div class="panel"><h2>Por chofer</h2><div class="tblscroll"><table><thead><tr><th>Chofer</th><th>Km plan</th><th>Km reales</th><th>Litros según km reales</th><th>Costo ($)</th><th>Diferencia km</th><th>Diferencia costo ($)</th><th>Rutas con km reales / comparables</th></tr></thead><tbody id="distanceDrivers"></tbody></table></div></div>
  </div>
@@ -1174,6 +1183,24 @@ function fuelStats(stats,price){const liters=km=>km==null?null:km*0.28,cost=km=>
 function saveFuelPrice(){try{localStorage.setItem('dashboard-fuel-price',document.getElementById('fuelPrice').value)}catch(e){}}
 try{const saved=localStorage.getItem('dashboard-fuel-price');if(saved!==null&&saved!==''&&Number.isFinite(Number(saved))&&Number(saved)>=0)document.getElementById('fuelPrice').value=saved}catch(e){}
 function distanceGroups(rows,field){const groups=new Map();rows.filter(r=>r.usable).forEach(r=>{const key=field==='chofer'?cleanPersona(r.chofer||'Sin chofer'):String(r[field]||'Sin camión').trim();if(!groups.has(key))groups.set(key,[]);groups.get(key).push(r)});return [...groups].map(([key,items])=>({key,...distanceStats(items)})).sort((a,b)=>(b.real??-1)-(a.real??-1)||a.key.localeCompare(b.key))}
+let fuelQuotes=[];
+async function loadFuelPrices(){
+ const button=document.getElementById('fuelLookup'),status=document.getElementById('fuelApiStatus'),select=document.getElementById('fuelQuote'),apply=document.getElementById('fuelApply'),city=document.getElementById('fuelCity').value.trim();
+ if(!city){status.textContent='Ingresá una ciudad.';return}button.disabled=true;select.disabled=true;apply.disabled=true;fuelQuotes=[];select.innerHTML='<option>Consultando...</option>';status.textContent='Consultando precios actuales...';
+ try{const response=await fetch('/api/combustible/precios?city='+encodeURIComponent(city));if(!response.headers.get('Content-Type')?.includes('application/json'))throw new Error('La consulta no devolvió datos. Revisá tu sesión.');const result=await response.json();if(!response.ok)throw new Error(result.error||'No se pudo consultar el proveedor.');fuelQuotes=result.rows||[];select.innerHTML=fuelQuotes.map((r,i)=>'<option value="'+i+'">'+esc(r.company+' / '+r.fuel+' / $ '+fmt0(r.price)+' / '+(r.effective_at||'Sin fecha')+' / '+(r.period||''))+'</option>').join('')||'<option>Sin precios disponibles</option>';select.disabled=apply.disabled=!fuelQuotes.length;status.textContent=fuelQuotes.length?'Seleccioná empresa y combustible antes de aplicar el precio. Fuente: Naftas, precios actuales.':'No hay precios disponibles para esa ciudad.'}catch(e){status.textContent=e.message;select.innerHTML='<option>Consulta no disponible</option>'}finally{button.disabled=false}
+}
+function applyFuelQuote(){const quote=fuelQuotes[Number(document.getElementById('fuelQuote').value)];if(!quote)return;document.getElementById('fuelPrice').value=quote.price;saveFuelPrice();renderDistances();document.getElementById('fuelApiStatus').textContent='Precio aplicado: '+quote.city+' / '+quote.company+' / '+quote.fuel+' / vigencia '+(quote.effective_at||'no informada')+'. Se aplica al período filtrado como precio de referencia.'}
+function renderDistanceAnalysis(rows,data,labels,price){
+ if(!chartsReady())return;
+ const trucks=distanceGroups(rows,'camion').filter(r=>r.nPair),drivers=distanceGroups(rows,'chofer').filter(r=>r.nPair).sort((a,b)=>b.diff-a.diff),money=v=>v==null?'Sin precio':'$ '+fmt0(v);
+ ['chDistanceTrucks','chDistanceDrivers','chFuelCostTrend'].forEach(id=>{if(ch[id]){ch[id].destroy();delete ch[id]}});
+ document.getElementById('truckChartArea').style.minWidth=Math.max(500,trucks.length*85)+'px';
+ document.getElementById('driverChartArea').style.height=Math.max(320,drivers.length*32)+'px';
+ ch.chDistanceTrucks=new Chart(document.getElementById('chDistanceTrucks'),{type:'bar',data:{labels:trucks.map(r=>r.key),datasets:[{label:'Plan (km)',data:trucks.map(r=>r.pairPlan),backgroundColor:C.obj,_fmt:fmt0},{label:'Real (km)',data:trucks.map(r=>r.pairReal),backgroundColor:C.cli,_fmt:fmt0}]},options:{responsive:true,maintainAspectRatio:false,scales:{y:{beginAtZero:true,grace:'15%',ticks:{callback:v=>fmt0(v)}}},plugins:{tooltip:{callbacks:{label:c=>c.dataset.label+': '+fmt0(c.raw)+' km'}}}},plugins:[dLabels([0,1])]});
+ ch.chDistanceDrivers=new Chart(document.getElementById('chDistanceDrivers'),{type:'bar',data:{labels:drivers.map(r=>r.key),datasets:[{label:'Diferencia (km)',data:drivers.map(r=>r.diff),backgroundColor:drivers.map(r=>r.diff>0?C.amber:C.cli)}]},options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,scales:{x:{beginAtZero:true,ticks:{callback:v=>fmt0(v)}}},plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>fmt0(c.raw)+' km / '+drivers[c.dataIndex].nPair+' rutas comparables'}}}}});
+ document.getElementById('fuelTrendStatus').textContent=price==null?'Ingresá o consultá un precio por litro para ver los costos.':'Precio de referencia: '+money(price)+' por litro.';
+ ch.chFuelCostTrend=new Chart(document.getElementById('chFuelCostTrend'),{type:'line',data:{labels,datasets:[{label:'Costo plan',data:data.map(r=>fuelStats({plan:r.pairPlan},price).costPlan),borderColor:C.obj,_fmt:money},{label:'Costo sobre km reales',data:data.map(r=>fuelStats({real:r.pairReal},price).costReal),borderColor:C.cli,_fmt:money}]},options:{responsive:true,maintainAspectRatio:false,scales:{y:{beginAtZero:true,grace:'15%',ticks:{callback:v=>money(v)}}},plugins:{tooltip:{callbacks:{label:c=>c.dataset.label+': '+money(c.raw)}}}},plugins:[dLabels([0,1])]});
+}
 function renderDistances(){
  const rows=R.filter(scopeCards),stats=distanceStats(rows),km=v=>v==null?'Sin datos':fmt0(v)+' km';
  document.getElementById('distanceSummary').textContent='Planificados: '+km(stats.plan)+' ('+stats.nPlan+' rutas) · Reales: '+km(stats.real)+' ('+stats.nReal+' rutas) · Diferencia comparable: '+km(stats.diff)+' ('+stats.nPair+' rutas)';
@@ -1186,6 +1213,7 @@ function renderDistances(){
  [['camion','distanceTrucks'],['chofer','distanceDrivers']].forEach(([field,id])=>{document.getElementById(id).innerHTML=distanceGroups(rows,field).map(r=>{const f=fuelStats(r,price);return '<tr><td>'+esc(r.key)+'</td><td>'+km(r.plan)+'</td><td>'+km(r.real)+'</td><td>'+liters(f.real)+'</td><td>'+money(f.costReal)+'</td><td>'+km(r.diff)+'</td><td>'+money(f.costDiff)+'</td><td>'+r.nReal+' / '+r.nPair+'</td></tr>'}).join('')||emptyRow(8,'Sin rutas para los filtros activos.')});
  document.getElementById('fuelRows').innerHTML=data.map((r,i)=>{const f=fuelStats(r,price);return '<tr><td>'+esc(labels[i])+'</td><td>'+liters(f.plan)+'</td><td>'+liters(f.real)+'</td><td>'+money(f.costPlan)+'</td><td>'+money(f.costReal)+'</td><td>'+money(f.costDiff)+'</td></tr>'}).join('')||emptyRow(6,'Sin rutas para los filtros activos.');
  document.getElementById('distanceRows').innerHTML=data.map((r,i)=>'<tr><td>'+esc(labels[i])+'</td><td>'+km(r.plan)+'</td><td>'+r.nPlan+'</td><td>'+km(r.real)+'</td><td>'+r.nReal+'</td><td>'+r.nPair+'</td><td>'+km(r.diff)+'</td><td>'+fmtPct(r.pct)+'</td></tr>').join('')||emptyRow(8,'Sin rutas para los filtros activos.');
+ renderDistanceAnalysis(rows,data,labels,price);
  if(!chartsReady())return;if(ch.chDistanceKm)ch.chDistanceKm.destroy();
  ch.chDistanceKm=new Chart(document.getElementById('chDistanceKm'),{type:'bar',data:{labels,datasets:[{label:'Planificados · rutas comparables',data:data.map(r=>r.pairPlan),backgroundColor:C.obj,_fmt:fmt0},{label:'Reales · rutas comparables',data:data.map(r=>r.pairReal),backgroundColor:C.cli,_fmt:fmt0}]},options:{responsive:true,maintainAspectRatio:false,scales:{y:{ticks:{precision:0,callback:v=>fmt0(v)},beginAtZero:true,grace:'15%',title:{display:true,text:'km'}}},plugins:{tooltip:{callbacks:{label:c=>c.dataset.label+': '+km(c.raw)}}}},plugins:[dLabels([0,1])]});
 }
