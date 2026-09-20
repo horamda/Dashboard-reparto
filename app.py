@@ -2379,6 +2379,17 @@ def fuel_current_prices():
         return jsonify(error='No se pudo consultar el proveedor. Podés ingresar el precio manualmente.'), 502
 
 
+@app.get('/api/combustible/historico')
+def fuel_stored_history():
+    if not _is_logged_in():
+        return jsonify(error='Iniciá sesión para consultar precios'), 401
+    from fuel_history import get_history
+    try:
+        return jsonify(get_history())
+    except Exception:
+        return jsonify(error='No se pudieron leer los precios guardados'), 503
+
+
 @app.route("/costos-distribucion")
 def costos_distribucion():
     return _costos_distribucion_page()
