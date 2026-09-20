@@ -26,9 +26,17 @@ def catalog():
             customers = dict(cur.fetchall())
     else:
         customers = storage.load_clientes()
+    return catalog_from_customers(customers)
+
+
+def catalog_from_customers(customers):
+    from collections import Counter
+    from visit_metrics import customer_segments
     segments = [customer_segments(r) for r in customers.values()]
+    counts = Counter((r['agrupacion'], r['subcanal']) for r in segments)
     return dict(agrupacion=sorted({r['agrupacion'] for r in segments}),
                 subcanal=sorted({r['subcanal'] for r in segments}),
+                relations=[dict(agrupacion=g, subcanal=s, clientes=n) for (g,s),n in sorted(counts.items())],
                 cliente=[dict(value=str(k), label=str(k)+' — '+str(v.get('nombre') or v.get('razon_social') or '')) for k,v in sorted(customers.items())])
 
 

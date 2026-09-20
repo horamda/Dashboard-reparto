@@ -23,3 +23,12 @@ def test_reject_ambiguous_and_invalid():
     for minutes in [0, -1, float('nan'), float('inf'), 1500]:
         with pytest.raises(ValueError):
             pdv_targets.validate([dict(name='Bad', minutes=minutes)])
+
+
+def test_group_subchannel_relation_preserves_shared_categories():
+    records = {str(i): {'raw_cliente': {'Descripcion agrupacion': group, 'Descripcion subcanal': sub}}
+               for i, (group, sub) in enumerate([('REF', 'BAR'), ('REF', 'BAR'), ('K+T', 'BAR'), ('AS', 'AUTOSERVICIO')])}
+    catalog = pdv_targets.catalog_from_customers(records)
+    assert {'agrupacion': 'REF', 'subcanal': 'BAR', 'clientes': 2} in catalog['relations']
+    assert {'agrupacion': 'K+T', 'subcanal': 'BAR', 'clientes': 1} in catalog['relations']
+    assert sum(r['clientes'] for r in catalog['relations']) == 4
