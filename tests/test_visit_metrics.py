@@ -16,3 +16,8 @@ def test_revisits_and_invalid_duration():
     assert len(rows)==2
     assert sum(r['validas'] for r in rows)==2
     assert sum(r['visitas'] for r in rows)==3
+
+def test_customer_segments_normalize_headers():
+    from visit_metrics import customer_segments
+    assert customer_segments({'raw_cliente':{'Descripcion   subcanal':'Almacen','Descripcion agrupacion':'Grupo A'}})=={'subcanal':'Almacen','agrupacion':'Grupo A'}
+    assert customer_segments({})['subcanal']=='Sin clasificar'

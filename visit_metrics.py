@@ -1,10 +1,20 @@
 """Customer stop durations from Foxtrot visits; no inferred service-time substitution."""
 import math
+import unicodedata
 import storage
 
 FIELDS = ['route_id','Route ID','cliente','Customer ID','cliente_nombre','Customer Name',
           'Waypoint ID','Visit Start Timestamp','visit_start','Driver Click Timestamp',
           'driver_click','Visit Duration Seconds','visit_duration_seconds']
+
+
+def customer_segments(master):
+    raw=master.get('raw_cliente') or {}
+    def normalized(key):
+        return ' '.join(''.join(c for c in unicodedata.normalize('NFD',str(key).lower()) if not unicodedata.combining(c)).split())
+    values={normalized(k):str(v).strip() if v is not None else '' for k,v in raw.items()}
+    return {field:values.get('descripcion '+name) or 'Sin clasificar'
+            for field,name in [('subcanal','subcanal'),('agrupacion','agrupacion')]}
 
 
 def summarize_visits(items):
@@ -34,7 +44,7 @@ def summarize_visits(items):
 
 
 def dashboard_rows():
-    cached=storage._cache_get('attempts:pdv_times')
+    cached=storage._cache_get('attempts:pdv_times_segments')
     if cached is not None:
         return cached
     if storage.backend_name()=='postgres':
@@ -42,13 +52,14 @@ def dashboard_rows():
             args=','.join("%s,rec->%s" for _ in FIELDS)
             cur.execute('SELECT jsonb_build_object('+args+') FROM attempts_dashboard', [x for f in FIELDS for x in (f,f)])
             items=[row[0] for row in cur.fetchall()]
-            cur.execute("SELECT cliente, COALESCE(rec->>'nombre',rec->>'razon_social','') FROM clientes_dashboard")
-            customers={key:{'nombre':name} for key,name in cur.fetchall()}
+            cur.execute("SELECT cliente, COALESCE(rec->>'nombre',rec->>'razon_social',''), jsonb_build_object('Descripcion subcanal',rec #> '{raw_cliente,Descripcion subcanal}','Descripcion agrupacion',rec #> '{raw_cliente,Descripcion agrupacion}') FROM clientes_dashboard")
+            customers={key:{'nombre':name,'raw_cliente':raw} for key,name,raw in cur.fetchall()}
     else:
         items=storage.load_attempts().values()
         customers=storage.load_clientes()
     rows=summarize_visits(items)
     for r in rows:
         master=customers.get(r['cliente'],{})
+        r.update(customer_segments(master))
         if not r['nombre']: r['nombre']=master.get('nombre') or master.get('razon_social') or ''
-    return storage._cache_set('attempts:pdv_times',rows)
+    return storage._cache_set('attempts:pdv_times_segments',rows)
