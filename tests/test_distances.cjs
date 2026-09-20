@@ -78,3 +78,12 @@ assert.equal(ctx.pdvSeriesKeys(series,'__top5')[0],'Category7');
 assert.equal(ctx.pdvSeriesKeys(series,'__all').length,8);
 assert.equal(ctx.pdvSeriesKeys(series,'Category0')[0],'Category0');
 console.log('PDV analysis: weighted coverage, workload ranking, small samples and top-five series OK');
+
+const gauges=ctx.pdvGaugeData(analysisRows,'subcanal','6');
+assert.equal(gauges.groups[0].key,'Heavy');
+assert.equal(gauges.groups[0].avg,1);
+assert.equal(gauges.maximum,10);
+assert.equal(ctx.pdvGaugeData([], 'subcanal','all').groups.length,0);
+assert.equal(ctx.pdvGaugeData([{subcanal:'Missing',visitas:5,validas:0,segundos:0}], 'subcanal','all').groups[0].avg,null);
+assert.equal(ctx.pdvGaugeData([{subcanal:'A',visitas:2,validas:2,segundos:7200}], 'subcanal','all').maximum,60);
+console.log('PDV gauges: volume ordering, common scale, missing duration and empty scope OK');

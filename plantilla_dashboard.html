@@ -224,6 +224,13 @@ tfoot td{font-weight:700;border-top:2px solid var(--line);border-bottom:none}
 #pdvTimePanel .pdv-section{border-top:1px solid var(--line);margin-top:24px;padding-top:20px}
 #pdvTimePanel .pdv-chart-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:24px}
 #pdvTimePanel .pdv-chart{height:310px;position:relative}
+#pdvTimePanel .pdv-gauges{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+#pdvTimePanel .pdv-gauge{border:1px solid var(--line);border-radius:12px;padding:18px;text-align:center;background:#fff;min-width:0}
+#pdvTimePanel .pdv-gauge h4{min-height:34px;overflow-wrap:anywhere;margin:0 0 8px}
+#pdvTimePanel .pdv-gauge svg{width:100%;max-width:280px;height:auto;display:block;margin:auto}
+#pdvTimePanel .pdv-gauge p{font-size:12px;margin:6px 0;color:#657085}
+@media(max-width:900px){#pdvTimePanel .pdv-gauges{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:540px){#pdvTimePanel .pdv-gauges{grid-template-columns:1fr}}
 #pdvTimePanel h4{margin:12px 0;font-size:13px}
 #pdvTimePanel .pdv-insights{padding:14px 18px;background:#f1f6fa;border-left:3px solid #257a89;border-radius:8px;line-height:1.6;font-size:13px}
 #pdvTimePanel .pdv-insights p{margin:5px 0}
@@ -329,6 +336,15 @@ tfoot td{font-weight:700;border-top:2px solid var(--line);border-bottom:none}
  </div>
  <p id="pdvTimeStatus" role="status" class="note"></p>
  <div id="pdvTimeCards" class="cards c4"></div>
+ <section class="pdv-section">
+ <h3>Promedio de minutos por tipo de negocio</h3>
+ <div class="pdv-controls">
+ <label>Medidores por<select id="pdvGaugeDimension" onchange="renderPdvGauges(pdvVisibleRows)"><option value="subcanal">Tipo de negocio / subcanal</option><option value="agrupacion">Agrupaci&oacute;n</option></select></label>
+ <label>Mostrar medidores<select id="pdvGaugeCount" onchange="renderPdvGauges(pdvVisibleRows)"><option value="6">6 con m&aacute;s visitas</option><option value="all">Todos</option></select></label>
+ </div>
+ <p id="pdvGaugeNote" class="note"></p>
+ <div id="pdvGauges" class="pdv-gauges" aria-live="polite"></div>
+ </section>
  <div id="pdvInsights" class="pdv-insights" aria-live="polite"></div>
  <section class="pdv-section">
  <h3>Evoluci&oacute;n mensual</h3>
@@ -1291,6 +1307,12 @@ function pdvMonthlyGroups(visits,routes,field,year,sub='__all',group='__all'){
 
 let pdvVisibleRows=[];
 function pdvTotals(rows){const t=rows.reduce((a,r)=>({visitas:a.visitas+r.visitas,validas:a.validas+r.validas,segundos:a.segundos+r.segundos}),{visitas:0,validas:0,segundos:0});return {...t,avg:t.validas?t.segundos/60/t.validas:null,coverage:t.visitas?100*t.validas/t.visitas:null}}
+function pdvGaugeData(rows,field,limit){const groups=pdvSegmentGroups(rows,field).sort((a,b)=>b.visitas-a.visitas||a.key.localeCompare(b.key)),maximum=Math.max(10,Math.ceil(Math.max(0,...groups.map(r=>r.avg??0))/10)*10);return {groups:limit==='all'?groups:groups.slice(0,Number(limit)),total:groups.length,maximum}}
+function renderPdvGauges(rows){
+ const data=pdvGaugeData(rows,document.getElementById('pdvGaugeDimension').value,document.getElementById('pdvGaugeCount').value);
+ document.getElementById('pdvGaugeNote').textContent='Mostrando '+data.groups.length+' de '+data.total+' categorías, ordenadas por visitas. Escala común: 0 a '+data.maximum+' min. Promedio ponderado por visitas con duración; el color no indica cumplimiento.';
+ document.getElementById('pdvGauges').innerHTML=data.groups.map(r=>{const valid=r.avg!=null,value=valid?fmt1(r.avg):'Sin datos',ratio=valid?Math.max(0,Math.min(1,r.avg/data.maximum)):0,coverage=r.visitas?fmt1(100*r.validas/r.visitas):'0';return '<article class="pdv-gauge"><h4>'+esc(r.key)+'</h4><svg viewBox="0 0 240 150" role="img" aria-label="'+esc(r.key+': '+value+(valid?' minutos':''))+'"><path d="M 25 115 A 95 95 0 0 1 215 115" fill="none" stroke="#e9edf3" stroke-width="14" stroke-linecap="round"/>'+(valid&&ratio>0?'<path d="M 25 115 A 95 95 0 0 1 215 115" fill="none" stroke="#147d83" stroke-width="14" stroke-linecap="round" pathLength="100" stroke-dasharray="'+(ratio*100)+' 100"/>':'')+'<text x="120" y="99" text-anchor="middle" fill="#182942" font-size="'+(valid?'32':'22')+'" font-weight="700">'+esc(value)+'</text><text x="120" y="122" text-anchor="middle" fill="#657085" font-size="12">'+(valid?'minutos por visita':'Sin duración válida')+'</text><text x="25" y="143" text-anchor="middle" fill="#657085" font-size="11">0</text><text x="215" y="143" text-anchor="middle" fill="#657085" font-size="11">'+data.maximum+'</text></svg><p>'+fmt0(r.validas)+' de '+fmt0(r.visitas)+' visitas con duración · '+coverage+'%</p>'+(r.validas>0&&r.validas<10?'<p>Base pequeña: menos de 10 visitas con duración.</p>':'')+'</article>'}).join('')||'<p>Sin visitas para los filtros seleccionados.</p>';
+}
 function pdvRankRows(rows,field,metric,minVisits){return pdvSegmentGroups(rows,field).filter(r=>r.validas>=minVisits).sort((a,b)=>(b[metric]??-1)-(a[metric]??-1)||a.key.localeCompare(b.key))}
 function pdvSeriesKeys(data,selection){const totals=new Map();data.forEach(r=>totals.set(r.key,(totals.get(r.key)||0)+r.visitas));const keys=[...totals.keys()].sort((a,b)=>totals.get(b)-totals.get(a)||a.localeCompare(b));return selection==='__top5'?keys.slice(0,5):selection==='__all'?keys:keys.filter(k=>k===selection)}
 function pdvOptions(id,values,defaultValue='__all',label='Todos'){const el=document.getElementById(id),old=el.value;el.innerHTML='<option value="'+defaultValue+'">'+esc(label)+'</option>'+values.map(v=>'<option value="'+esc(v)+'">'+esc(v)+'</option>').join('');el.value=values.includes(old)?old:defaultValue;return el.value}
@@ -1317,7 +1339,7 @@ function renderPdvTimes(){
  if(low)insights.push(fmt0(low)+' categorías tienen menos de 10 visitas con duración. Revisá la cantidad de observaciones antes de comparar sus promedios.');
  if(total.visitas-total.validas)insights.push(fmt0(total.visitas-total.validas)+' visitas no tienen duración válida y quedan fuera del promedio.');
  document.getElementById('pdvInsights').innerHTML=insights.map(t=>'<p>'+esc(t)+'</p>').join('')||'<p>Sin visitas para esta combinación de filtros.</p>';
- renderPdvClientTable();renderPdvEvolution(monthly,total,observed,annualYears);renderPdvRanking(rows,total);
+ renderPdvGauges(rows);renderPdvClientTable();renderPdvEvolution(monthly,total,observed,annualYears);renderPdvRanking(rows,total);
 }
 function pdvColor(key){let hash=0;for(const c of key)hash=(hash*31+c.charCodeAt(0))|0;return 'hsl('+((hash>>>0)%360)+',65%,38%)'}
 function renderPdvEvolution(data,total,observed,years){
