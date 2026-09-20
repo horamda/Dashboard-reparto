@@ -29,6 +29,36 @@ METRICS = {
 }
 _TOKEN = {}
 
+# General indicators are repeated unchanged for the day's participating employees.
+for _key in ('dqi', 'nps', 'nps_delivery', 'rmd'):
+    METRICS[_key]['alcance'] = 'General: mismo valor para todos los integrantes'
+for _key in ('nps', 'nps_delivery'):
+    METRICS[_key].pop('pendiente', None)
+    METRICS[_key]['formula'] = 'Valor general publicado en la fecha del resultado, repetido por legajo. Sin recalcular por rutas ni arrastrar valores de otras fechas.'
+METRICS['dqi']['pendiente'] = 'Alcance general confirmado. Falta definir la unidad: índice DQI del dashboard o PPM de FichaYA.'
+METRICS['rmd']['pendiente'] = 'Alcance general confirmado. Falta elegir puntaje 0–5 o porcentaje de respuestas y compatibilizar la unidad en FichaYA.'
+
+
+def general_value(key, fecha, source):
+    if source.get('error'):
+        raise ValueError('No se pudo verificar la fuente del indicador general.')
+    label = {'nps': 'NPS GRAL', 'nps_delivery': 'NPS DELIVERY (ENTREGA)'}[key]
+    rows = [r for r in source.get('rows', []) if r.get('fecha') == fecha and r.get('tipo') == label]
+    if not rows:
+        raise ValueError('No hay una medición general publicada para esta fecha; no se arrastran valores de otro día.')
+    if any(r.get('resultado') is None for r in rows):
+        raise ValueError('Falta el valor general publicado.')
+    try:
+        values = {Decimal(str(r['resultado'])) for r in rows if r.get('resultado') is not None}
+    except (InvalidOperation, KeyError):
+        raise ValueError('Medición general inválida.')
+    if len(values) != 1:
+        raise ValueError('La fuente general contiene valores faltantes o contradictorios para esta fecha.')
+    value = values.pop()
+    if not value.is_finite() or not Decimal(-100) <= value <= Decimal(100):
+        raise ValueError('NPS general fuera del rango -100 a 100.')
+    return value
+
 
 def now():
     return datetime.now(timezone.utc).isoformat()
@@ -36,7 +66,7 @@ def now():
 
 def config():
     return kpi_storage.load("config") or {"empresa_id": 1, "sector_id": 1,
-        "metricas": {key: item["codigo"] for key, item in METRICS.items() if not item.get("pendiente")}}
+        "metricas": {key: item["codigo"] for key, item in METRICS.items() if not item.get("pendiente") and not item.get("alcance")}}
 
 
 def save_config(empresa_id, metrics, user):
@@ -126,6 +156,7 @@ def calculate(desde, hasta, cfg=None):
         time_values = {rid: pipeline.calcular_tiempos_fichaya_ruta(route, marks, mapping, employees, overrides)
                        for rid, route in routes.items()}
     errors, results, evidence = [], [], []
+    general_source = pipeline.cargar_satisfaccion() if {'nps', 'nps_delivery'} & cfg['metricas'].keys() else {}
     fechas = sorted(set(days) | {r["fecha"] for r in routes.values()})
     if not fechas:
         errors.append("No hay equipos históricos ni rutas para este período.")
@@ -182,7 +213,7 @@ def calculate(desde, hasta, cfg=None):
         for legajo, item in sorted(persons.items()):
             for key, code in cfg["metricas"].items():
                 try:
-                    value = metric_value(key, item["rutas"], time_values).quantize(Decimal("0.0001"), rounding=ROUND_HALF_UP)
+                    value = (general_value(key, fecha, general_source) if key in {'nps', 'nps_delivery'} else metric_value(key, item["rutas"], time_values)).quantize(Decimal("0.0001"), rounding=ROUND_HALF_UP)
                 except (ValueError, InvalidOperation) as exc:
                     errors.append(f"{fecha}, legajo {legajo}, {METRICS[key]['nombre']}: {exc}")
                     continue
@@ -193,6 +224,8 @@ def calculate(desde, hasta, cfg=None):
                 evidence.append({"nombre": item["nombre"], "indicador": METRICS[key]["nombre"], "unidad": METRICS[key]["unidad"],
                                  "rutas": sorted(item["rutas"]), "revision_equipo": day["revision"],
                                  "origen": ("Fichadas y ajustes manuales" if any(time_values.get(rid, {}).get("manual") for rid in item["rutas"]) else "Fichadas por legajo y Foxtrot") if key in {"tml", "ti"} else "Foxtrot"})
+                if key in {'nps', 'nps_delivery'}:
+                    evidence[-1]['origen'] = 'Medición general publicada del ' + fecha + '; mismo valor para todos los integrantes'
     if len(results) > 10000:
         errors.append("El período supera 10.000 resultados. Seleccioná un rango menor.")
     if not results and not errors:

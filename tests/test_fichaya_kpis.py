@@ -71,6 +71,18 @@ class KpiTests(unittest.TestCase):
         routes = {"a": {"disp_km_plan": 100, "disp_km_real": 120}, "b": {"disp_km_plan": 300, "disp_km_real": 300}}
         self.assertEqual(svc.metric_value("disp_km", routes, {}), Decimal("-5"))
 
+    def test_general_nps_repeats_same_measurement_for_each_member(self):
+        cfg = {"empresa_id": 1, "sector_id": 1, "metricas": {"nps": "8"}}
+        source = {"rows": [{"fecha": "2026-09-01", "tipo": "NPS GRAL", "resultado": -12}], "error": ""}
+        with patch.object(pipeline, "cargar_satisfaccion", return_value=source):
+            result = svc.calculate("2026-09-01", "2026-09-01", cfg)
+        self.assertFalse(result["errores"])
+        self.assertEqual(len(result["resultados"]), 2)
+        self.assertEqual({r["valor"] for r in result["resultados"]}, {"-12.0000"})
+        self.assertEqual({r["legajo"] for r in result["resultados"]}, {"001", "002"})
+        with self.assertRaises(ValueError):
+            svc.general_value("nps", "2026-09-02", source)
+
     def test_multiple_routes_consolidate_to_one_result_per_person_and_code(self):
         self.routes["R2"] = {**self.routes["R1"], "rid": "R2", "adhcli": 80, "disp_km_plan": 300, "disp_km_real": 300}
         def add_route(day):
