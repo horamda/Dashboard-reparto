@@ -64,7 +64,7 @@ def recent(limit=30):
     if storage.BACKEND == "postgres":
         with storage._conn() as cn, cn.cursor() as cur:
             cur.execute("SELECT rec->>'id', rec->>'creado', rec->>'desde', rec->>'hasta', rec->>'estado' "
-                        "FROM settings_dashboard WHERE key LIKE 'fichaya_kpis:run_%' ORDER BY rec->>'creado' DESC LIMIT %s;", (limit,))
+                        "FROM settings_dashboard WHERE key LIKE %s ORDER BY rec->>'creado' DESC LIMIT %s;", ('fichaya_kpis:run_%', limit))
             return [dict(zip(("id", "creado", "desde", "hasta", "estado"), row)) for row in cur.fetchall()]
     directory = os.path.join(storage.DATA_DIR, "fichaya_kpis")
     if not os.path.isdir(directory):

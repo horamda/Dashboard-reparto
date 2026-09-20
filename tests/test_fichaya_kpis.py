@@ -223,3 +223,16 @@ class KpiTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+def test_recent_postgres_parameterizes_like_pattern():
+    from unittest.mock import MagicMock, patch
+    cursor = MagicMock()
+    cursor.fetchall.return_value = []
+    connection = MagicMock()
+    connection.__enter__.return_value.cursor.return_value.__enter__.return_value = cursor
+    with patch.object(storage, 'BACKEND', 'postgres'), patch.object(storage, '_conn', return_value=connection):
+        assert kpi_storage.recent(5) == []
+    sql, params = cursor.execute.call_args.args
+    assert "LIKE %s" in sql
+    assert params == ('fichaya_kpis:run_%', 5)
