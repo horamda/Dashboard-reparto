@@ -1,0 +1,52 @@
+"""Editable PDV time standards and explicit client-master matching rules."""
+import math
+from datetime import datetime, timezone
+import storage
+
+KEY = 'pdv_time_targets_v1'
+DEFAULTS = [('Tradicionales', 8), ('Refrigerados', 11), ('Autoservicios', 16),
+            ('Mayoristas', 33), ('SMK Bajo Drop', 60), ('SMK Alto Drop', 180)]
+
+
+def defaults():
+    return {'rules': [dict(name=name, minutes=value, agrupacion=[], subcanal=[], cliente=[])
+                      for name, value in DEFAULTS]}
+
+
+def config():
+    return storage.load_setting(KEY) or defaults()
+
+
+def validate(rules):
+    if not isinstance(rules, list) or not 1 <= len(rules) <= 100:
+        raise ValueError('Se requiere entre 1 y 100 objetivos.')
+    clean, used = [], {field: set() for field in ('agrupacion', 'subcanal', 'cliente')}
+    names = set()
+    for rule in rules:
+        name = str(rule.get('name', '')).strip()
+        try:
+            minutes = float(rule.get('minutes', ''))
+        except (TypeError, ValueError):
+            raise ValueError('Ingresá minutos válidos para cada objetivo.')
+        if not name or len(name) > 120 or name.casefold() in names:
+            raise ValueError('Cada objetivo debe tener un nombre único de hasta 120 caracteres.')
+        if not math.isfinite(minutes) or not 0 < minutes <= 1440:
+            raise ValueError('El objetivo debe ser mayor que cero y no superar 1440 minutos.')
+        names.add(name.casefold())
+        item = dict(name=name, minutes=minutes)
+        for field in used:
+            values = rule.get(field, [])
+            if not isinstance(values, list) or any(not isinstance(v, str) for v in values):
+                raise ValueError('Las asignaciones deben ser listas de texto.')
+            values = sorted(set(v.strip() for v in values if v.strip()))
+            if used[field].intersection(values):
+                raise ValueError('Una misma asignación no puede pertenecer a dos objetivos: ' + field)
+            used[field].update(values)
+            item[field] = values
+        clean.append(item)
+    return clean
+
+
+def save(rules, actor):
+    value = dict(rules=validate(rules), updated_at=datetime.now(timezone.utc).isoformat(), updated_by=actor)
+    return storage.save_setting(KEY, value)

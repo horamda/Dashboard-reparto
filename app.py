@@ -2396,9 +2396,38 @@ def customer_visit_times():
         return jsonify(error='Iniciá sesión para consultar visitas'), 401
     from visit_metrics import dashboard_rows
     try:
-        return jsonify(rows=dashboard_rows())
+        from pdv_targets import config
+        return jsonify(rows=dashboard_rows(), targets=config())
     except Exception:
         return jsonify(error='No se pudieron cargar los tiempos de visita'), 503
+
+
+@app.route('/clientes/objetivos-tiempo', methods=['GET', 'POST'])
+def customer_time_targets():
+    blocked = _require_login()
+    if blocked:
+        return blocked
+    import pdv_targets
+    token = session.setdefault('pdv_targets_csrf', secrets.token_urlsafe(32))
+    message = request.args.get('msg', '')
+    cfg = pdv_targets.config()
+    status = 200
+    if request.method == 'POST':
+        if not secrets.compare_digest(token, request.form.get('csrf', '')):
+            return Response('Recargá el formulario antes de guardar.', status=400)
+        fields = ['name', 'minutes', 'agrupacion', 'subcanal', 'cliente']
+        values = {field: request.form.getlist(field) for field in fields}
+        if len({len(v) for v in values.values()}) != 1:
+            return Response('Formulario incompleto.', status=400)
+        rules = [{field: values[field][i] if field in ('name', 'minutes') else values[field][i].splitlines()
+                  for field in fields} for i in range(len(values['name']))]
+        try:
+            pdv_targets.save(rules, session.get('admin_user') or 'admin')
+            return redirect(url_for('customer_time_targets', msg='Objetivos guardados. Volvé a Clientes / PDV para ver la comparación.'))
+        except ValueError as exc:
+            cfg = {'rules': rules}
+            message, status = str(exc), 400
+    return render_template('pdv_targets.html', cfg=cfg, token=token, message=message), status
 
 
 @app.route("/costos-distribucion")

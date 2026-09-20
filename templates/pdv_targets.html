@@ -1,0 +1,18 @@
+<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Objetivos de tiempo en PDV</title>
+<style>body{font:15px system-ui;background:#eef2f6;color:#182942;margin:0}main{max-width:1100px;margin:auto;padding:24px}a{color:#176c85}.rule{background:white;border:1px solid #d7dfea;border-radius:12px;padding:20px;margin:16px 0;display:grid;grid-template-columns:2fr 1fr;gap:14px}label{display:flex;flex-direction:column;gap:6px}input,textarea,button{font:inherit;padding:10px;border:1px solid #b9c7da;border-radius:7px}textarea{min-height:70px}button{cursor:pointer;background:#182942;color:white}p{line-height:1.6}.msg{background:#fff;padding:16px;border-left:4px solid #167b83}@media(max-width:600px){.rule{grid-template-columns:1fr}main{padding:16px}}</style></head><body><main>
+<a href="/dashboard?tab=clientes">← Clientes / PDV</a><h1>Objetivos de tiempo en PDV</h1>
+<p>Estándares en minutos del SOP. Se compara el <strong>promedio de permanencia</strong> con el objetivo, no el porcentaje de visitas cumplidas. Los objetivos vigentes se aplican a cualquier período consultado.</p>
+<p>Asigná los valores exactos del maestro, uno por línea. Prioridad: <strong>cliente → subcanal → agrupación</strong>. Cada lista representa una alternativa de asignación. Sin asignación, el objetivo queda guardado pero no se aplica. Para SMK, asigná Bajo Drop y Alto Drop explícitamente.</p>
+{% if message %}<p class="msg" role="status">{{ message }}</p>{% endif %}
+<form method="post"><input type="hidden" name="csrf" value="{{ token }}"><div id="rules">
+{% for rule in cfg.rules %}<section class="rule">
+<label>Tipo de PDV<input name="name" value="{{ rule.name }}" required maxlength="120"></label>
+<label>Objetivo (minutos)<input name="minutes" type="number" min="0.01" max="1440" step="0.01" value="{{ rule.minutes }}" required></label>
+<label>Agrupaciones<textarea name="agrupacion">{{ rule.agrupacion|join('\n') }}</textarea></label>
+<label>Subcanales<textarea name="subcanal">{{ rule.subcanal|join('\n') }}</textarea></label>
+<label>Códigos de cliente<textarea name="cliente">{{ rule.cliente|join('\n') }}</textarea></label>
+</section>{% endfor %}</div>
+<button type="button" onclick="addRule()">Agregar objetivo</button> <button type="submit">Guardar objetivos en la DB</button></form>
+<p>Para dejar de aplicar un objetivo, vaciá sus asignaciones. Los tiempos registrados de Foxtrot se conservan.</p>
+<script>function addRule(){const section=document.querySelector('.rule').cloneNode(true);section.querySelectorAll('input,textarea').forEach(el=>el.value='');document.getElementById('rules').appendChild(section)}</script>
+</main></body></html>

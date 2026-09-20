@@ -87,3 +87,12 @@ assert.equal(ctx.pdvGaugeData([], 'subcanal','all').groups.length,0);
 assert.equal(ctx.pdvGaugeData([{subcanal:'Missing',visitas:5,validas:0,segundos:0}], 'subcanal','all').groups[0].avg,null);
 assert.equal(ctx.pdvGaugeData([{subcanal:'A',visitas:2,validas:2,segundos:7200}], 'subcanal','all').maximum,60);
 console.log('PDV gauges: volume ordering, common scale, missing duration and empty scope OK');
+
+const targetRules=[{name:'Group',minutes:8,agrupacion:['K+T']},{name:'Specific',minutes:16,cliente:['1']}];
+assert.equal(ctx.pdvTargetFor({cliente:'1',agrupacion:'K+T'},targetRules).minutes,16);
+assert.equal(ctx.pdvTargetFor({cliente:'2',agrupacion:'K+T'},targetRules).minutes,8);
+assert.equal(ctx.pdvTargetFor({cliente:'2',agrupacion:'SMK'},targetRules),null);
+const targetRows=analysisRows.map(r=>({...r,agrupacion:'K+T'}));
+assert.equal(ctx.pdvGaugeData(targetRows,'agrupacion','all',targetRules).groups[0].target,null);
+assert.equal(ctx.pdvGaugeData(targetRows,'agrupacion','all',[targetRules[0]]).groups[0].target,8);
+console.log('PDV targets: explicit matching, client priority and no mixed-target compliance OK');
