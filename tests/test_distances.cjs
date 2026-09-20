@@ -65,3 +65,16 @@ assert.equal(ctx.pdvMonthlyGroups(monthlyVisits,monthlyRoutes.filter(r=>r.mes===
 assert.equal(ctx.pdvMonthlyGroups(monthlyVisits,monthlyRoutes,'subcanal','2025').length,0);
 assert.equal(ctx.pdvMonthlyGroups(monthlyVisits,monthlyRoutes,'subcanal','2026','Other').length,0);
 console.log('Annual customer analysis: weighted months, scoped routes, year and segment filters OK');
+
+const analysisRows=[{cliente:'1',nombre:'A',subcanal:'Heavy',visitas:20,validas:20,segundos:1200,avg:1},{cliente:'2',nombre:'B',subcanal:'Small',visitas:1,validas:1,segundos:600,avg:10}];
+assert.equal(ctx.pdvTotals(analysisRows).avg,1800/60/21);
+assert.equal(ctx.pdvTotals([{visitas:4,validas:0,segundos:0}]).avg,null);
+assert.equal(ctx.pdvRankRows(analysisRows,'subcanal','segundos',10).length,1);
+assert.equal(ctx.pdvRankRows(analysisRows,'subcanal','avg',1)[0].key,'Small');
+assert.equal(ctx.pdvRankRows(analysisRows,'subcanal','segundos',1)[0].key,'Heavy');
+const series=Array.from({length:8},(_,i)=>({key:'Category'+i,visitas:i+1}));
+assert.equal(ctx.pdvSeriesKeys(series,'__top5').length,5);
+assert.equal(ctx.pdvSeriesKeys(series,'__top5')[0],'Category7');
+assert.equal(ctx.pdvSeriesKeys(series,'__all').length,8);
+assert.equal(ctx.pdvSeriesKeys(series,'Category0')[0],'Category0');
+console.log('PDV analysis: weighted coverage, workload ranking, small samples and top-five series OK');

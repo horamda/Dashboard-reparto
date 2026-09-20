@@ -217,6 +217,24 @@ tfoot td{font-weight:700;border-top:2px solid var(--line);border-bottom:none}
 }
 @media(max-width:360px){.filters,#distanceCards{grid-template-columns:1fr!important}}
 
+
+#pdvTimePanel .pdv-controls{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;align-items:end;margin:18px 0}
+#pdvTimePanel label{display:flex;flex-direction:column;gap:7px;font-size:12px;font-weight:600;min-width:0}
+#pdvTimePanel select{width:100%;min-width:0;min-height:44px;padding:10px;border:1px solid var(--line);border-radius:8px;background:white;color:var(--ink)}
+#pdvTimePanel .pdv-section{border-top:1px solid var(--line);margin-top:24px;padding-top:20px}
+#pdvTimePanel .pdv-chart-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:24px}
+#pdvTimePanel .pdv-chart{height:310px;position:relative}
+#pdvTimePanel h4{margin:12px 0;font-size:13px}
+#pdvTimePanel .pdv-insights{padding:14px 18px;background:#f1f6fa;border-left:3px solid #257a89;border-radius:8px;line-height:1.6;font-size:13px}
+#pdvTimePanel .pdv-insights p{margin:5px 0}
+#pdvTimePanel .pdv-legend{display:flex;flex-wrap:wrap;gap:8px 18px;max-height:130px;overflow:auto;margin:12px 0;font-size:11px}
+#pdvTimePanel .pdv-legend span{display:inline-flex;gap:6px;align-items:center;max-width:100%;overflow-wrap:anywhere}
+#pdvTimePanel .pdv-legend i{width:10px;height:10px;flex-shrink:0;border-radius:50%}
+#pdvTimePanel summary{cursor:pointer;font-weight:600;padding:12px 0;font-size:13px}
+#pdvTimePanel .tblscroll{max-height:400px;margin-top:12px}
+#pdvTimePanel td:first-child{white-space:normal;min-width:110px}
+@media(max-width:900px){#pdvTimePanel .pdv-controls{grid-template-columns:repeat(2,minmax(0,1fr))}#pdvTimePanel .pdv-chart-grid{grid-template-columns:1fr}}
+@media(max-width:540px){#pdvTimePanel .pdv-controls{grid-template-columns:1fr}#pdvTimePanel select{font-size:16px}#pdvTimePanel .pdv-chart{height:290px}}
 </style><style>
 #viewOtif>.panel,#viewInFull>.panel{margin-bottom:22px}
 #docOtifCards{grid-template-columns:repeat(3,minmax(0,1fr));margin-top:16px}
@@ -300,35 +318,51 @@ tfoot td{font-weight:700;border-top:2px solid var(--line);border-bottom:none}
   <div class="panel"><h2>Por camión</h2><div class="tblscroll"><table><thead><tr><th>Camión</th><th>Km plan</th><th>Km reales</th><th>Litros según km reales</th><th>Costo ($)</th><th>Diferencia km</th><th>Diferencia costo ($)</th><th>Rutas con km reales / comparables</th></tr></thead><tbody id="distanceTrucks"></tbody></table></div></div>
   <div class="panel"><h2>Por chofer</h2><div class="tblscroll"><table><thead><tr><th>Chofer</th><th>Km plan</th><th>Km reales</th><th>Litros según km reales</th><th>Costo ($)</th><th>Diferencia km</th><th>Diferencia costo ($)</th><th>Rutas con km reales / comparables</th></tr></thead><tbody id="distanceDrivers"></tbody></table></div></div>
  </div>
- <div id="pdvTimePanel" class="panel" style="display:none;margin-bottom:18px">
-  <h2>Tiempo promedio por punto de venta</h2>
-  <p class="note">Duración de la visita registrada por Foxtrot, en minutos; incluye la permanencia en la parada, no el viaje entre clientes. Promedio = tiempo total / visitas con duración positiva. No se sustituye por el tiempo de servicio inferido. Respeta los filtros de las rutas válidas.</p>
-  <p id="pdvTimeStatus" role="status"></p>
-  <div id="pdvTimeCards" class="cards c4"></div>
-  <div class="analysis-controls">
-   <label>Subcanal<select id="pdvSubchannel" onchange="renderPdvTimes()"><option value="__all">Todos</option></select></label>
-   <label>Agrupación<select id="pdvGrouping" onchange="renderPdvTimes()"><option value="__all">Todas</option></select></label>
-   <label>Ranking por<select id="pdvRankBy" onchange="renderPdvTimes()"><option value="cliente">Cliente</option><option value="subcanal">Subcanal</option><option value="agrupacion">Agrupación</option></select></label>
-  </div>
-  <h3 id="pdvRankTitle">20 puntos de venta con mayor tiempo promedio</h3><p class="note">Clasificación del maestro actual de clientes. Promedios ponderados por visitas con duración; pocas visitas pueden producir promedios poco representativos.</p>
-  <div style="max-height:520px;overflow:auto"><div id="pdvTimeChartArea" style="height:360px;position:relative"><canvas id="chPdvTime"></canvas></div></div>
-  <div id="pdvSegmentTable" class="tblscroll" style="display:none"><table><thead><tr><th>Grupo</th><th>PDV</th><th>Visitas</th><th>Con duración</th><th>Minutos totales</th><th>Promedio (min/visita)</th></tr></thead><tbody id="pdvSegmentRows"></tbody></table></div>
-  <h3>Evolución anual por tipo de negocio y agrupación</h3>
-  <p class="note">Promedio mensual ponderado por visitas con duración. Respeta todos los filtros superiores; seleccioná todos los meses para ver el año completo. Los meses sin datos quedan vacíos. Clasificación del maestro actual.</p>
-  <div class="analysis-controls">
-   <label>Año<select id="pdvYear" onchange="renderPdvEvolution()"></select></label>
-   <label>Comparar por<select id="pdvEvolutionDimension" onchange="renderPdvEvolution()"><option value="subcanal">Tipo de negocio / subcanal</option><option value="agrupacion">Agrupación</option></select></label>
-   <label>Categoría<select id="pdvEvolutionCategory" onchange="renderPdvEvolution()"><option value="__all">Todas</option></select></label>
-  </div>
-  <p id="pdvEvolutionAnalysis" role="status"></p>
-  <h3>Tiempo promedio por visita (minutos)</h3><div style="height:400px;position:relative"><canvas id="chPdvEvolution"></canvas></div>
-  <h3>Visitas por mes</h3><div style="height:360px;position:relative"><canvas id="chPdvVolume"></canvas></div>
-  <p class="note">Tocá una categoría en la leyenda para ocultar o mostrar su línea. Una variación del promedio puede depender de la cantidad y composición de las visitas.</p>
-  <div class="tblscroll"><table><thead><tr><th>Mes</th><th>Categoría</th><th>Visitas</th><th>Con duración</th><th>Cobertura</th><th>Promedio (min)</th><th>Variación mensual (min)</th></tr></thead><tbody id="pdvEvolutionRows"></tbody></table></div>
-  <label for="pdvTimeSearch">Buscar cliente (código o nombre)</label><input id="pdvTimeSearch" type="search" placeholder="Buscar punto de venta" oninput="renderPdvTimes()" style="padding:12px;min-height:44px;width:100%;margin:10px 0">
-  <p class="note">La búsqueda aplica a la tabla; tarjetas y gráfico mantienen los filtros superiores.</p>
-  <div class="tblscroll"><table><thead><tr><th>Cliente</th><th>Nombre</th><th>Sucursal</th><th>Subcanal</th><th>Agrupación</th><th>Visitas</th><th>Con duración</th><th>Sin duración válida</th><th>Minutos totales</th><th>Promedio (min/visita)</th></tr></thead><tbody id="pdvTimeRows"></tbody></table></div>
+ <section id="pdvTimePanel" class="panel" style="display:none;margin-bottom:18px">
+ <h2>Clientes / PDV &middot; tiempos de visita</h2>
+ <p class="note">Permanencia registrada por Foxtrot, sin viaje entre clientes. Se aplican unidad, sucursal, mes, d&iacute;a y chofer de los filtros superiores.</p>
+ <div class="pdv-controls">
+  <label>A&ntilde;o<select id="pdvYear" onchange="renderPdvTimes()"></select></label>
+  <label>Tipo de negocio / subcanal<select id="pdvSubchannel" onchange="renderPdvTimes()"></select></label>
+  <label>Agrupaci&oacute;n<select id="pdvGrouping" onchange="renderPdvTimes()"></select></label>
+  <button type="button" class="reset" onclick="resetPdvFilters()">Limpiar filtros de clientes</button>
  </div>
+ <p id="pdvTimeStatus" role="status" class="note"></p>
+ <div id="pdvTimeCards" class="cards c4"></div>
+ <div id="pdvInsights" class="pdv-insights" aria-live="polite"></div>
+ <section class="pdv-section">
+ <h3>Evoluci&oacute;n mensual</h3>
+ <div class="pdv-controls">
+  <label>Comparar por<select id="pdvEvolutionDimension" onchange="renderPdvTimes()"><option value="subcanal">Tipo de negocio / subcanal</option><option value="agrupacion">Agrupaci&oacute;n</option></select></label>
+  <label>Series del gr&aacute;fico<select id="pdvEvolutionCategory" onchange="renderPdvTimes()"><option value="__top5">5 con m&aacute;s visitas</option><option value="__all">Todas</option></select></label>
+  <label>Meses del eje<select id="pdvMonthAxis" onchange="renderPdvTimes()"><option value="observed">Per&iacute;odo con visitas</option><option value="annual">A&ntilde;o completo</option></select></label>
+ </div>
+ <p id="pdvEvolutionAnalysis" class="note"></p>
+ <div id="pdvLegend" class="pdv-legend" aria-label="Series mostradas"></div>
+ <div class="pdv-chart-grid">
+ <div><h4>Tiempo promedio por visita &middot; min</h4><div class="pdv-chart"><canvas id="chPdvEvolution"></canvas></div></div>
+ <div><h4>Visitas registradas &middot; cantidad</h4><div class="pdv-chart"><canvas id="chPdvVolume"></canvas></div></div>
+ </div>
+ <details><summary>Ver detalle mensual y variaciones</summary><div class="tblscroll"><table><thead><tr><th>Mes</th><th>Categor&iacute;a</th><th>Visitas</th><th>Con duraci&oacute;n</th><th>Cobertura</th><th>Promedio (min)</th><th>Cambio mensual (min)</th></tr></thead><tbody id="pdvEvolutionRows"></tbody></table></div></details>
+ </section>
+ <section class="pdv-section">
+ <h3>Comparar tiempos y carga de trabajo</h3>
+ <div class="pdv-controls">
+  <label>Ranking por<select id="pdvRankBy" onchange="renderPdvTimes()"><option value="subcanal">Tipo de negocio / subcanal</option><option value="agrupacion">Agrupaci&oacute;n</option><option value="cliente">Cliente</option></select></label>
+  <label>Ordenar por<select id="pdvRankMetric" onchange="renderPdvTimes()"><option value="segundos">Tiempo total de permanencia</option><option value="avg">Tiempo promedio por visita</option><option value="visitas">Cantidad de visitas</option></select></label>
+  <label>M&iacute;nimo de visitas con duraci&oacute;n<select id="pdvMinVisits" onchange="renderPdvTimes()"><option value="1">1 visita</option><option value="5">5 visitas</option><option value="10" selected>10 visitas</option><option value="30">30 visitas</option></select></label>
+ </div>
+ <h4 id="pdvRankTitle"></h4><p id="pdvRankNote" class="note"></p>
+ <div style="max-height:520px;overflow:auto"><div id="pdvTimeChartArea" style="height:360px;position:relative"><canvas id="chPdvTime"></canvas></div></div>
+ <details><summary>Ver detalle del ranking</summary><div id="pdvSegmentTable" class="tblscroll"><table><thead><tr><th>Cliente / grupo</th><th>PDV por sucursal</th><th>Visitas</th><th>Con duraci&oacute;n</th><th>Cobertura</th><th>Horas totales</th><th>Promedio (min)</th></tr></thead><tbody id="pdvSegmentRows"></tbody></table></div></details>
+ </section>
+ <details class="pdv-section"><summary>Consultar clientes y visitas</summary>
+ <label for="pdvTimeSearch">Buscar cliente (c&oacute;digo o nombre)</label><input id="pdvTimeSearch" type="search" placeholder="Buscar punto de venta" oninput="renderPdvClientTable()" style="padding:12px;min-height:44px;width:100%;margin:10px 0">
+ <p class="note">La b&uacute;squeda aplica solamente a esta tabla.</p>
+ <div class="tblscroll"><table><thead><tr><th>Cliente</th><th>Nombre</th><th>Sucursal</th><th>Subcanal</th><th>Agrupaci&oacute;n</th><th>Visitas</th><th>Con duraci&oacute;n</th><th>Sin duraci&oacute;n</th><th>Minutos totales</th><th>Promedio (min)</th></tr></thead><tbody id="pdvTimeRows"></tbody></table></div>
+ </details>
+ <details class="pdv-section"><summary>C&oacute;mo se calcula</summary><p class="note">Promedio = suma de segundos registrados / 60 / visitas con duraci&oacute;n positiva. Las visitas sin duraci&oacute;n no se convierten en cero. La cobertura es visitas con duraci&oacute;n / visitas registradas; no mide la cobertura sobre todas las entregas. Clasificaci&oacute;n del maestro actual, con los nombres y abreviaturas de origen. Los promedios y cambios describen permanencia: por s&iacute; solos no indican mejor o peor servicio. Meses filtrados o en curso pueden ser parciales.</p></details>
+ </section>
  <div id="operationalSummary" style="display:none">
  <div class="sectlbl">Tiempos</div>
  <div class="cards c5">
@@ -1250,48 +1284,69 @@ let pdvTimeData=null,pdvTimeLoading=false,pdvTimeError='';
 async function loadPdvTimes(){if(pdvTimeLoading)return;pdvTimeLoading=true;try{const res=await fetch('/api/clientes/tiempos-visita');if(!res.ok)throw new Error('No se pudieron cargar las visitas');const data=await res.json();pdvTimeData=data.rows;pdvTimeError=''}catch(e){pdvTimeError=e.message;pdvTimeData=[]}finally{pdvTimeLoading=false;if(state.tab==='clientes')renderPdvTimes()}}
 function pdvTimeGroups(visits,routes){const routeMap=new Map(routes.filter(r=>r.usable).map(r=>[String(r.rid),r])),groups=new Map();visits.forEach(v=>{const route=routeMap.get(String(v.rid));if(!route)return;const suc=route.suc||'Sin sucursal',key=JSON.stringify([suc,v.cliente]);if(!groups.has(key))groups.set(key,{cliente:v.cliente,nombre:v.nombre,subcanal:v.subcanal||'Sin clasificar',agrupacion:v.agrupacion||'Sin clasificar',suc,visitas:0,validas:0,segundos:0});const g=groups.get(key);g.visitas+=v.visitas;g.validas+=v.validas;g.segundos+=v.segundos});return [...groups.values()].map(r=>({...r,avg:r.validas?r.segundos/60/r.validas:null})).sort((a,b)=>(b.avg??-1)-(a.avg??-1)||a.cliente.localeCompare(b.cliente))}
 function pdvSegmentGroups(rows,field){if(field==='cliente')return rows.map(r=>({...r,key:r.cliente+' '+r.nombre,pdvs:1}));const groups=new Map();rows.forEach(r=>{const key=r[field]||'Sin clasificar';if(!groups.has(key))groups.set(key,{key,pdvs:0,visitas:0,validas:0,segundos:0});const g=groups.get(key);g.pdvs++;g.visitas+=r.visitas;g.validas+=r.validas;g.segundos+=r.segundos});return [...groups.values()].map(r=>({...r,avg:r.validas?r.segundos/60/r.validas:null})).sort((a,b)=>(b.avg??-1)-(a.avg??-1)||a.key.localeCompare(b.key))}
-function renderPdvTimes(){
- if(!pdvTimeData){document.getElementById('pdvTimeStatus').textContent='Cargando visitas Foxtrot...';if(!pdvTimeLoading)loadPdvTimes();return}
- const scoped=pdvTimeGroups(pdvTimeData,R.filter(scopeCards));
- [['pdvSubchannel','subcanal'],['pdvGrouping','agrupacion']].forEach(([id,field])=>{const el=document.getElementById(id),old=el.value,values=[...new Set(scoped.map(r=>r[field]))].sort();el.innerHTML='<option value="__all">Todos</option>'+values.map(v=>'<option value="'+esc(v)+'">'+esc(v)+'</option>').join('');el.value=values.includes(old)?old:'__all'});
- const sub=document.getElementById('pdvSubchannel').value,group=document.getElementById('pdvGrouping').value,dimension=document.getElementById('pdvRankBy').value;
- const rows=scoped.filter(r=>(sub==='__all'||r.subcanal===sub)&&(group==='__all'||r.agrupacion===group)),n=rows.reduce((s,r)=>s+r.visitas,0),valid=rows.reduce((s,r)=>s+r.validas,0),seconds=rows.reduce((s,r)=>s+r.segundos,0),average=valid?seconds/60/valid:null;
- document.getElementById('pdvTimeStatus').textContent=pdvTimeError||'Cruce por ruta y cliente. '+fmt0(valid)+' de '+fmt0(n)+' visitas con duración válida.';
- document.getElementById('pdvTimeCards').innerHTML=[['Puntos de venta',fmt0(rows.length)],['Visitas con duración',fmt0(valid)],['Promedio por visita',average==null?'Sin datos':fmt1(average)+' min'],['Sin duración válida',fmt0(n-valid)]].map(([label,value])=>'<div class="card"><div class="k">'+esc(label)+'</div><div class="v">'+esc(value)+'</div></div>').join('');
- const search=document.getElementById('pdvTimeSearch').value.toLocaleLowerCase('es'),filtered=rows.filter(r=>(r.cliente+' '+r.nombre).toLocaleLowerCase('es').includes(search));
- document.getElementById('pdvTimeRows').innerHTML=filtered.map(r=>'<tr><td>'+esc(r.cliente)+'</td><td>'+esc(r.nombre)+'</td><td>'+esc(r.suc)+'</td><td>'+esc(r.subcanal)+'</td><td>'+esc(r.agrupacion)+'</td><td>'+fmt0(r.visitas)+'</td><td>'+fmt0(r.validas)+'</td><td>'+fmt0(r.visitas-r.validas)+'</td><td>'+fmt1(r.segundos/60)+'</td><td>'+(r.avg==null?'Sin datos':fmt1(r.avg))+'</td></tr>').join('')||emptyRow(10,'Sin clientes para los filtros seleccionados.');
- renderPdvEvolution();
- if(!chartsReady())return;if(ch.chPdvTime){ch.chPdvTime.destroy();delete ch.chPdvTime}const ranking=pdvSegmentGroups(rows,dimension);document.getElementById('pdvRankTitle').textContent='Mayor tiempo promedio por '+({cliente:'cliente',subcanal:'subcanal',agrupacion:'agrupaci\u00f3n'}[dimension])+' (hasta 20)';document.getElementById('pdvSegmentTable').style.display=dimension==='cliente'?'none':'';document.getElementById('pdvSegmentRows').innerHTML=ranking.map(r=>'<tr><td>'+esc(r.key)+'</td><td>'+fmt0(r.pdvs)+'</td><td>'+fmt0(r.visitas)+'</td><td>'+fmt0(r.validas)+'</td><td>'+fmt1(r.segundos/60)+'</td><td>'+(r.avg==null?'Sin datos':fmt1(r.avg))+'</td></tr>').join('')||emptyRow(6,'Sin datos');const top=ranking.filter(r=>r.avg!=null).slice(0,20);if(!top.length)return;
- document.getElementById('pdvTimeChartArea').style.height=Math.max(300,top.length*40)+'px';
- ch.chPdvTime=new Chart(document.getElementById('chPdvTime'),{type:'bar',data:{labels:top.map(r=>r.key),datasets:[{label:'Minutos por visita',data:top.map(r=>r.avg),backgroundColor:C.cli}]},options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,scales:{x:{beginAtZero:true,title:{display:true,text:'Minutos por visita'}},y:{ticks:{autoSkip:false,font:{size:10},callback:function(v){const text=this.getLabelForValue(v);return text.match(/.{1,24}(?:\s|$)|.{1,24}/g)||[text]}}}},plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>fmt1(c.raw)+' min / '+top[c.dataIndex].validas+' visitas con duración'}}}}});
-}
 function pdvMonthlyGroups(visits,routes,field,year,sub='__all',group='__all'){
  const months=Array.from({length:12},(_,i)=>year+'-'+String(i+1).padStart(2,'0'));
  return months.flatMap(month=>pdvSegmentGroups(pdvTimeGroups(visits,routes.filter(r=>r.mes===month)).filter(r=>(sub==='__all'||r.subcanal===sub)&&(group==='__all'||r.agrupacion===group)),field).map(r=>({...r,month})));
 }
-function renderPdvEvolution(){
- if(!pdvTimeData)return;
- const routes=R.filter(scopeCards),yearEl=document.getElementById('pdvYear'),previous=yearEl.value;
- const years=[...new Set(routes.map(r=>String(r.mes||'').slice(0,4)).filter(Boolean))].sort();
- yearEl.innerHTML=years.map(y=>'<option>'+esc(y)+'</option>').join('');yearEl.value=years.includes(previous)?previous:(years.at(-1)||'');
- const year=yearEl.value,field=document.getElementById('pdvEvolutionDimension').value;
- const data=pdvMonthlyGroups(pdvTimeData,routes,field,year,document.getElementById('pdvSubchannel').value,document.getElementById('pdvGrouping').value);
- const cat=document.getElementById('pdvEvolutionCategory'),old=cat.value,keys=[...new Set(data.map(r=>r.key))].sort();
- cat.innerHTML='<option value="__all">Todas</option>'+keys.map(k=>'<option value="'+esc(k)+'">'+esc(k)+'</option>').join('');cat.value=keys.includes(old)?old:'__all';
- const selected=keys.filter(k=>cat.value==='__all'||cat.value===k),rows=data.filter(r=>selected.includes(r.key)),months=Array.from({length:12},(_,i)=>year+'-'+String(i+1).padStart(2,'0'));
- const total=rows.reduce((n,r)=>n+r.visitas,0),valid=rows.reduce((n,r)=>n+r.validas,0),seconds=rows.reduce((n,r)=>n+r.segundos,0);
- const monthly=months.map(month=>{const list=rows.filter(r=>r.month===month),n=list.reduce((s,r)=>s+r.validas,0);return {month,avg:n?list.reduce((s,r)=>s+r.segundos,0)/60/n:null}}).filter(r=>r.avg!=null);
- let analysis=fmt0(total)+' visitas; '+fmt0(valid)+' con duraci?n ('+(total?fmt1(valid/total*100):'0')+'% de cobertura). Promedio del per?odo: '+(valid?fmt1(seconds/60/valid)+' min':'sin datos')+'.';
- if(monthly.length>1){const first=monthly[0],last=monthly.at(-1),delta=last.avg-first.avg;analysis+=' De '+mLbl(first.month)+' a '+mLbl(last.month)+': '+(delta>0?'+':'')+fmt1(delta)+' min por visita.'}
- document.getElementById('pdvEvolutionAnalysis').textContent=analysis;
- document.getElementById('pdvEvolutionRows').innerHTML=rows.map(r=>{const index=months.indexOf(r.month),prev=rows.find(p=>p.key===r.key&&p.month===months[index-1]),delta=r.avg!=null&&prev?.avg!=null?r.avg-prev.avg:null;return '<tr><td>'+esc(mLbl(r.month)+' '+year)+'</td><td>'+esc(r.key)+'</td><td>'+fmt0(r.visitas)+'</td><td>'+fmt0(r.validas)+'</td><td>'+fmt1(r.validas/r.visitas*100)+'%</td><td>'+(r.avg==null?'Sin datos':fmt1(r.avg))+'</td><td>'+(delta==null?'?':(delta>0?'+':'')+fmt1(delta))+'</td></tr>'}).join('')||emptyRow(7,'Sin datos para los filtros seleccionados.');
+
+let pdvVisibleRows=[];
+function pdvTotals(rows){const t=rows.reduce((a,r)=>({visitas:a.visitas+r.visitas,validas:a.validas+r.validas,segundos:a.segundos+r.segundos}),{visitas:0,validas:0,segundos:0});return {...t,avg:t.validas?t.segundos/60/t.validas:null,coverage:t.visitas?100*t.validas/t.visitas:null}}
+function pdvRankRows(rows,field,metric,minVisits){return pdvSegmentGroups(rows,field).filter(r=>r.validas>=minVisits).sort((a,b)=>(b[metric]??-1)-(a[metric]??-1)||a.key.localeCompare(b.key))}
+function pdvSeriesKeys(data,selection){const totals=new Map();data.forEach(r=>totals.set(r.key,(totals.get(r.key)||0)+r.visitas));const keys=[...totals.keys()].sort((a,b)=>totals.get(b)-totals.get(a)||a.localeCompare(b));return selection==='__top5'?keys.slice(0,5):selection==='__all'?keys:keys.filter(k=>k===selection)}
+function pdvOptions(id,values,defaultValue='__all',label='Todos'){const el=document.getElementById(id),old=el.value;el.innerHTML='<option value="'+defaultValue+'">'+esc(label)+'</option>'+values.map(v=>'<option value="'+esc(v)+'">'+esc(v)+'</option>').join('');el.value=values.includes(old)?old:defaultValue;return el.value}
+function resetPdvFilters(){['pdvYear','pdvSubchannel','pdvGrouping'].forEach(id=>document.getElementById(id).value='__all');document.getElementById('pdvEvolutionCategory').value='__top5';document.getElementById('pdvTimeSearch').value='';renderPdvTimes()}
+function renderPdvClientTable(){const search=document.getElementById('pdvTimeSearch').value.toLocaleLowerCase('es'),rows=pdvVisibleRows.filter(r=>(r.cliente+' '+r.nombre).toLocaleLowerCase('es').includes(search));document.getElementById('pdvTimeRows').innerHTML=rows.map(r=>'<tr><td>'+esc(r.cliente)+'</td><td>'+esc(r.nombre)+'</td><td>'+esc(r.suc)+'</td><td>'+esc(r.subcanal)+'</td><td>'+esc(r.agrupacion)+'</td><td>'+fmt0(r.visitas)+'</td><td>'+fmt0(r.validas)+'</td><td>'+fmt0(r.visitas-r.validas)+'</td><td>'+fmt1(r.segundos/60)+'</td><td>'+(r.avg==null?'Sin datos':fmt1(r.avg))+'</td></tr>').join('')||emptyRow(10,'Sin clientes para los filtros seleccionados.')}
+function renderPdvTimes(){
+ if(!pdvTimeData){document.getElementById('pdvTimeStatus').textContent='Cargando visitas Foxtrot...';if(!pdvTimeLoading)loadPdvTimes();return}
+ const allRoutes=R.filter(scopeCards),years=[...new Set(allRoutes.map(r=>String(r.mes||'').slice(0,4)).filter(Boolean))].sort();
+ const year=pdvOptions('pdvYear',years,'__all','Todos los años'),routes=allRoutes.filter(r=>year==='__all'||String(r.mes).startsWith(year));
+ const scoped=pdvTimeGroups(pdvTimeData,routes);
+ const sub=pdvOptions('pdvSubchannel',[...new Set(scoped.map(r=>r.subcanal))].sort()),group=pdvOptions('pdvGrouping',[...new Set(scoped.map(r=>r.agrupacion))].sort());
+ const rows=scoped.filter(r=>(sub==='__all'||r.subcanal===sub)&&(group==='__all'||r.agrupacion===group));pdvVisibleRows=rows;
+ const total=pdvTotals(rows),unit=total.avg==null?'Sin datos':fmt1(total.avg)+' min';
+ document.getElementById('pdvTimeStatus').textContent=pdvTimeError||'Cruce por ruta y cliente; solo rutas válidas. '+fmt0(total.visitas)+' visitas registradas en el alcance seleccionado.';
+ document.getElementById('pdvTimeCards').innerHTML=[['PDV por sucursal',fmt0(rows.length),'Cada cliente se cuenta una vez por sucursal'],['Visitas registradas',fmt0(total.visitas),fmt0(total.validas)+' con duración válida'],['Promedio por visita',unit,'Ponderado por visitas con duración'],['Cobertura de duración',total.coverage==null?'Sin datos':fmt1(total.coverage)+'%',fmt0(total.visitas-total.validas)+' visitas sin duración']].map(([label,value,note])=>'<div class="card"><div class="k">'+esc(label)+'</div><div class="v">'+esc(value)+'</div><div class="obj">'+esc(note)+'</div></div>').join('');
+ const field=document.getElementById('pdvEvolutionDimension').value;
+ const annualYears=year==='__all'?years:[year],monthly=annualYears.flatMap(y=>pdvMonthlyGroups(pdvTimeData,routes,field,y,sub,group));
+ const observed=[...new Set(monthly.map(r=>r.month))].sort(),segments=pdvSegmentGroups(rows,field),work=[...segments].sort((a,b)=>b.segundos-a.segundos)[0];
+ const insights=[];
+ if(observed.length)insights.push('Hay visitas en '+observed.map(m=>mLbl(m)+' '+m.slice(0,4)).join(', ')+'. Los meses sin registros no equivalen a cero. Los períodos filtrados o aún en curso pueden ser parciales.');
+ if(work&&total.segundos>0)insights.push(work.key+' concentra '+fmt1(100*work.segundos/total.segundos)+'% del tiempo registrado y '+fmt1(100*work.visitas/total.visitas)+'% de las visitas; '+fmt1(work.segundos/3600)+' horas de permanencia.');
+ if(observed.length>1){const latest=observed.at(-1),before=observed.at(-2),lastTotal=pdvTotals(monthly.filter(r=>r.month===latest)),beforeTotal=pdvTotals(monthly.filter(r=>r.month===before));if(lastTotal.avg!=null&&beforeTotal.avg!=null){const diff=lastTotal.avg-beforeTotal.avg;insights.push('Promedio de '+mLbl(before)+' a '+mLbl(latest)+': '+fmt1(beforeTotal.avg)+' → '+fmt1(lastTotal.avg)+' min ('+(diff>0?'+':'')+fmt1(diff)+'). Bases: '+fmt0(beforeTotal.validas)+' y '+fmt0(lastTotal.validas)+' visitas con duración. La mezcla de clientes y los días incluidos pueden variar.')}}
+ const low=segments.filter(r=>r.validas>0&&r.validas<10).length;
+ if(low)insights.push(fmt0(low)+' categorías tienen menos de 10 visitas con duración. Revisá la cantidad de observaciones antes de comparar sus promedios.');
+ if(total.visitas-total.validas)insights.push(fmt0(total.visitas-total.validas)+' visitas no tienen duración válida y quedan fuera del promedio.');
+ document.getElementById('pdvInsights').innerHTML=insights.map(t=>'<p>'+esc(t)+'</p>').join('')||'<p>Sin visitas para esta combinación de filtros.</p>';
+ renderPdvClientTable();renderPdvEvolution(monthly,total,observed,annualYears);renderPdvRanking(rows,total);
+}
+function pdvColor(key){let hash=0;for(const c of key)hash=(hash*31+c.charCodeAt(0))|0;return 'hsl('+((hash>>>0)%360)+',65%,38%)'}
+function renderPdvEvolution(data,total,observed,years){
+ const cat=document.getElementById('pdvEvolutionCategory'),old=cat.value,allKeys=[...new Set(data.map(r=>r.key))].sort();
+ cat.innerHTML='<option value="__top5">5 con más visitas</option><option value="__all">Todas</option>'+allKeys.map(k=>'<option value="'+esc(k)+'">'+esc(k)+'</option>').join('');cat.value=allKeys.includes(old)||old==='__all'?old:'__top5';
+ const selected=pdvSeriesKeys(data,cat.value),rows=data.filter(r=>selected.includes(r.key)),shown=pdvTotals(rows);
+ const fullMonths=years.flatMap(y=>Array.from({length:12},(_,i)=>y+'-'+String(i+1).padStart(2,'0')));
+ const months=document.getElementById('pdvMonthAxis').value==='annual'?fullMonths:fullMonths.filter(m=>observed.length&&m>=observed[0]&&m<=observed.at(-1));
+ document.getElementById('pdvEvolutionAnalysis').textContent='Mostrando '+selected.length+' de '+allKeys.length+' categorías: '+(total.visitas?fmt1(100*shown.visitas/total.visitas):'0')+'% de las visitas del alcance. Este selector solo cambia la evolución y su detalle; las tarjetas resumen todos los datos filtrados.'+(selected.length>5?' Con muchas series, consultá los valores en el detalle mensual.':'');
+ document.getElementById('pdvLegend').innerHTML=selected.map(k=>'<span><i style="background:'+pdvColor(k)+'"></i>'+esc(k)+'</span>').join('')||'Sin datos para graficar.';
+ document.getElementById('pdvEvolutionRows').innerHTML=rows.map(r=>{const previous=new Date(Number(r.month.slice(0,4)),Number(r.month.slice(5))-2,1),pm=previous.getFullYear()+'-'+String(previous.getMonth()+1).padStart(2,'0'),prev=rows.find(p=>p.key===r.key&&p.month===pm),delta=r.avg!=null&&prev?.avg!=null?r.avg-prev.avg:null;return '<tr><td>'+esc(mLbl(r.month)+' '+r.month.slice(0,4))+'</td><td>'+esc(r.key)+'</td><td>'+fmt0(r.visitas)+'</td><td>'+fmt0(r.validas)+'</td><td>'+fmt1(r.validas/r.visitas*100)+'%</td><td>'+(r.avg==null?'Sin datos':fmt1(r.avg))+'</td><td>'+(delta==null?'—':(delta>0?'+':'')+fmt1(delta))+'</td></tr>'}).join('')||emptyRow(7,'Sin datos para los filtros seleccionados.');
  if(!chartsReady())return;
  ['chPdvEvolution','chPdvVolume'].forEach((id,index)=>{
   if(ch[id]){ch[id].destroy();delete ch[id]}
-  const datasets=selected.map((key,i)=>({label:key,data:months.map(month=>{const row=rows.find(r=>r.key===key&&r.month===month);return row?(index?row.visitas:row.avg):null}),borderColor:'hsl('+((keys.indexOf(key)*137.508)%360)+',65%,42%)',backgroundColor:'hsl('+((keys.indexOf(key)*137.508)%360)+',65%,42%)',spanGaps:false,tension:0,pointRadius:3,_fmt:index?fmt0:fmt1}));
-  ch[id]=new Chart(document.getElementById(id),{type:'line',data:{labels:months.map(m=>mLbl(m)),datasets},options:{responsive:true,maintainAspectRatio:false,layout:{padding:{top:20}},scales:{y:{beginAtZero:true,title:{display:true,text:index?'Visitas':'Minutos por visita'}}},plugins:{legend:{position:'bottom'},tooltip:{callbacks:{label:c=>c.dataset.label+': '+(index?fmt0(c.raw):fmt1(c.raw)+' min')}}}},plugins:[dLabels(datasets.map((_,i)=>i))]});
+  const datasets=selected.map(key=>({label:key,data:months.map(month=>{const row=rows.find(r=>r.key===key&&r.month===month);return row?(index?row.visitas:row.avg):null}),borderColor:pdvColor(key),backgroundColor:pdvColor(key),borderWidth:2,spanGaps:false,tension:0,pointRadius:4,_fmt:index?fmt0:fmt1}));
+  ch[id]=new Chart(document.getElementById(id),{type:'line',data:{labels:months.map(m=>mLbl(m)+' '+m.slice(0,4)),datasets},options:{responsive:true,maintainAspectRatio:false,layout:{padding:{top:20,right:16,left:12}},scales:{x:{offset:true},y:{beginAtZero:true,grace:'15%',title:{display:true,text:index?'Visitas':'Minutos por visita'}}},plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>{const row=rows.find(r=>r.key===c.dataset.label&&r.month===months[c.dataIndex]);return c.dataset.label+': '+(index?fmt0(c.raw)+' visitas':fmt1(c.raw)+' min')+' · '+(row?row.validas:0)+' con duración'}}}}},plugins:selected.length<=5?[dLabels(datasets.map((_,i)=>i))]:[]});
  });
 }
+function renderPdvRanking(rows,total){
+ const dimension=document.getElementById('pdvRankBy').value,metric=document.getElementById('pdvRankMetric').value,min=Number(document.getElementById('pdvMinVisits').value),ranking=pdvRankRows(rows,dimension,metric,min),top=ranking.slice(0,10),format=metric==='visitas'?fmt0:fmt1,value=r=>metric==='segundos'?r.segundos/3600:r[metric];
+ const unit=metric==='segundos'?'horas de permanencia':metric==='avg'?'minutos por visita':'visitas';
+ document.getElementById('pdvRankTitle').textContent='Hasta 10 '+({cliente:'clientes',subcanal:'tipos de negocio',agrupacion:'agrupaciones'}[dimension])+' por '+unit;
+ document.getElementById('pdvRankNote').textContent=ranking.length+' resultados con al menos '+min+' visitas con duración. El mínimo solo aplica al ranking; no modifica las tarjetas ni la evolución.'+(top.length?'':' Bajá el mínimo para ampliar la comparación.');
+ document.getElementById('pdvSegmentRows').innerHTML=ranking.map(r=>'<tr><td>'+esc(r.key)+'</td><td>'+fmt0(r.pdvs)+'</td><td>'+fmt0(r.visitas)+'</td><td>'+fmt0(r.validas)+'</td><td>'+fmt1(r.validas/r.visitas*100)+'%</td><td>'+fmt1(r.segundos/3600)+'</td><td>'+(r.avg==null?'Sin datos':fmt1(r.avg))+'</td></tr>').join('')||emptyRow(7,'Sin resultados con el mínimo seleccionado.');
+ if(!chartsReady())return;if(ch.chPdvTime){ch.chPdvTime.destroy();delete ch.chPdvTime}if(!top.length)return;
+ document.getElementById('pdvTimeChartArea').style.height=Math.max(260,top.length*45)+'px';
+ ch.chPdvTime=new Chart(document.getElementById('chPdvTime'),{type:'bar',data:{labels:top.map(r=>r.key),datasets:[{label:unit,data:top.map(value),backgroundColor:'#147d83',borderRadius:3}]},options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,layout:{padding:{right:50}},scales:{x:{beginAtZero:true,grace:'15%',title:{display:true,text:unit}},y:{ticks:{autoSkip:false,font:{size:11},callback:function(v){return this.getLabelForValue(v).match(/.{1,24}(?:\s|$)|.{1,24}/g)}}}},plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>format(c.raw)+' '+unit+' · '+top[c.dataIndex].validas+' visitas con duración'}}}},plugins:[{id:'pdvBarValues',afterDatasetsDraw(chart){const ctx=chart.ctx;ctx.save();ctx.font='bold 11px system-ui';ctx.fillStyle='#26334d';ctx.textBaseline='middle';chart.getDatasetMeta(0).data.forEach((bar,i)=>ctx.fillText(format(value(top[i])),bar.x+6,bar.y));ctx.restore()}}]});
+}
+
 function renderDistances(){
  if(!fuelHistory&&!fuelHistoryLoading)loadFuelHistory();
  const rows=R.filter(scopeCards),stats=distanceStats(rows),km=v=>v==null?'Sin datos':fmt0(v)+' km';
