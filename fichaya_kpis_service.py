@@ -35,14 +35,15 @@ for _key in ('dqi', 'nps', 'nps_delivery', 'rmd'):
 for _key in ('nps', 'nps_delivery'):
     METRICS[_key].pop('pendiente', None)
     METRICS[_key]['formula'] = 'Valor general publicado en la fecha del resultado, repetido por legajo. Sin recalcular por rutas ni arrastrar valores de otras fechas.'
-METRICS['dqi']['pendiente'] = 'Alcance general confirmado. Falta definir la unidad: índice DQI del dashboard o PPM de FichaYA.'
-METRICS['rmd']['pendiente'] = 'Alcance general confirmado. Falta elegir puntaje 0–5 o porcentaje de respuestas y compatibilizar la unidad en FichaYA.'
+METRICS['dqi']['pendiente'] = 'PPM confirmado. Falta identificar la fuente de PPM o el numerador y denominador compatibles para calcularlo.'
+METRICS['rmd'].pop('pendiente', None)
+METRICS['rmd'].update(unidad='PTS (0–5)', acumulacion='ultimo', formula='Puntaje RMD general publicado en la fecha, repetido sin cambios por legajo. El código de destino debe estar configurado en puntos 0–5, no porcentaje.')
 
 
 def general_value(key, fecha, source):
     if source.get('error'):
         raise ValueError('No se pudo verificar la fuente del indicador general.')
-    label = {'nps': 'NPS GRAL', 'nps_delivery': 'NPS DELIVERY (ENTREGA)'}[key]
+    label = {'nps': 'NPS GRAL', 'nps_delivery': 'NPS DELIVERY (ENTREGA)', 'rmd': 'RMD Puntaje'}[key]
     rows = [r for r in source.get('rows', []) if r.get('fecha') == fecha and r.get('tipo') == label]
     if not rows:
         raise ValueError('No hay una medición general publicada para esta fecha; no se arrastran valores de otro día.')
@@ -55,8 +56,9 @@ def general_value(key, fecha, source):
     if len(values) != 1:
         raise ValueError('La fuente general contiene valores faltantes o contradictorios para esta fecha.')
     value = values.pop()
-    if not value.is_finite() or not Decimal(-100) <= value <= Decimal(100):
-        raise ValueError('NPS general fuera del rango -100 a 100.')
+    low, high = (Decimal(0), Decimal(5)) if key == 'rmd' else (Decimal(-100), Decimal(100))
+    if not value.is_finite() or not low <= value <= high:
+        raise ValueError('RMD fuera del rango 0–5.' if key == 'rmd' else 'NPS general fuera del rango -100 a 100.')
     return value
 
 
@@ -156,7 +158,7 @@ def calculate(desde, hasta, cfg=None):
         time_values = {rid: pipeline.calcular_tiempos_fichaya_ruta(route, marks, mapping, employees, overrides)
                        for rid, route in routes.items()}
     errors, results, evidence = [], [], []
-    general_source = pipeline.cargar_satisfaccion() if {'nps', 'nps_delivery'} & cfg['metricas'].keys() else {}
+    general_source = pipeline.cargar_satisfaccion() if {'nps', 'nps_delivery', 'rmd'} & cfg['metricas'].keys() else {}
     fechas = sorted(set(days) | {r["fecha"] for r in routes.values()})
     if not fechas:
         errors.append("No hay equipos históricos ni rutas para este período.")
@@ -213,7 +215,7 @@ def calculate(desde, hasta, cfg=None):
         for legajo, item in sorted(persons.items()):
             for key, code in cfg["metricas"].items():
                 try:
-                    value = (general_value(key, fecha, general_source) if key in {'nps', 'nps_delivery'} else metric_value(key, item["rutas"], time_values)).quantize(Decimal("0.0001"), rounding=ROUND_HALF_UP)
+                    value = (general_value(key, fecha, general_source) if key in {'nps', 'nps_delivery', 'rmd'} else metric_value(key, item["rutas"], time_values)).quantize(Decimal("0.0001"), rounding=ROUND_HALF_UP)
                 except (ValueError, InvalidOperation) as exc:
                     errors.append(f"{fecha}, legajo {legajo}, {METRICS[key]['nombre']}: {exc}")
                     continue
@@ -224,7 +226,7 @@ def calculate(desde, hasta, cfg=None):
                 evidence.append({"nombre": item["nombre"], "indicador": METRICS[key]["nombre"], "unidad": METRICS[key]["unidad"],
                                  "rutas": sorted(item["rutas"]), "revision_equipo": day["revision"],
                                  "origen": ("Fichadas y ajustes manuales" if any(time_values.get(rid, {}).get("manual") for rid in item["rutas"]) else "Fichadas por legajo y Foxtrot") if key in {"tml", "ti"} else "Foxtrot"})
-                if key in {'nps', 'nps_delivery'}:
+                if key in {'nps', 'nps_delivery', 'rmd'}:
                     evidence[-1]['origen'] = 'Medición general publicada del ' + fecha + '; mismo valor para todos los integrantes'
     if len(results) > 10000:
         errors.append("El período supera 10.000 resultados. Seleccioná un rango menor.")

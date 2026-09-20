@@ -71,6 +71,21 @@ class KpiTests(unittest.TestCase):
         routes = {"a": {"disp_km_plan": 100, "disp_km_real": 120}, "b": {"disp_km_plan": 300, "disp_km_real": 300}}
         self.assertEqual(svc.metric_value("disp_km", routes, {}), Decimal("-5"))
 
+    def test_general_rmd_score_not_response_percentage(self):
+        cfg = {"empresa_id": 1, "sector_id": 1, "metricas": {"rmd": "RMD"}}
+        source = {"rows": [
+            {"fecha": "2026-09-01", "tipo": "RMD Puntaje", "resultado": 4.75},
+            {"fecha": "2026-09-01", "tipo": "Rate My Delivery % de respuestas", "resultado": 80}
+        ], "error": ""}
+        with patch.object(pipeline, "cargar_satisfaccion", return_value=source):
+            result = svc.calculate("2026-09-01", "2026-09-01", cfg)
+        self.assertFalse(result["errores"])
+        self.assertEqual(len(result["resultados"]), 2)
+        self.assertEqual({r["valor"] for r in result["resultados"]}, {"4.7500"})
+        source["rows"][0]["resultado"] = 75
+        with self.assertRaises(ValueError):
+            svc.general_value("rmd", "2026-09-01", source)
+
     def test_general_nps_repeats_same_measurement_for_each_member(self):
         cfg = {"empresa_id": 1, "sector_id": 1, "metricas": {"nps": "8"}}
         source = {"rows": [{"fecha": "2026-09-01", "tipo": "NPS GRAL", "resultado": -12}], "error": ""}
