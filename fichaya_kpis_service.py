@@ -37,7 +37,7 @@ for _key in ('nps', 'nps_delivery'):
     METRICS[_key]['formula'] = 'Valor general publicado en la fecha del resultado, repetido por legajo. Sin recalcular por rutas ni arrastrar valores de otras fechas.'
 METRICS['dqi']['pendiente'] = 'PPM confirmado. Falta identificar la fuente de PPM o el numerador y denominador compatibles para calcularlo.'
 METRICS['rmd'].pop('pendiente', None)
-METRICS['rmd'].update(unidad='PTS (0–5)', acumulacion='ultimo', formula='Puntaje RMD general publicado en la fecha, repetido sin cambios por legajo. El código de destino debe estar configurado en puntos 0–5, no porcentaje.')
+METRICS['rmd'].update(unidad='PTS (0–5)', acumulacion='promedio', formula='Puntaje RMD general publicado en la fecha, repetido sin cambios por legajo. El código de destino debe estar configurado en puntos 0–5, no porcentaje.')
 
 
 def general_value(key, fecha, source):
