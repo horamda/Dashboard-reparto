@@ -71,6 +71,20 @@ class KpiTests(unittest.TestCase):
         routes = {"a": {"disp_km_plan": 100, "disp_km_real": 120}, "b": {"disp_km_plan": 300, "disp_km_real": 300}}
         self.assertEqual(svc.metric_value("disp_km", routes, {}), Decimal("-5"))
 
+    def test_named_marks_resolve_to_unique_catalog_legajo(self):
+        marks = {('2026-09-01', 'ANA'): {'ingreso': pipeline._parse_hora_fichaya('07:00'), 'egreso': pipeline._parse_hora_fichaya('14:20')}}
+        with patch.object(pipeline, 'cargar_fichadas_cache', return_value=marks):
+            draft = self.draft()
+        self.assertFalse(draft['errores'])
+        self.assertEqual(len(draft['resultados']), 10)
+
+    def test_named_marks_reject_homonyms_and_conflicting_clocks(self):
+        marks = {('2026-09-01', 'ANA'): {'ingreso': '07:00', 'egreso': '14:20'}}
+        employees = {**self.employees, '003': {'nombre': 'Ana'}}
+        self.assertEqual(svc.marks_by_legajo(marks, self.mapping, employees), {})
+        marks[('2026-09-01', 'LEGAJO:001')] = {'ingreso': '08:00', 'egreso': '14:20'}
+        self.assertEqual(svc.marks_by_legajo(marks, self.mapping, self.employees), {})
+
     def test_general_rmd_score_not_response_percentage(self):
         cfg = {"empresa_id": 1, "sector_id": 1, "metricas": {"rmd": "RMD"}}
         source = {"rows": [
@@ -221,8 +235,8 @@ class KpiTests(unittest.TestCase):
         with patch.object(svc, "post_results", return_value={"empresa_id": 1, "recibidos": 10, "guardados": 9}):
             self.assertEqual(svc.send_next(run["id"], "test")["estado"], "reintentar")
 
-    def test_mark_lookup_does_not_fall_back_to_employee_name(self):
-        with patch.object(pipeline, "cargar_fichadas_cache", return_value={("2026-09-01", "ANA"): {"ingreso": pipeline._parse_hora_fichaya("07:00"), "egreso": pipeline._parse_hora_fichaya("14:20")}}):
+    def test_mark_lookup_does_not_guess_unlinked_names(self):
+        with patch.object(pipeline, "cargar_fichadas_cache", return_value={("2026-09-01", "ANA OTRO APELLIDO"): {"ingreso": pipeline._parse_hora_fichaya("07:00"), "egreso": pipeline._parse_hora_fichaya("14:20")}}):
             self.assertEqual(self.draft()["estado"], "bloqueado")
 
     def test_imported_sector_mismatch_blocks_export(self):

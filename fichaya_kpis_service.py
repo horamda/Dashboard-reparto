@@ -133,6 +133,45 @@ def metric_value(key, routes, time_values):
     raise ValueError(METRICS[key].get("pendiente", "Indicador sin cálculo configurado."))
 
 
+def marks_by_legajo(cached, mapping, employees):
+    """Resolve exact catalog names/explicit aliases only; reject conflicting clocks."""
+    names = {}
+    for legajo, employee in employees.items():
+        name = pipeline._norm_persona_key(employee.get('nombre', ''))
+        if name:
+            names.setdefault(name, set()).add(str(legajo))
+    for name, ref in mapping.items():
+        legajo = pipeline.fichaya_legajo(ref.get('legajo') if isinstance(ref, dict) else ref)
+        if legajo in employees:
+            names.setdefault(pipeline._norm_persona_key(name), set()).add(legajo)
+    candidates = {}
+    for key, item in cached.items():
+        if not isinstance(key, tuple) or len(key) != 2:
+            continue
+        fecha, identity = key
+        identity = str(identity)
+        if identity.startswith('LEGAJO:'):
+            ids = {identity[7:]}
+        else:
+            ids = names.get(pipeline._norm_persona_key(identity), set())
+        if len(ids) != 1:
+            continue
+        legajo = next(iter(ids))
+        if legajo not in employees:
+            continue
+        declared = str(item.get('legajo') or '')
+        entry = dict(item, legajo=legajo)
+        if declared and declared != legajo:
+            entry['identity_conflict'] = True
+        candidates.setdefault((fecha, 'LEGAJO:' + legajo), []).append(entry)
+    result = {}
+    for key, rows in candidates.items():
+        clocks = {(str(r.get('ingreso')), str(r.get('egreso'))) for r in rows}
+        if len(clocks) == 1 and not any(r.get('identity_conflict') for r in rows):
+            result[key] = rows[0]
+    return result
+
+
 def calculate(desde, hasta, cfg=None):
     teams.validate_range(desde, hasta)
     cfg = cfg or config()
@@ -149,11 +188,10 @@ def calculate(desde, hasta, cfg=None):
     routes = {str(rid): dict(r, rid=str(rid)) for rid, r in all_routes.items()
               if desde <= str(r.get("fecha", "")) <= hasta and pipeline._norm_logistics_branch(r.get("suc")) == "CASA CENTRAL"}
     if {"tml", "ti"} & cfg["metricas"].keys():
-        # La exportación exige identidad por legajo; no usar el fallback por nombre
-        # del reporte visual para atribuir una fichada a un equipo.
-        marks = {key: value for key, value in pipeline.cargar_fichadas_cache(desde, hasta).items()
-                 if isinstance(key, tuple) and len(key) == 2 and str(key[1]).startswith("LEGAJO:")}
+        # Resolver nombres con el vinculador/catálogo antes de exigir el legajo.
+        # No usar coincidencias aproximadas ni identidades ambiguas.
         mapping = pipeline.fichaya_nombre_map()
+        marks = marks_by_legajo(pipeline.cargar_fichadas_cache(desde, hasta), mapping, employees)
         overrides = pipeline.fichaya_ajustes_manuales()
         time_values = {rid: pipeline.calcular_tiempos_fichaya_ruta(route, marks, mapping, employees, overrides)
                        for rid, route in routes.items()}
