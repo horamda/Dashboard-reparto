@@ -105,13 +105,14 @@ def match_routes(teams, routes, mapping, employees):
     for rid, route in routes.items():
         key = truck_key(route.get("camion"))
         driver = pipeline.fichaya_lookup_ref(route.get("chofer", ""), mapping, employees).get("legajo")
-        if not key or not driver:
+        if not driver:
             continue
-        candidates = [team for team in teams if truck_key(team["numero"]) == key
+        candidates = [team for team in teams if (not key or truck_key(team["numero"]) == key)
                       and any(p["rol"] == "Chofer" and p["legajo"] == driver for p in team["integrantes"])]
         if len(candidates) == 1 and not candidates[0]["avisos"]:
             matches[rid] = {"equipo_id": candidates[0]["id"], "modo": "automatico",
-                            "criterio": "Fecha, Casa Central, camión y legajo del chofer",
+                            "criterio": ("Fecha, Casa Central, camión y legajo del chofer" if key else
+                                         "Fecha, Casa Central y legajo del chofer con equipo único; ruta sin camión"),
                             "ruta_origen": route_snapshot(route)}
     return matches
 
@@ -119,6 +120,21 @@ def match_routes(teams, routes, mapping, employees):
 def event(action, user, reason="", **extra):
     return {"accion": action, "usuario": user, "motivo": reason,
             "fecha_hora": datetime.now(timezone.utc).isoformat(), **extra}
+
+
+def complete_missing_assignments(current, routes, mapping, employees, user):
+    """Fill only unreviewed gaps; preserve all historical teams and manual decisions."""
+    reviewed = {e.get('ruta') for e in current.get('auditoria', [])
+                if e.get('accion') == 'asignacion_ruta'}
+    proposals = match_routes(current['equipos'], routes, mapping, employees)
+    additions = {rid: value for rid, value in proposals.items()
+                 if rid not in current['rutas'] and rid not in reviewed}
+    if additions:
+        current['rutas'].update(additions)
+        current['revision'] += 1
+        current['auditoria'].append(event('asociacion_automatica', user,
+            'Completar rutas sin asignacion con coincidencia unica', nuevas=copy.deepcopy(additions)))
+    return current
 
 
 def sync_history(desde, hasta, user):
@@ -134,6 +150,8 @@ def sync_history(desde, hasta, user):
                 summary["cambiados" if changed else "existentes"] += 1
                 if changed:
                     summary["fechas_cambiadas"].append(fecha)
+                else:
+                    complete_missing_assignments(current, central_routes(routes, fecha), mapping, employees, user)
                 return current
             summary["guardados"] += 1
             return {"fecha": fecha, "revision": 1, "equipos": teams, "huella": digest(teams),

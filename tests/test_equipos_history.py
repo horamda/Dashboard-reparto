@@ -54,6 +54,34 @@ class HistoryTests(unittest.TestCase):
             rows.reverse()
             self.assertEqual(self.sync()["existentes"], 1)
 
+    def test_missing_truck_matches_only_unique_driver_team(self):
+        self.routes['R1']['camion'] = 'Sin camion'
+        self.sync()
+        self.assertEqual(len(self.saved()['rutas']), 1)
+        self.assertIn('equipo único', self.saved()['rutas']['R1']['criterio'])
+        teams = self.saved()['equipos']
+        duplicate = copy.deepcopy(teams[0])
+        duplicate.update(id='other', numero='5')
+        self.assertEqual(service.match_routes(teams + [duplicate], self.routes, self.mapping, self.employees), {})
+
+    def test_explicit_different_truck_does_not_match_driver_only(self):
+        self.routes['R1']['camion'] = '26'
+        self.sync()
+        self.assertEqual(self.saved()['rutas'], {})
+
+    def test_resync_fills_missing_routes_but_preserves_manual_unassignment(self):
+        with patch.object(storage, 'load_all', return_value={}):
+            self.sync()
+        self.assertEqual(self.saved()['rutas'], {})
+        self.sync()
+        day = self.saved()
+        self.assertIn('R1', day['rutas'])
+        self.assertEqual(day['revision'], 2)
+        self.assertEqual(day['auditoria'][-1]['accion'], 'asociacion_automatica')
+        service.assign_route(day['fecha'], 2, 'R1', '', 'operador', 'Revisar')
+        self.sync()
+        self.assertEqual(self.saved()['rutas'], {})
+
     def test_ambiguous_reloads_are_not_automatically_assigned(self):
         with patch.object(service.pipeline, "cargar_dpo_gkpis", return_value={"rows": [self.row, {**self.row, "fuente": "extra", "recarga": True}]}):
             self.sync()
