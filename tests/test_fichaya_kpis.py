@@ -64,12 +64,23 @@ class KpiTests(unittest.TestCase):
             self.assertEqual(values[(legajo, "2")], "-10.0000")
             self.assertEqual(values[(legajo, "3")], "10.0000")
             self.assertEqual(values[(legajo, "4")], "90.0000")
-            self.assertEqual(values[(legajo, "6")], "30.0000")
+            self.assertEqual(values[(legajo, "6")], "0.0000")
             self.assertEqual(values[(legajo, "7")], "20.0000")
 
     def test_dispersion_uses_totals_not_average_percentages(self):
         routes = {"a": {"disp_km_plan": 100, "disp_km_real": 120}, "b": {"disp_km_plan": 300, "disp_km_real": 300}}
         self.assertEqual(svc.metric_value("disp_km", routes, {}), Decimal("-5"))
+
+    def test_tml_fixed_start_preserves_actual_attendance(self):
+        for arrival in ('07:00', '07:30', '07:45'):
+            with self.subTest(arrival=arrival):
+                mark = pipeline._parse_hora_fichaya(arrival)
+                result = pipeline.calcular_tiempos_fichaya_ruta(
+                    {**self.routes['R1'], 'inicio_foxtrot': '07:55'},
+                    {('2026-09-01', 'LEGAJO:001'): {'ingreso': mark}},
+                    self.mapping, self.employees, {})
+                self.assertEqual(result['tml'], 25)
+                self.assertEqual(result['effective']['fichada_ingreso'], mark)
 
     def test_named_marks_resolve_to_unique_catalog_legajo(self):
         marks = {('2026-09-01', 'ANA'): {'ingreso': pipeline._parse_hora_fichaya('07:00'), 'egreso': pipeline._parse_hora_fichaya('14:20')}}
@@ -259,7 +270,7 @@ class KpiTests(unittest.TestCase):
         self.assertEqual(response.status_code, 302)
         preview = client.get(response.location)
         self.assertEqual(preview.status_code, 200)
-        self.assertIn("30.0000", preview.get_data(as_text=True))
+        self.assertIn("0.0000", preview.get_data(as_text=True))
 
 
 if __name__ == "__main__":

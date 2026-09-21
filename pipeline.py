@@ -890,7 +890,7 @@ def calcular_tiempos_fichaya_ruta(
         )
         for field in FICHAYA_MANUAL_FIELDS
     }
-    tml = _minutos_entre(effective["fichada_ingreso"], effective["inicio_foxtrot"])
+    tml = _minutos_entre(_parse_hora_fichaya("07:30"), effective["inicio_foxtrot"])
     ti = _minutos_entre(effective["finalizacion_foxtrot"], effective["fichada_salida"])
     tml_ok = tml is not None and 0 <= tml <= 240
     ti_ok = ti is not None and 0 <= ti <= 240
@@ -967,7 +967,7 @@ def _tml_ti_desde_fichadas(fichadas, fecha, chofer, fox_ini, fox_fin):
     item = fichadas.get((fecha, _norm_persona_key(chofer))) if fichadas else None
     if not item or pd.isna(fox_ini) or pd.isna(fox_fin):
         return None
-    tml = _minutos_entre(item.get("ingreso"), fox_ini.time())
+    tml = _minutos_entre(_parse_hora_fichaya("07:30"), fox_ini.time())
     ti = _minutos_entre(fox_fin.time(), item.get("egreso"))
     if tml is None or ti is None or not (0 <= tml <= 240) or not (0 <= ti <= 240):
         return None
