@@ -196,6 +196,7 @@ def calculate(desde, hasta, cfg=None):
         time_values = {rid: pipeline.calcular_tiempos_fichaya_ruta(route, marks, mapping, employees, overrides)
                        for rid, route in routes.items()}
     errors, results, evidence = [], [], []
+    incomplete = set()
     general_source = pipeline.cargar_satisfaccion() if {'nps', 'nps_delivery', 'rmd'} & cfg['metricas'].keys() else {}
     fechas = sorted(set(days) | {r["fecha"] for r in routes.values()})
     if not fechas:
@@ -207,27 +208,45 @@ def calculate(desde, hasta, cfg=None):
             errors.append(f"{fecha}: falta guardar el histórico de equipos.")
             continue
         indexed = {team["id"]: team for team in day["equipos"]}
+        def exclude_team(team_id):
+            for member in indexed.get(team_id, {}).get('integrantes', []):
+                incomplete.add((fecha, member['legajo']))
+
+        def exclude_route(rid, route):
+            exclude_team(day['rutas'].get(rid, {}).get('equipo_id'))
+            driver = pipeline.fichaya_lookup_ref(route.get('chofer', ''),
+                pipeline.fichaya_nombre_map(), employees).get('legajo')
+            if driver:
+                incomplete.add((fecha, driver))
+                for team in day['equipos']:
+                    if any(m['rol'] == 'Chofer' and m['legajo'] == driver for m in team['integrantes']):
+                        exclude_team(team['id'])
         persons = {}
         used = set()
         for rid, route in current.items():
             assignment = day["rutas"].get(rid)
             if not route.get("usable"):
+                exclude_route(rid, route)
                 errors.append(f"{fecha}, ruta {rid}: datos de ruta no válidos.")
                 continue
             if not assignment:
+                exclude_route(rid, route)
                 errors.append(f"{fecha}, ruta {rid}: falta asignar el equipo.")
                 continue
             if teams.route_snapshot(route) != assignment["ruta_origen"]:
+                exclude_route(rid, route)
                 errors.append(f"{fecha}, ruta {rid}: cambió la ruta; revisá su asignación.")
                 continue
             team = indexed.get(assignment["equipo_id"])
             if not team or team["avisos"] or not team["integrantes"]:
+                exclude_route(rid, route)
                 errors.append(f"{fecha}, ruta {rid}: el equipo tiene integrantes pendientes de revisión.")
                 continue
             used.add(team["id"])
             if {"tml", "ti"} & cfg["metricas"].keys():
                 driver_ids = {m["legajo"] for m in team["integrantes"] if m["rol"] == "Chofer"}
                 if time_values.get(rid, {}).get("legajo") not in driver_ids:
+                    exclude_route(rid, route)
                     errors.append(f"{fecha}, ruta {rid}: el legajo del chofer en las fichadas no coincide con el equipo histórico.")
             for member in team["integrantes"]:
                 legajo = member["legajo"]
@@ -246,9 +265,11 @@ def calculate(desde, hasta, cfg=None):
                 item["rutas"][rid] = route
         for rid in day["rutas"]:
             if rid not in current:
+                exclude_team(day['rutas'][rid]['equipo_id'])
                 errors.append(f"{fecha}, ruta {rid}: ya no está disponible en la sucursal/día guardados.")
         for team in day["equipos"]:
             if team["id"] not in used:
+                exclude_team(team['id'])
                 errors.append(f"{fecha}, camión {team['numero']}: hay un equipo sin rutas válidas asignadas.")
         for legajo, item in sorted(persons.items()):
             for key, code in cfg["metricas"].items():
@@ -266,6 +287,9 @@ def calculate(desde, hasta, cfg=None):
                                  "origen": ("Fichadas y ajustes manuales" if any(time_values.get(rid, {}).get("manual") for rid in item["rutas"]) else "Fichadas por legajo y Foxtrot") if key in {"tml", "ti"} else "Foxtrot"})
                 if key in {'nps', 'nps_delivery', 'rmd'}:
                     evidence[-1]['origen'] = 'Medición general publicada del ' + fecha + '; mismo valor para todos los integrantes'
+    safe = [(r, e) for r, e in zip(results, evidence) if (r['fecha'], r['legajo']) not in incomplete]
+    results = [r for r, _ in safe]
+    evidence = [e for _, e in safe]
     if len(results) > 10000:
         errors.append("El período supera 10.000 resultados. Seleccioná un rango menor.")
     if not results and not errors:
@@ -275,13 +299,32 @@ def calculate(desde, hasta, cfg=None):
     return {"empresa_id": cfg["empresa_id"], "resultados": results, "evidencia": evidence, "errores": errors, "huella": fingerprint}
 
 
-def create_draft(desde, hasta, user):
+def create_draft(desde, hasta, user, allow_partial=False):
     calc = calculate(desde, hasta)
+    pending = list(calc['errores']) if allow_partial else []
+    errors = [] if allow_partial and len(calc['resultados']) <= 10000 else list(calc['errores'])
+    confirmed = kpi_storage.confirmed_results()
+    rows, evidence, skipped = [], [], []
+    for row, detail in zip(calc['resultados'], calc['evidencia']):
+        key = (str(calc['empresa_id']), row['legajo'], row['fecha'], row['codigo_kpi'])
+        previous = confirmed.get(key)
+        if previous:
+            changed = Decimal(row['valor']) != Decimal(previous['valor'])
+            skipped.append({**row, 'envio_anterior': previous['envio'], 'valor_anterior': previous['valor'], 'cambio': changed})
+            if changed:
+                pending.append(f"{row['fecha']}, legajo {row['legajo']}, código {row['codigo_kpi']}: ya enviado con otro valor; requiere revisión, no se sobrescribe.")
+        else:
+            rows.append(row)
+            evidence.append(detail)
+    if not rows:
+        errors.append('No hay resultados nuevos para enviar. Revisá los ya enviados y los pendientes.')
     identifier = "run_" + uuid.uuid4().hex
-    chunks = [{"estado": "pendiente", "intentos": [], "payload": {"empresa_id": calc["empresa_id"], "resultados": calc["resultados"][i:i + 1000]}}
-              for i in range(0, len(calc["resultados"]), 1000)] if not calc["errores"] else []
+    chunks = [{"estado": "pendiente", "intentos": [], "payload": {"empresa_id": calc["empresa_id"], "resultados": rows[i:i + 1000]}}
+              for i in range(0, len(rows), 1000)] if not errors else []
     rec = {"id": identifier, "creado": now(), "usuario": user, "desde": desde, "hasta": hasta,
-           "estado": "bloqueado" if calc["errores"] else "preparado", "config": config(), **calc, "lotes": chunks}
+           "estado": "bloqueado" if errors else "preparado", "config": config(), **calc,
+           "resultados": rows, "evidencia": evidence, "errores": errors, "pendientes": pending,
+           "omitidos_enviados": skipped, "solo_validos": allow_partial, "lotes": chunks}
     return kpi_storage.update(identifier, lambda old: rec)
 
 
@@ -381,7 +424,7 @@ def send_next(identifier, user):
         if run["estado"] == "completo":
             return run
         calc = calculate(run["desde"], run["hasta"])
-        if calc["huella"] != run["huella"] or calc["errores"]:
+        if calc["huella"] != run["huella"] or (calc["errores"] and not run.get('solo_validos')):
             raise ValueError("Los datos, equipos o configuración cambiaron. Prepará una nueva vista previa antes de enviar.")
         index = next((i for i, chunk in enumerate(run["lotes"]) if chunk["estado"] != "guardado"), None)
         if index is None:
@@ -389,6 +432,10 @@ def send_next(identifier, user):
         chunk = run["lotes"][index]
         if chunk["estado"] == "rechazado":
             raise ValueError("Este lote fue rechazado. Corregí los datos y prepará un nuevo borrador.")
+        confirmed = kpi_storage.confirmed_results()
+        if any((str(run['empresa_id']), r['legajo'], r['fecha'], r['codigo_kpi']) in confirmed
+               for r in chunk['payload']['resultados']):
+            raise ValueError('Hay resultados ya confirmados en otro envío. Generá una nueva vista previa para excluirlos; no se reenviaron.')
         credentials()
         gate = kpi_storage.load("sender")
         if gate.get("disponible", 0) > time.time():

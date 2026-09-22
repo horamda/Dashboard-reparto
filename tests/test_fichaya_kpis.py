@@ -254,6 +254,43 @@ class KpiTests(unittest.TestCase):
         self.employees["002"]["sector_id"] = "2"
         self.assertTrue(any("sector" in error for error in self.draft()["errores"]))
 
+    def test_partial_draft_keeps_missing_metrics_pending_and_sends_valid_rows(self):
+        self.routes['R1']['adhcli'] = None
+        run = svc.create_draft('2026-09-01', '2026-09-01', 'test', allow_partial=True)
+        self.assertEqual(run['errores'], [])
+        self.assertEqual(len(run['pendientes']), 2)
+        self.assertEqual(len(run['resultados']), 8)
+        self.assertTrue(all(row['codigo_kpi'] != '4' for row in run['resultados']))
+        with patch.object(svc, 'post_results', return_value={'empresa_id': 1, 'recibidos': 8, 'guardados': 8}):
+            self.assertEqual(svc.send_next(run['id'], 'test')['estado'], 'completo')
+
+    def test_partial_excludes_person_day_when_another_route_is_unassigned(self):
+        self.routes['R2'] = dict(self.routes['R1'], rid='R2')
+        run = svc.create_draft('2026-09-01', '2026-09-01', 'test', allow_partial=True)
+        self.assertEqual(run['resultados'], [])
+        self.assertEqual(run['lotes'], [])
+        self.assertTrue(run['pendientes'])
+
+    def test_new_drafts_skip_previously_confirmed_keys_even_if_value_changed(self):
+        run = self.draft()
+        with patch.object(svc, 'post_results', return_value={'empresa_id': 1, 'recibidos': 10, 'guardados': 10}):
+            svc.send_next(run['id'], 'test')
+        self.routes['R1']['adhcli'] = 80
+        new = svc.create_draft('2026-09-01', '2026-09-01', 'test', allow_partial=True)
+        self.assertEqual(new['lotes'], [])
+        self.assertEqual(len(new['omitidos_enviados']), 10)
+        self.assertEqual(len(new['pendientes']), 2)
+
+    def test_other_draft_confirmed_after_preview_prevents_duplicate_network_call(self):
+        old, new = self.draft(), self.draft()
+        with patch.object(svc, 'post_results', return_value={'empresa_id': 1, 'recibidos': 10, 'guardados': 10}):
+            svc.send_next(new['id'], 'test')
+        self.unthrottle()
+        with patch.object(svc, 'post_results') as post:
+            with self.assertRaises(ValueError):
+                svc.send_next(old['id'], 'test')
+            post.assert_not_called()
+
     def test_ui_preview_protected_and_actual_catalog_visible(self):
         app.app.config.update(TESTING=True, SECRET_KEY="test-kpi")
         client = app.app.test_client()

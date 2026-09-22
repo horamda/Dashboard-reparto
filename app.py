@@ -1737,7 +1737,7 @@ def kpis_fichaya_preparar():
     if not _kpis_csrf_valid():
         return Response("Recargá el formulario antes de preparar.", status=400)
     try:
-        run = fichaya_kpis_service.create_draft(request.form.get("desde", ""), request.form.get("hasta", ""), session.get("admin_user") or "admin")
+        run = fichaya_kpis_service.create_draft(request.form.get("desde", ""), request.form.get("hasta", ""), session.get("admin_user") or "admin", allow_partial=request.form.get("solo_validos") == "1")
         return redirect(url_for("kpis_fichaya_envio", identifier=run["id"]))
     except ValueError as exc:
         return redirect(url_for("kpis_fichaya", msg=str(exc)))

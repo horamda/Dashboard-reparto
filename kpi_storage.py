@@ -77,6 +77,29 @@ def recent(limit=30):
     return sorted(items, key=lambda r: r["creado"], reverse=True)[:limit]
 
 
+def confirmed_results():
+    """All confirmed keys, including successful batches in interrupted runs."""
+    if storage.BACKEND == "postgres":
+        with storage._conn() as cn, cn.cursor() as cur:
+            cur.execute("SELECT rec FROM settings_dashboard WHERE key LIKE %s ORDER BY rec->>'creado';",
+                        ('fichaya_kpis:run_%',))
+            runs = [row[0] for row in cur.fetchall()]
+    else:
+        directory = os.path.join(storage.DATA_DIR, "fichaya_kpis")
+        runs = [load(name[:-5]) for name in os.listdir(directory)
+                if name.startswith('run_') and name.endswith('.json')] if os.path.isdir(directory) else []
+        runs.sort(key=lambda run: run.get('creado', ''))
+    confirmed = {}
+    for run in runs:
+        for chunk in run.get('lotes', []):
+            if chunk.get('estado') != 'guardado':
+                continue
+            for row in chunk['payload']['resultados']:
+                key = (str(run['empresa_id']), row['legajo'], row['fecha'], row['codigo_kpi'])
+                confirmed[key] = {'valor': row['valor'], 'envio': run['id']}
+    return confirmed
+
+
 @contextmanager
 def sender_lock():
     """Un solo envío activo para evitar correcciones concurrentes fuera de orden."""
