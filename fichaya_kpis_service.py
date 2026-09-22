@@ -316,13 +316,13 @@ def create_draft(desde, hasta, user, allow_partial=False):
         else:
             rows.append(row)
             evidence.append(detail)
-    if not rows:
+    if not rows and not skipped:
         errors.append('No hay resultados nuevos para enviar. Revisá los ya enviados y los pendientes.')
     identifier = "run_" + uuid.uuid4().hex
     chunks = [{"estado": "pendiente", "intentos": [], "payload": {"empresa_id": calc["empresa_id"], "resultados": rows[i:i + 1000]}}
               for i in range(0, len(rows), 1000)] if not errors else []
     rec = {"id": identifier, "creado": now(), "usuario": user, "desde": desde, "hasta": hasta,
-           "estado": "bloqueado" if errors else "preparado", "config": config(), **calc,
+           "estado": "bloqueado" if errors else ("preparado" if rows else "sin_nuevos"), "config": config(), **calc,
            "resultados": rows, "evidencia": evidence, "errores": errors, "pendientes": pending,
            "omitidos_enviados": skipped, "solo_validos": allow_partial, "lotes": chunks}
     return kpi_storage.update(identifier, lambda old: rec)
