@@ -242,6 +242,20 @@ tfoot td{font-weight:700;border-top:2px solid var(--line);border-bottom:none}
 #pdvTimePanel td:first-child{white-space:normal;min-width:110px}
 @media(max-width:900px){#pdvTimePanel .pdv-controls{grid-template-columns:repeat(2,minmax(0,1fr))}#pdvTimePanel .pdv-chart-grid{grid-template-columns:1fr}}
 @media(max-width:540px){#pdvTimePanel .pdv-controls{grid-template-columns:1fr}#pdvTimePanel select{font-size:16px}#pdvTimePanel .pdv-chart{height:290px}}
+
+.goal-summary{--goal-color:#1e3a8a;display:flex;align-items:center;gap:24px;flex-wrap:wrap;padding:20px 24px;margin:0 0 20px;border:1px solid #dce2ea;border-left:5px solid var(--goal-color);border-radius:12px;background:#fff}
+.goal-summary[data-state="good"]{--goal-color:#15803d}
+.goal-summary[data-state="bad"]{--goal-color:#b91c1c}
+.goal-summary .goal-label{display:block;color:#657085;font-size:12px;margin-bottom:5px}
+.goal-summary strong{font-size:24px;color:#15233b;font-variant-numeric:tabular-nums}
+.goal-summary .goal-result{flex:1;min-width:160px}
+.goal-summary .goal-state{font-weight:700;color:var(--goal-color);margin-bottom:5px}
+.goal-summary .goal-gap{font-size:13px;color:#536176}
+.goal-track{position:relative;height:8px;background:#e8edf4;border-radius:8px;margin:12px 0 6px}
+.goal-track span{display:block;height:100%;border-radius:8px;background:var(--goal-color)}
+.goal-track i{position:absolute;top:-4px;height:16px;width:3px;background:#15233b;border-radius:2px}
+.goal-chart-note{font-size:12px;color:#1e3a8a;margin:8px 0 12px;font-weight:600}
+@media(max-width:600px){.goal-summary{padding:16px;gap:16px}.goal-summary .goal-result{flex-basis:100%}}
 </style><style>
 #viewOtif>.panel,#viewInFull>.panel{margin-bottom:22px}
 #docOtifCards{grid-template-columns:repeat(3,minmax(0,1fr));margin-top:16px}
@@ -665,6 +679,7 @@ tfoot td{font-weight:700;border-top:2px solid var(--line);border-bottom:none}
   </section>
  </div>
  <div id="viewOnTime" style="display:none">
+  <div id="onTimeGoal" class="goal-summary" role="status" aria-live="polite"><div><span class="goal-label">Objetivo On Time</span><strong>≥85%</strong></div><div class="goal-gap">Cargando resultado del período…</div></div>
   <div class="hint">On time compara el horario real de visita Foxtrot contra la ventana horaria del cliente. Los clientes se cuentan solo si aparecen en las visitas Foxtrot.</div>
   <div class="cards c4" style="margin-bottom:22px">
    <div class="card" id="cOT"><div class="badge" id="gOT"></div><div class="k">On time</div><div class="v" id="kOT">–</div><div class="obj">pedidos entregados dentro de ventana</div><div class="bar"><i id="bOT"></i></div></div>
@@ -676,13 +691,13 @@ tfoot td{font-weight:700;border-top:2px solid var(--line);border-bottom:none}
    <div class="card" id="cOTCliSin"><div class="k">Clientes Foxtrot sin ventana</div><div class="v" id="kOTCliSin">–</div><div class="obj">clientes únicos Foxtrot sin horario cargado</div><div class="bar"><i id="bOTCliSin"></i></div></div>
   </div>
   <div class="grid">
-   <div class="panel"><h2>On time por mes</h2><div class="note">% de pedidos dentro de ventana horaria</div><div class="chartbox"><canvas id="chOT"></canvas></div></div>
+   <div class="panel"><h2>On time por mes</h2><div class="goal-chart-note">Objetivo ≥85% · línea azul discontinua</div><div class="note">% de pedidos dentro de ventana horaria</div><div class="chartbox"><canvas id="chOT"></canvas></div></div>
    <div class="panel" style="grid-column:span 2"><h2>Detalle mensual on time</h2><div class="note">Solo calcula porcentaje sobre pedidos con ventana horaria evaluable.</div>
     <table><thead><tr><th>Mes</th><th>Visitas evaluables</th><th>On time</th><th>Visitas fuera de ventana</th><th>Visitas sin ventana cargada</th><th>Clientes Foxtrot únicos</th><th>Clientes c/ventana</th><th>Clientes s/ventana</th><th>% clientes c/ventana</th><th>% On time</th></tr></thead><tbody id="tbodyOT"></tbody></table></div>
   </div>
   <div class="grid" style="grid-template-columns:1fr 1fr">
-   <div class="panel"><h2>On time por persona</h2><div class="note">% de pedidos dentro de ventana horaria</div><div class="chartbox" style="height:320px"><canvas id="chOTCho"></canvas></div></div>
-   <div class="panel"><h2>On time por zona</h2><div class="note">% de pedidos dentro de ventana horaria</div><div class="chartbox" style="height:320px"><canvas id="chOTZona"></canvas></div></div>
+   <div class="panel"><h2>On time por persona</h2><div class="goal-chart-note">Objetivo ≥85%</div><div class="note">% de pedidos dentro de ventana horaria</div><div class="chartbox" style="height:320px"><canvas id="chOTCho"></canvas></div></div>
+   <div class="panel"><h2>On time por zona</h2><div class="goal-chart-note">Objetivo ≥85%</div><div class="note">% de pedidos dentro de ventana horaria</div><div class="chartbox" style="height:320px"><canvas id="chOTZona"></canvas></div></div>
   </div>
   <div class="grid" style="grid-template-columns:1fr 1fr">
    <div class="panel"><h2>Detalle por persona</h2><div class="note">Ordenado por pedidos evaluables.</div>
@@ -757,16 +772,18 @@ tfoot td{font-weight:700;border-top:2px solid var(--line);border-bottom:none}
   </div>
  </div>
  <div id="viewInFull" style="display:none">
+  <div id="inFullGoal" class="goal-summary" role="status" aria-live="polite"><div><span class="goal-label">Objetivo In Full</span><strong>≥85%</strong></div><div class="goal-gap">Cargando resultado del período…</div></div>
   <div class="panel"><h2>In Full operativo · rechazos por comprobante</h2><div id="inFullStatus" role="status"></div><p><a href="/admin#sincronizacion-logistica">Sincronizar ventas o recalcular Foxtrot</a> &middot; <a href="/cumplimiento-comprobantes">Consultar evidencia por comprobante</a></p><button type="button" onclick="reloadDocOtif();clearInFull()">Recargar resultados guardados</button><p class="note">Mismos comprobantes procesados y filtros de unidad, sucursal, mes, día y chofer que OTIF. In Full operativo = sin rechazo / comprobantes con rechazo determinado. No exige horario conocido; OTIF exige además On Time, por eso sus denominadores pueden diferir. No compara cantidades contra el pedido original.</p><div id="inFullCards" class="cards c4"></div></div>
-  <div class="grid" style="grid-template-columns:1fr 1fr"><div class="panel"><h2>In Full por mes</h2><div class="chartbox" style="height:320px"><canvas id="chInFullMonth"></canvas></div></div><div class="panel"><h2>Estado de rechazo</h2><div class="chartbox" style="height:320px"><canvas id="chInFullStates"></canvas></div></div></div>
+  <div class="grid" style="grid-template-columns:1fr 1fr"><div class="panel"><h2>In Full por mes</h2><div class="goal-chart-note">Objetivo ≥85% · línea azul discontinua</div><div class="chartbox" style="height:320px"><canvas id="chInFullMonth"></canvas></div></div><div class="panel"><h2>Estado de rechazo</h2><div class="chartbox" style="height:320px"><canvas id="chInFullStates"></canvas></div></div></div>
   <div class="panel"><h2>Mes por mes</h2><div class="tblscroll"><table><thead><tr><th>Mes</th><th>Comprobantes</th><th>Sin rechazo</th><th>Total</th><th>Parcial</th><th>Rechazo sin alcance</th><th>Pendientes</th><th>Cobertura</th><th>In Full</th></tr></thead><tbody id="inFullMonths"></tbody></table></div></div>
-  <div class="panel"><h2>In Full por chofer</h2><p class="note">Cada comprobante cuenta una vez por chofer vinculado el mismo día. Los compartidos aparecen en cada chofer; estas filas no se suman al total general.</p><div id="inFullDriverNote" class="note"></div><div style="overflow:auto"><div id="inFullDriverChart" class="chartbox" style="height:380px"><canvas id="chInFullDriver"></canvas></div></div><div class="tblscroll"><table><thead><tr><th>Chofer</th><th>Comprobantes</th><th>Sin rechazo</th><th>Total</th><th>Parcial</th><th>Rechazo sin alcance</th><th>Pendientes</th><th>Cobertura</th><th>In Full</th></tr></thead><tbody id="inFullDrivers"></tbody></table></div></div>
+  <div class="panel"><h2>In Full por chofer</h2><div class="goal-chart-note">Objetivo ≥85% · línea azul discontinua</div><p class="note">Cada comprobante cuenta una vez por chofer vinculado el mismo día. Los compartidos aparecen en cada chofer; estas filas no se suman al total general.</p><div id="inFullDriverNote" class="note"></div><div style="overflow:auto"><div id="inFullDriverChart" class="chartbox" style="height:380px"><canvas id="chInFullDriver"></canvas></div></div><div class="tblscroll"><table><thead><tr><th>Chofer</th><th>Comprobantes</th><th>Sin rechazo</th><th>Total</th><th>Parcial</th><th>Rechazo sin alcance</th><th>Pendientes</th><th>Cobertura</th><th>In Full</th></tr></thead><tbody id="inFullDrivers"></tbody></table></div></div>
   <div class="panel"><h2>Detalle por comprobante</h2><div class="tblscroll"><table><thead><tr><th>Día</th><th>Sucursal</th><th>Cliente</th><th>Comprobante</th><th>Rechazo</th><th>In Full</th><th>On Time</th><th>OTIF</th></tr></thead><tbody id="inFullRows"></tbody></table></div><button type="button" id="inFullPrev">Anterior</button> <span id="inFullPage"></span> <button type="button" id="inFullNext">Siguiente</button></div>
  </div>
  <div id="viewOtif" style="display:none">
+  <div id="otifGoal" class="goal-summary" role="status" aria-live="polite"><div><span class="goal-label">Objetivo OTIF</span><strong>≥85%</strong></div><div class="goal-gap">Cargando resultado del período…</div></div>
   <div class="panel"><h2>OTIF operativo por comprobante</h2><div id="docOtifStatus" role="status"></div><p><a href="/admin#sincronizacion-logistica">Sincronizar ventas o recalcular Foxtrot</a> &middot; <a href="/cumplimiento-comprobantes">Consultar evidencia por comprobante</a></p><button type="button" onclick="reloadDocOtif()">Recargar resultados guardados</button><p class="note">Respeta los filtros superiores. OTIF = comprobantes a tiempo y sin rechazo total ni parcial / evaluados. Pendientes fuera del porcentaje. El chofer selecciona visitas del mismo día; los casos compartidos no atribuyen responsabilidad individual.</p><div id="docOtifCards" class="cards c4"></div></div>
-  <div class="panel"><h2>OTIF por mes · comprobantes</h2><div class="chartbox" style="height:300px"><canvas id="chDocOtif"></canvas></div><div class="tblscroll"><table><thead><tr><th>Mes</th><th>Comprobantes</th><th>Cumplen</th><th>No cumplen</th><th>Pendientes</th><th>Cobertura</th><th>OTIF</th></tr></thead><tbody id="docOtifMonths"></tbody></table></div></div>
-  <div class="panel"><h2>OTIF por chofer</h2><p class="note">Mismos filtros y cálculo por comprobante. Objetivo ≥95%. Un comprobante compartido cuenta una vez para cada chofer vinculado; los totales por chofer no se suman para obtener el total general. El resultado corresponde al comprobante y no atribuye responsabilidad individual.</p><div id="docOtifDriverNote" class="note"></div><div style="overflow:auto"><div class="chartbox" id="docOtifDriverChart" style="height:380px"><canvas id="chDocOtifDriver"></canvas></div></div></div>
+  <div class="panel"><h2>OTIF por mes · comprobantes</h2><div class="goal-chart-note">Objetivo ≥85% · línea azul discontinua</div><div class="chartbox" style="height:300px"><canvas id="chDocOtif"></canvas></div><div class="tblscroll"><table><thead><tr><th>Mes</th><th>Comprobantes</th><th>Cumplen</th><th>No cumplen</th><th>Pendientes</th><th>Cobertura</th><th>OTIF</th></tr></thead><tbody id="docOtifMonths"></tbody></table></div></div>
+  <div class="panel"><h2>OTIF por chofer</h2><div class="goal-chart-note">Objetivo ≥85% · línea azul discontinua</div><p class="note">Mismos filtros y cálculo por comprobante. Objetivo ≥85%. Un comprobante compartido cuenta una vez para cada chofer vinculado; los totales por chofer no se suman para obtener el total general. El resultado corresponde al comprobante y no atribuye responsabilidad individual.</p><div id="docOtifDriverNote" class="note"></div><div style="overflow:auto"><div class="chartbox" id="docOtifDriverChart" style="height:380px"><canvas id="chDocOtifDriver"></canvas></div></div></div>
   <div class="panel"><h2>Comprobantes evaluados por chofer</h2><div style="overflow:auto"><div class="chartbox" id="docOtifDriverVolumeChart" style="height:380px"><canvas id="chDocOtifDriverVolume"></canvas></div></div><div class="tblscroll"><table><thead><tr><th>Chofer</th><th>Comprobantes</th><th>Evaluados</th><th>Cumplen</th><th>No cumplen</th><th>Pendientes</th><th>Compartidos</th><th>Cobertura</th><th>OTIF</th></tr></thead><tbody id="docOtifDrivers"></tbody></table></div></div>
   <div class="panel"><h2>Detalle por comprobante</h2><div class="tblscroll"><table><thead><tr><th>Día</th><th>Sucursal</th><th>Cliente</th><th>Comprobante</th><th>Rechazo total</th><th>Rechazo parcial</th><th>On Time</th><th>OTIF</th></tr></thead><tbody id="docOtifRows"></tbody></table></div><button type="button" id="docOtifPrev">Anterior</button> <span id="docOtifPage"></span> <button type="button" id="docOtifNext">Siguiente</button></div>
 
@@ -887,10 +904,11 @@ function dLabels(idxs,stacked=false){return {id:'dl',afterDatasetsDraw(c){
  });ctx.restore()
 }}}
 function barGen(id,labels,vals,fmt,colorFn,obj,showLbl,selection){if(!chartsReady())return;if(ch[id])ch[id].destroy();
+ const labeledGoal=['chOT','chInFullMonth','chInFullDriver','chDocOtif','chDocOtifDriver'].includes(id)&&obj!=null;
  const ds=[{type:'bar',data:vals,backgroundColor:vals.map(colorFn),borderRadius:3,maxBarThickness:34,_fmt:fmt},
-  {type:'line',data:vals.map(()=>obj),borderColor:C.obj,borderWidth:2,borderDash:[6,4],pointRadius:0,fill:false}];
+  {type:'line',label:'Objetivo \u2265'+fmt(obj),data:vals.map(()=>obj),borderColor:C.obj,borderWidth:2,borderDash:[6,4],pointRadius:0,fill:false}];
  ch[id]=new Chart(document.getElementById(id),{data:{labels,datasets:ds},options:{...chartInteraction(selection),responsive:true,maintainAspectRatio:false,layout:{padding:{top:16}},
-  plugins:{legend:{display:false},tooltip:{callbacks:{label:x=>x.datasetIndex===1?'Objetivo '+fmt(obj):fmt(x.parsed.y)}}},
+  plugins:{legend:{display:labeledGoal,position:'top',align:'end',onClick:()=>{},labels:{filter:item=>item.datasetIndex===1,color:C.obj,boxWidth:36,boxHeight:2,padding:16,font:{size:12,weight:'bold'}}},tooltip:{callbacks:{label:x=>x.datasetIndex===1?'Objetivo '+fmt(obj):fmt(x.parsed.y)}}},
   scales:{y:{beginAtZero:true,grace:'14%',ticks:{color:'#657085',font:{size:11}},grid:{color:'#eef1f5'}},x:{ticks:{color:'#657085',font:{size:10},maxRotation:60,minRotation:labels.length>12?45:0},grid:{display:false}}}},plugins:[dLabels([0])]})}
 function barMetric(id,labels,vals,fmt,color,showLbl,selection){if(!chartsReady())return;if(ch[id])ch[id].destroy();const colors=vals.map((v,i)=>typeof color==='function'?color(v,i):color),ds=[{type:'bar',data:vals,backgroundColor:colors,borderRadius:3,maxBarThickness:34,_fmt:fmt}];ch[id]=new Chart(document.getElementById(id),{data:{labels,datasets:ds},options:{...chartInteraction(selection),responsive:true,maintainAspectRatio:false,layout:{padding:{top:24,right:8,left:4}},plugins:{legend:{display:false},tooltip:{callbacks:{label:x=>fmt(x.parsed.y)}}},scales:{y:{beginAtZero:true,grace:'14%',ticks:{color:'#657085',font:{size:11}},grid:{color:'#eef1f5'}},x:{ticks:{color:'#657085',font:{size:10},maxRotation:60,minRotation:labels.length>12?45:0},grid:{display:false}}}},plugins:[dLabels([0])]})}
 function adhChart(id,labels,sV,cV,selection){if(!chartsReady())return;if(ch[id])ch[id].destroy();
@@ -972,8 +990,8 @@ function topClientesFuera(scope){const g={};scope.forEach(r=>(r.clientes_fuera_o
 function topClientesSinVentana(scope,limit=30){const g={};scope.forEach(r=>(r.clientes_sin_ventana_actual??r.clientes_sin_ventana??[]).forEach(c=>{const k=c.cliente||'Sin ID';const x=g[k]||(g[k]={cliente:k,nombre:c.nombre||'',pedidos:0,motivo:c.motivo||'sin ventana cargada'});x.pedidos+=1;x.nombre=x.nombre||c.nombre||'';x.motivo=x.motivo||c.motivo||'sin ventana cargada'}));return Object.values(g).sort((a,b)=>b.pedidos-a.pedidos||a.nombre.localeCompare(b.nombre)).slice(0,limit)}
 function otRows(items){return items.length?items.map(s=>'<tr><td>'+esc(s.key)+'</td><td>'+s.ev+'</td><td class="g">'+s.ok+'</td><td class="'+(s.bad?'r':'g')+'">'+s.bad+'</td><td class="'+(s.sin?'r':'g')+'">'+s.sin+'</td><td class="'+(s.p>=85?'g':'r')+'">'+(s.p==null?'–':r1(s.p)+'%')+'</td></tr>').join(''):emptyRow(6,'No hay pedidos para el filtro actual.')}
 function otChart(id,items,dimension){if(!chartsReady())return;if(ch[id])ch[id].destroy();const rows=items.filter(s=>s.p!=null).slice(0,14);
- ch[id]=new Chart(document.getElementById(id),{data:{labels:rows.map(s=>s.key),datasets:[{type:'bar',data:rows.map(s=>s.p),backgroundColor:rows.map(s=>s.p>=85?C.good:C.bad),borderRadius:4,maxBarThickness:22},{type:'line',data:rows.map(()=>85),borderColor:C.obj,borderWidth:2,borderDash:[6,4],pointRadius:0}]},
-  options:{...chartInteraction(dimension?chartFilter(dimension,rows.map(s=>s.key)):null),indexAxis:'y',responsive:true,maintainAspectRatio:false,layout:{padding:{right:28}},plugins:{legend:{display:false},tooltip:{callbacks:{label:x=>x.datasetIndex===1?'Objetivo 85%':r1(x.parsed.x)+'% · '+rows[x.dataIndex].ev+' pedidos eval.'}}},
+ ch[id]=new Chart(document.getElementById(id),{data:{labels:rows.map(s=>s.key),datasets:[{type:'bar',data:rows.map(s=>s.p),backgroundColor:rows.map(s=>s.p>=85?C.good:C.bad),borderRadius:4,maxBarThickness:22},{type:'line',label:'Objetivo \u226585%',data:rows.map(()=>85),borderColor:C.obj,borderWidth:2,borderDash:[6,4],pointRadius:0}]},
+  options:{...chartInteraction(dimension?chartFilter(dimension,rows.map(s=>s.key)):null),indexAxis:'y',responsive:true,maintainAspectRatio:false,layout:{padding:{right:28}},plugins:{legend:{display:true,position:'top',align:'end',onClick:()=>{},labels:{filter:item=>item.datasetIndex===1,color:C.obj,boxWidth:36,boxHeight:2,padding:16,font:{size:12,weight:'bold'}}},tooltip:{callbacks:{label:x=>x.datasetIndex===1?'Objetivo 85%':r1(x.parsed.x)+'% · '+rows[x.dataIndex].ev+' pedidos eval.'}}},
   scales:{x:{min:0,max:100,ticks:{callback:v=>v+'%',color:'#657085',font:{size:11}},grid:{color:'#eef1f5'}},y:{ticks:{color:'#26334d',font:{size:10}},grid:{display:false}}}},plugins:[hLabels(0,v=>r1(v)+'%')]})}
 function hLabels(di,fmt){return {id:'hl'+di,afterDatasetsDraw(c){if(!c.isDatasetVisible(di))return;const{ctx,chartArea}=c,m=c.getDatasetMeta(di);ctx.save();ctx.font='600 10px system-ui';ctx.fillStyle='#26334d';ctx.strokeStyle='rgba(255,255,255,.96)';ctx.lineWidth=3;ctx.textAlign='left';ctx.textBaseline='middle';m.data.forEach((b,i)=>{const v=c.data.datasets[di].data[i];if(v==null||!Number.isFinite(Number(v)))return;const label=String(fmt(v)),x=Math.max(chartArea.left+3,Math.min(b.x+6,chartArea.right-ctx.measureText(label).width-3));ctx.strokeText(label,x,b.y);ctx.fillText(label,x,b.y)});ctx.restore()}}}
 function rechazoPeriodOk(r){return(state.mes==='__all'||r.fecha.slice(0,7)===state.mes)&&(state.fecha==='__all'||r.fecha===state.fecha)}
@@ -1184,6 +1202,13 @@ function renderRechazos(){const rows=rechazosScope(),total=rows.reduce((s,r)=>s+
  tbodyRechDetalle.innerHTML=det.length?det.slice().sort((a,b)=>b.fecha.localeCompare(a.fecha)||(b.pedidos_rechazo||0)-(a.pedidos_rechazo||0)).slice(0,250).map(r=>'<tr><td>'+dLbl(r.fecha)+'</td><td>'+esc(r.sucursal)+'</td><td>'+esc(r.chofer)+'</td><td>'+esc(r.sector)+'</td><td>'+esc(r.motivo)+'</td><td class="r">'+fmt0(r.pedidos_rechazo)+'</td><td>'+fmt0(r.ocurrencias)+'</td><td>'+fmt1(r.bultos_rechazo)+'</td><td>'+fmt1(r.hl_rechazo)+'</td><td>'+fmt1(r.pallets_rechazo)+'</td></tr>').join(''):emptyRow(10,'No hay detalle de rechazos importado para el filtro actual.');
  tbodyRech.innerHTML=rows.length?rows.map(r=>{const aus=r.nds==null?null:100-r.nds,ev=r.evento||r.feriado||'';return '<tr><td title="'+esc(r.fecha)+'">'+dLbl(r.fecha)+'</td><td>'+fmt1(r.bultos)+'</td><td class="'+((r.rechazo_bultos||0)?'r':'g')+'">'+fmt1(r.rechazo_bultos)+'</td><td class="'+((r.rechazo_bultos_total||0)?'r':'g')+'">'+fmt1(r.rechazo_bultos_total)+'</td><td>'+fmt1(r.hl)+'</td><td class="'+((r.rechazo_hl||0)?'r':'g')+'">'+fmt1(r.rechazo_hl)+'</td><td class="'+((r.rechazo_hl_total||0)?'r':'g')+'">'+fmt1(r.rechazo_hl_total)+'</td><td>'+fmt0(r.salidas)+'</td><td>'+fmt0(r.pedidos_pdv_atendidos)+'</td><td>'+fmt0(r.pdv_unicos)+'</td><td>'+pctPill(r.nds,(r.nds||0)>=95)+'</td><td>'+fmt1(aus)+'</td><td>'+rechazoPill(r.pct_rechazo_pedidos,(r.pct_rechazo_pedidos||0)<=OBJ_RECH.pdv)+'</td><td>'+rechazoPill(r.pct_rechazo_bultos,(r.pct_rechazo_bultos||0)<=OBJ_RECH.bultos)+'</td><td>'+rechazoPill(r.pct_rechazo_hl,(r.pct_rechazo_hl||0)<=OBJ_RECH.hl)+'</td><td class="event">'+esc(ev)+'</td></tr>'}).join(''):emptyRow(16,'No hay rechazos cargados para el filtro actual.');}
 
+function renderGoal(id,label,value,target){
+ const el=document.getElementById(id),valid=typeof value==='number'&&Number.isFinite(value),hasTarget=typeof target==='number'&&Number.isFinite(target),met=valid&&hasTarget&&value>=target;
+ el.dataset.state=!valid||!hasTarget?'neutral':met?'good':'bad';
+ const status=!valid?'Sin datos evaluables':!hasTarget?'Objetivo pendiente de definir':met?'Cumple el objetivo':'Por debajo del objetivo';
+ const gap=!valid?'No hay resultado para comparar con los filtros actuales.':!hasTarget?'El resultado se muestra sin evaluar cumplimiento.':(Math.abs(value-target)<0.000001?'En la meta':Math.abs(value-target).toLocaleString('es-AR',{minimumFractionDigits:1,maximumFractionDigits:2})+' puntos porcentuales '+(met?'por encima':'por debajo'));
+ el.innerHTML='<div><span class="goal-label">Objetivo '+label+'</span><strong>'+(hasTarget?'≥ '+fmtPct(target):'Sin definir')+'</strong></div><div><span class="goal-label">Resultado del período</span><strong>'+(valid?fmtPct(value):'—')+'</strong></div><div class="goal-result"><div class="goal-state">'+status+'</div><div class="goal-gap">'+gap+'</div>'+(hasTarget?'<div class="goal-track" aria-hidden="true"><span style="width:'+(valid?Math.max(0,Math.min(100,value)):0)+'%"></span><i style="left:'+target+'%"></i></div><div class="goal-gap">Escala 0–100% · marca: objetivo</div>':'')+'</div>';
+}
 let inFullPage=0,inFullKey='';
 function inFullStats(rows){const total=rows.length,ok=rows.filter(r=>r.tiene_rechazo===false).length,rejected=rows.filter(r=>r.tiene_rechazo===true).length,evaluated=ok+rejected,full=rows.filter(r=>r.estado_rechazo==='total').length,partial=rows.filter(r=>r.estado_rechazo==='parcial').length;return{total,ok,full,partial,unknownScope:rejected-full-partial,pending:total-evaluated,coverage:total?100*evaluated/total:null,value:evaluated?100*ok/evaluated:null}}
 function inFullDrivers(rows){const groups=new Map();rows.forEach(r=>[...new Set((r.choferes||[]).map(cleanPersona).filter(n=>n!=='Sin dato'))].filter(n=>state.cho==='__all'||n===state.cho).forEach(n=>{if(!groups.has(n))groups.set(n,[]);groups.get(n).push(r)}));return [...groups].map(([key,rows])=>({key,...inFullStats(rows)})).sort((a,b)=>(b.value??-1)-(a.value??-1)||a.key.localeCompare(b.key))}
@@ -1192,6 +1217,7 @@ function renderInFull(){
  if(!docOtifData){clearInFull();if(!docOtifLoading)reloadDocOtif();return}
  const key=JSON.stringify([state.unidad,state.suc,state.mes,state.fecha,state.cho]);if(key!==inFullKey){inFullKey=key;inFullPage=0}
  const rows=docOtifScope(docOtifData.rows),stats=inFullStats(rows),pct=v=>v==null?'Sin evaluar':fmtPct(v);
+ renderGoal('inFullGoal','In Full',stats.value,85);
  document.getElementById('inFullStatus').textContent='Base local · Ventas: '+(docOtifData.ventas_sync_at||'sin sincronizar')+' · Cruce Foxtrot: '+(docOtifData.foxtrot_calculado_at||'sin calcular');
  document.getElementById('inFullCards').innerHTML=[['In Full operativo',pct(stats.value)],['Comprobantes',fmt0(stats.total)],['Sin rechazo',fmt0(stats.ok)],['Rechazo total',fmt0(stats.full)],['Rechazo parcial',fmt0(stats.partial)],['Rechazo sin alcance',fmt0(stats.unknownScope)],['Pendientes',fmt0(stats.pending)],['Cobertura',pct(stats.coverage)]].map(([k,v])=>'<div class="card"><div class="k">'+k+'</div><div class="v">'+v+'</div></div>').join('');
  const groups=new Map();rows.forEach(r=>{if(!groups.has(r.mes))groups.set(r.mes,[]);groups.get(r.mes).push(r)});const months=[...groups.keys()].sort().map(key=>({key,...inFullStats(groups.get(key))})),drivers=inFullDrivers(rows);
@@ -1200,9 +1226,9 @@ function renderInFull(){
  document.getElementById('inFullDrivers').innerHTML=drivers.map(r=>'<tr><td>'+esc(r.key)+'</td>'+cells(r)+'</tr>').join('')||emptyRow(9,'Sin choferes vinculados para los filtros activos.');
  document.getElementById('inFullDriverNote').textContent=fmt0(rows.filter(r=>!(r.choferes||[]).some(n=>cleanPersona(n)!=='Sin dato')).length)+' comprobantes sin chofer vinculado en esta selección.';
  document.getElementById('inFullDriverChart').style.minWidth=Math.max(600,drivers.length*95)+'px';
- barMetric('chInFullMonth',months.map(r=>mLbl(r.key)),months.map(r=>r.value),fmtPct,C.cli,true,chartFilter('mes',months.map(r=>r.key)));
+ barGen('chInFullMonth',months.map(r=>mLbl(r.key)),months.map(r=>r.value),fmtPct,v=>v==null?C.obj:v>=85?C.good:C.bad,85,true,chartFilter('mes',months.map(r=>r.key)));
  barMetric('chInFullStates',['Sin rechazo','Total','Parcial','Sin alcance','Pendientes'],[stats.ok,stats.full,stats.partial,stats.unknownScope,stats.pending],fmt0,(v,i)=>[C.good,C.bad,C.amber,C.sec,C.obj][i],true);
- barMetric('chInFullDriver',drivers.map(r=>r.key),drivers.map(r=>r.value),fmtPct,C.cli,true,chartFilter('cho',drivers.map(r=>r.key)));
+ barGen('chInFullDriver',drivers.map(r=>r.key),drivers.map(r=>r.value),fmtPct,v=>v==null?C.obj:v>=85?C.good:C.bad,85,true,chartFilter('cho',drivers.map(r=>r.key)));
  const pages=Math.max(1,Math.ceil(rows.length/100));inFullPage=Math.min(inFullPage,pages-1);const yn=v=>v==null?'Pendiente':v?'Sí':'No',labels={sin_rechazo:'Sin rechazo',total:'Total',parcial:'Parcial',rechazo_sin_alcance:'Sin alcance',sin_determinar:'Pendiente'};
  document.getElementById('inFullRows').innerHTML=rows.slice(inFullPage*100,(inFullPage+1)*100).map(r=>'<tr>'+[r.fecha,r.suc,(r.cliente||'')+' · '+(r.nombre||''),r.comprobante,labels[r.estado_rechazo]||'Pendiente',yn(r.tiene_rechazo==null?null:!r.tiene_rechazo),yn(r.on_time),({cumple:'CUMPLE',no_cumple:'NO CUMPLE',pendiente:'PENDIENTE'}[r.resultado]||'PENDIENTE')].map(v=>'<td>'+esc(v)+'</td>').join('')+'</tr>').join('')||emptyRow(8,'Sin comprobantes para los filtros activos.');
  document.getElementById('inFullPage').textContent='Página '+(inFullPage+1)+' de '+pages;document.getElementById('inFullPrev').disabled=inFullPage===0;document.getElementById('inFullNext').disabled=inFullPage>=pages-1;
@@ -1215,6 +1241,7 @@ function docOtifStats(rows){const total=rows.length,ok=rows.filter(r=>r.resultad
 function docOtifDrivers(rows){const groups=new Map();let unassigned=0;rows.forEach(r=>{const names=[...new Set((r.choferes||[]).map(cleanPersona).filter(n=>n!=='Sin dato'))];if(!names.length)unassigned++;names.filter(n=>state.cho==='__all'||n===state.cho).forEach(name=>{if(!groups.has(name))groups.set(name,{rows:[],shared:0});const g=groups.get(name);g.rows.push(r);if(names.length>1)g.shared++})});return{unassigned,drivers:[...groups].map(([key,g])=>({key,shared:g.shared,...docOtifStats(g.rows)})).sort((a,b)=>(b.otif??-1)-(a.otif??-1)||b.total-a.total||a.key.localeCompare(b.key))}}
 async function reloadDocOtif(){
  if(docOtifLoading)return;docOtifLoading=true;docOtifData=null;
+ renderGoal('otifGoal','OTIF',null,85);renderGoal('inFullGoal','In Full',null,85);
  document.getElementById('docOtifStatus').textContent='Cargando comprobantes procesados…';
  document.getElementById('docOtifCards').innerHTML='';document.getElementById('docOtifMonths').innerHTML='';document.getElementById('docOtifRows').innerHTML='';
  document.getElementById('docOtifDrivers').innerHTML='';document.getElementById('docOtifDriverNote').textContent='';['chDocOtif','chDocOtifDriver','chDocOtifDriverVolume'].forEach(id=>{if(ch[id]){ch[id].destroy();delete ch[id]}});
@@ -1226,17 +1253,18 @@ function renderDocOtif(){
  if(!docOtifData){if(!docOtifLoading)reloadDocOtif();return}
  const key=JSON.stringify([state.unidad,state.suc,state.mes,state.fecha,state.cho]);if(key!==docOtifKey){docOtifPage=0;docOtifKey=key}
  const rows=docOtifScope(docOtifData.rows),o=docOtifStats(rows),pct=v=>v==null?'Sin evaluar':fmtPct(v);
+ renderGoal('otifGoal','OTIF',o.otif,85);
  const ranking=docOtifDrivers(rows),drivers=ranking.drivers;
  document.getElementById('docOtifDriverNote').textContent=fmt0(ranking.unassigned)+' comprobantes sin chofer vinculado en esta selección. '+(drivers.length?'Hacé clic en una barra para filtrar por chofer.':'Sin choferes para los filtros activos.');
  ['docOtifDriverChart','docOtifDriverVolumeChart'].forEach(id=>document.getElementById(id).style.minWidth=Math.max(600,drivers.length*95)+'px');
  const driverSelection=chartFilter('cho',drivers.map(r=>r.key));
- barGen('chDocOtifDriver',drivers.map(r=>r.key),drivers.map(r=>r.otif),fmtPct,v=>v==null?C.obj:v>=95?C.good:C.bad,95,true,driverSelection);
+ barGen('chDocOtifDriver',drivers.map(r=>r.key),drivers.map(r=>r.otif),fmtPct,v=>v==null?C.obj:v>=85?C.good:C.bad,85,true,driverSelection);
  barGen('chDocOtifDriverVolume',drivers.map(r=>r.key),drivers.map(r=>r.ok+r.no),fmt0,()=>C.obj,null,true,driverSelection);
  document.getElementById('docOtifDrivers').innerHTML=drivers.map(r=>'<tr><td>'+esc(r.key)+'</td>'+[r.total,r.ok+r.no,r.ok,r.no,r.pending,r.shared].map(v=>'<td>'+fmt0(v)+'</td>').join('')+'<td>'+pct(r.coverage)+'</td><td>'+pct(r.otif)+'</td></tr>').join('')||emptyRow(9,'Sin choferes para los filtros activos.');
  document.getElementById('docOtifStatus').textContent='Base local · Ventas: '+(docOtifData.ventas_sync_at||'sin sincronizar')+' · Cruce Foxtrot: '+(docOtifData.foxtrot_calculado_at||'sin calcular');
  document.getElementById('docOtifCards').innerHTML=[['OTIF',pct(o.otif)],['Comprobantes',fmt0(o.total)],['Cumplen',fmt0(o.ok)],['No cumplen',fmt0(o.no)],['Pendientes',fmt0(o.pending)],['Cobertura',pct(o.coverage)]].map(([k,v])=>'<div class="card"><div class="k">'+k+'</div><div class="v">'+v+'</div></div>').join('');
  const groups=new Map();rows.forEach(r=>{if(!groups.has(r.mes))groups.set(r.mes,[]);groups.get(r.mes).push(r)});const months=[...groups.keys()].sort().map(key=>({key,...docOtifStats(groups.get(key))}));
- barGen('chDocOtif',months.map(r=>mLbl(r.key)),months.map(r=>r.otif),fmtPct,v=>v==null?C.obj:v>=95?C.good:C.bad,95,true,chartFilter('mes',months.map(r=>r.key)));
+ barGen('chDocOtif',months.map(r=>mLbl(r.key)),months.map(r=>r.otif),fmtPct,v=>v==null?C.obj:v>=85?C.good:C.bad,85,true,chartFilter('mes',months.map(r=>r.key)));
  document.getElementById('docOtifMonths').innerHTML=months.map(r=>'<tr><td>'+esc(mLbl(r.key)+' '+r.key.slice(0,4))+'</td>'+[r.total,r.ok,r.no,r.pending].map(v=>'<td>'+fmt0(v)+'</td>').join('')+'<td>'+pct(r.coverage)+'</td><td>'+pct(r.otif)+'</td></tr>').join('')||emptyRow(7,'Sin comprobantes para los filtros activos.');
  const pages=Math.max(1,Math.ceil(rows.length/100));docOtifPage=Math.min(docOtifPage,pages-1);const yn=v=>v==null?'Pendiente':v?'Sí':'No';
  document.getElementById('docOtifRows').innerHTML=rows.slice(docOtifPage*100,(docOtifPage+1)*100).map(r=>'<tr>'+[r.fecha,r.suc,(r.cliente||'')+' · '+(r.nombre||''),r.comprobante,yn(r.rechazo_total),yn(r.rechazo_parcial),yn(r.on_time),({cumple:'CUMPLE',no_cumple:'NO CUMPLE',pendiente:'PENDIENTE'}[r.resultado]||'PENDIENTE')].map(v=>'<td>'+esc(v)+'</td>').join('')+'</tr>').join('')||emptyRow(8,'Sin comprobantes para los filtros activos.');
@@ -1501,6 +1529,7 @@ document.getElementById('exportClientesSin').addEventListener('click',async()=>{
  finally{button.disabled=!topClientesSinVentana(R.filter(full),Infinity).length}
 });
 function renderOnTime(){const scope=R.filter(full),o=onTime(scope),ok=o.p!=null&&o.p>=85,col=o.p==null?C.obj:(ok?C.good:C.bad);
+ renderGoal('onTimeGoal','On Time',o.p,85);
  kOT.textContent=o.p==null?'–':r1(o.p)+'%';kOTOk.textContent=o.ok;kOTBad.textContent=o.bad;kOTNoWin.textContent=o.sin;
  kOTCliTotal.textContent=o.cliTotal;kOTCliCon.textContent=o.cliVentanaPct==null?'–':r1(o.cliVentanaPct)+'%';oOTCliCon.textContent=o.cliCon+' con ventana · '+o.cliSin+' sin ventana';
  kOTCliSin.textContent=o.cliSin;
