@@ -4,7 +4,27 @@ Días Pico → Cluster de clientes → Costo PDV muestra un bloque independiente
 las estimaciones por HL. Tarifa inicial: **ARS 2.500/km, todos los gastos incluidos**.
 No vuelve a sumar combustible, personal, vehículo ni almacenamiento.
 
-Para cada cliente y recorrido:
+## M?todo predeterminado: costo prorrateado
+
+Se utilizan los kil?metros reales de Foxtrot (`disp_km_real`, almacenados en metros):
+
+```
+km asignados = (metros reales del recorrido / 1000) / PDV identificados del recorrido
+costo por atenci?n = km asignados ? tarifa
+costo del per?odo = suma de costos de las atenciones del cliente
+```
+
+Es un reparto en partes iguales del costo total, **no una medici?n de distancia hasta cada local**.
+No requiere calcular manualmente las rutas. Incluye intentos fallidos; se cuenta una sola
+atenci?n por cliente y recorrido. Los filtros se aplican despu?s de repartir y no cambian
+el denominador. No se suman otros gastos ni se reutilizan los importes de `route_costs`.
+Sin kil?metros reales positivos, la atenci?n queda pendiente (nunca se usa el plan ni
+la distancia del clic al cliente como reemplazo). El detalle muestra km reales, cantidad
+de PDV y cuota asignada. La suma de cuotas conserva el costo del recorrido completo.
+
+## M?todo opcional: tramos calculados
+
+El selector permite conservar el c?lculo anterior para cada cliente y recorrido:
 
 ```
 km asignados = tramo hasta el cliente + regreso × tramo / suma de tramos de ida
@@ -53,7 +73,7 @@ mismo cliente dentro del recorrido se consolidan: no representan un conteo exact
 de reintentos. Una visita fallida conserva su costo. El estado de entrega aparece
 en el detalle sin inferir éxito a partir de la existencia de una visita.
 
-Las distancias son de ruteo, no GPS real. Los fallbacks se identifican como
+En el m?todo opcional por tramos, las distancias son de ruteo, no GPS real. Los fallbacks se identifican como
 aproximados. Sin tramos o sin regreso no se calcula un importe. Si sólo algunas
 atenciones tienen distancia, se muestra costo parcial y se omiten los cocientes
 $/bulto y costo/venta; el promedio divide sólo por atenciones con km.
@@ -62,3 +82,20 @@ pero no se atribuyen arbitrariamente a un PDV. Los totales siempre corresponden
 a atenciones registradas, no garantizan cobertura de todas las entregas reales.
 
 El cluster es el vigente en Días Pico. No se reconstruye el cluster histórico.
+
+## Correcci?n de cobertura (25/09/2026)
+
+El reporte original s?lo exportaba distancias de siete c?lculos guardados entre
+1.840 recorridos del per?odo 01/01/2026?23/09/2026. Hab?a kil?metros reales positivos
+en 1.830 recorridos. Adem?s, 2.602 coordenadas del maestro ten?an latitud redondeada
+a dos decimales; tramos OSRM de cero metros no demuestran que atender al local sea gratis.
+Se agreg? el prorrateo expl?cito sobre los km reales para poder costear sin inventar
+tramos faltantes. Se preserv? el m?todo por tramos como opci?n con advertencia de cobertura.
+Los datos del maestro original no se modificaron.
+
+La API mantiene sus campos anteriores y agrega `km_recorrido_real`, `pdv_recorrido`,
+`km_prorrateados`, `fuente_km_prorrateados` y `rutas_sin_km_reales` (incluye rutas
+sin PDV identificados a los que atribuir km). La UI y el CSV identifican el m?todo.
+Las pruebas de conservaci?n, duplicados, faltantes, filtros y selecci?n del m?todo
+est?n en `tests/test_pdv_distance_api.py` de Reparto y `tests/test_pdv_km_cost.py` /
+`tests/test_pdv_km_ui.cjs` de D?as Pico.

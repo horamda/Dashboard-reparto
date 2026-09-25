@@ -4,6 +4,7 @@ import math
 import os
 import secrets
 import unicodedata
+from collections import Counter
 from datetime import date
 from urllib.parse import urlencode
 
@@ -60,7 +61,8 @@ def load_snapshot(desde, hasta):
             customers = cur.fetchall()
             cur.execute("""SELECT route_id, jsonb_build_object(
                 'cliente', COALESCE(NULLIF(rec->>'cliente', ''), rec->>'Customer ID'),
-                'nombre', COALESCE(rec->'cliente_nombre', rec->'Customer Name'))
+                'nombre', COALESCE(rec->'cliente_nombre', rec->'Customer Name'),
+                'estado_entrega', COALESCE(rec->'estado_entrega', rec->'Aggregate Visit Status'))
                 FROM attempts_dashboard WHERE route_id = ANY(%s)""", (ids,))
             attempts = cur.fetchall()
     else:
@@ -86,11 +88,17 @@ def distance_rows(routes, costs, customers, attempts):
     for rid, item in attempts:
         cid = client_id(item.get('cliente') or item.get('Customer ID'))
         if cid:
-            visits[(str(rid), cid)] = {'cliente': cid, 'nombre': item.get('nombre') or item.get('Customer Name')}
+            visits[(str(rid), cid)] = {
+                'cliente': cid, 'nombre': item.get('nombre') or item.get('Customer Name'),
+                'estado_entrega': item.get('estado_entrega') or item.get('Aggregate Visit Status'),
+            }
     for rid, item in customers:
         cid = client_id(item.get('cliente'))
         if cid:
             visits[(str(rid), cid)] = item
+    # One allocation unit per identified customer/route, including failed stops.
+    # Count before any consumer branch, cluster or search filters.
+    counts = Counter(rid for rid, cid in visits)
     rows = []
     for (rid, cid), item in sorted(visits.items()):
         route = {**routes.get(rid, {}), **costs.get(rid, {})}
@@ -108,6 +116,13 @@ def distance_rows(routes, costs, customers, attempts):
         if complete and forward_total == 0 and back:
             complete = False
         assigned_return = (back * outward / forward_total if forward_total else 0) if complete else None
+        source_route = routes.get(rid, {})
+        meters = number(source_route.get('disp_km_real'))
+        if meters is None:
+            meters = number((source_route.get('raw_foxtrot') or {}).get('Total Driven Meters'))
+        # Zero is not evidence of a measured journey. Do not substitute planned
+        # kilometers or GPS proximity-to-customer for actual driven meters.
+        route_km = meters / 1000 if meters is not None and meters > 0 else None
         rows.append({
             'rid': rid, 'cliente': cid, 'nombre': item.get('nombre') or '',
             'sucursal': branch_id(route.get('sucursal_id') or route.get('sucursal') or route.get('suc')),
@@ -115,6 +130,10 @@ def distance_rows(routes, costs, customers, attempts):
             'km_tramo': outward if complete else None,
             'km_regreso': assigned_return,
             'km_asignados': outward + assigned_return if complete else None,
+            'km_recorrido_real': route_km,
+            'pdv_recorrido': counts[rid],
+            'km_prorrateados': route_km / counts[rid] if route_km is not None else None,
+            'fuente_km_prorrateados': 'foxtrot_total_driven_meters' if route_km is not None else None,
             'distancia_estimada': any(s.get('fallback') for s in segments) if complete else None,
             'estado_entrega': item.get('estado_entrega') or '',
             'calculation_id': route.get('calculation_id'),
@@ -145,6 +164,8 @@ def distances():
                        rutas=len(set(routes) | set(costs)),
                        rutas_sin_distancias=sum(not r.get('routing_segments') for r in
                                                ({**routes, **costs}).values()),
+                       rutas_sin_km_reales=len((set(routes) | set(costs)) - {
+                           r['rid'] for r in rows if r['km_prorrateados'] is not None}),
                        criterio='tramo_hasta_cliente_mas_regreso_proporcional',
                        unidad='cliente_por_recorrido')
     except Exception:

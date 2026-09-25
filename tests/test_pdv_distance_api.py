@@ -73,3 +73,23 @@ def test_api_auth_period_and_no_truncation(monkeypatch):
     assert response.status_code == 200
     assert response.json['version'] == 1
     assert len(response.json['items']) == 2
+
+
+def test_real_route_allocation_without_saved_calculation_conserves_cost():
+    routes = {'r1': {'disp_km_real': 120000, 'fecha': '2026-09-01', 'suc': 'Dolores'}}
+    attempts = [('r1', {'cliente': cid, 'estado_entrega': 'FAILED'}) for cid in ('1', '2', '2', '3')]
+    rows = api.distance_rows(routes, {}, [], attempts)
+    assert len(rows) == 3
+    assert all(r['km_prorrateados'] == 40 and r['pdv_recorrido'] == 3 for r in rows)
+    assert sum(r['km_prorrateados'] * 2500 for r in rows) == 300000
+    assert all(r['km_asignados'] is None and r['estado_entrega'] == 'FAILED' for r in rows)
+
+
+def test_proration_does_not_use_plan_zero_or_stale_cost_snapshot():
+    costs, customers = fixture()
+    costs['r1']['disp_km_real'] = 999000
+    for meters in (None, 0, -1, float('nan')):
+        rows = api.distance_rows({'r1': {'disp_km_real': meters, 'disp_km_plan': 100000}}, costs, customers, [])
+        assert all(r['km_prorrateados'] is None for r in rows)
+    rows = api.distance_rows({'r1': {'disp_km_real': 20000}}, costs, customers, [])
+    assert all(r['km_prorrateados'] == 10 for r in rows)
