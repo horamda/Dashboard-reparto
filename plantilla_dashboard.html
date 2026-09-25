@@ -419,6 +419,13 @@ tfoot td{font-weight:700;border-top:2px solid var(--line);border-bottom:none}
  </div>
  <div id="viewMes" style="display:none">
   <div class="hint" id="monthlyRoutesNotice" role="status" style="display:none"></div>
+  <div class="panel" style="margin-bottom:22px">
+   <h2>Matriz mensual por empleado · <span id="employeeMatrixYear"></span></h2>
+   <div class="note">Año en curso completo · respeta Unidad, Sucursal y Chofer; no limita por Mes ni Día. TML y TI: promedio por ruta en minutos. Ruta: promedio por jornada (h:mm), sumando normal y recarga. Solo rutas válidas; — indica sin datos. El mes actual es parcial.</div>
+   <label class="note" for="employeeMatrixMetric">Indicador <select id="employeeMatrixMetric"><option value="__all">Todos</option><option value="tml">TML (min)</option><option value="ti">TI (min)</option><option value="hr">Ruta (h:mm)</option></select></label>
+   <div class="note origin-note">TML y TI incluyen los valores estimados presentes en los indicadores mensuales.</div>
+   <div class="tblscroll"><table id="employeeMatrix" style="min-width:1100px"><thead id="employeeMatrixHead"></thead><tbody id="employeeMatrixBody"></tbody></table></div>
+  </div>
   <div class="sectlbl">Cumplimiento de objetivos</div>
   <label class="note origin-toggle"><input type="checkbox" id="showOriginNotes" checked> Mostrar notas de origen</label>
   <div class="cards c2" style="margin-bottom:22px">
@@ -1452,7 +1459,20 @@ function renderCumplimientoMensual(rows){
   chart.update();
  });
 }
-function renderMes(){const usM=R.filter(r=>r.usable&&full(r));const notice=document.getElementById('monthlyRoutesNotice');notice.style.display=usM.length?'none':'block';if(!usM.length){const months=[...new Set(R.filter(r=>r.usable&&base(r)).map(r=>r.mes))].sort();notice.textContent='No hay rutas validadas para el mes y los filtros seleccionados. '+(months.length?'Meses con rutas disponibles para esta unidad, sucursal y chofer: '+months.map(m=>mLbl(m)+' '+m.slice(0,4)).join(', ')+'.':'No hay rutas disponibles para esta unidad, sucursal y chofer.')}renderCumplimientoMensual(usM);const OC=OBJ_CUMPLIMIENTO;const cmp=(k,o)=>cumplimientoRutas(usM,k,o);[["TI","ti",OBJ.ti],["TML","tml",OBJ.tml]].forEach(([p,k,o])=>{const result=cmp(k,o),c=result.value,ok=c!=null&&c>=OC,col=c==null?C.obj:(ok?C.good:C.bad);document.getElementById("c"+p+"cmp").style.setProperty("--accent",col);document.getElementById("k"+p+"cmp").textContent=c==null?"–":r1(c)+"%";document.getElementById("o"+p+"cmp").textContent=result.total?result.ok+" de "+result.total+" rutas con "+p+" ≤ "+o+" min · objetivo ≥"+OC+"%":"Sin rutas validadas para "+p;if(result.estimated){const note=document.createElement("span");note.className="origin-note";note.textContent=" (incluye "+p+" estimado)";document.getElementById("o"+p+"cmp").appendChild(note)}const b=document.getElementById("b"+p+"cmp");b.style.background=col;b.style.width=Math.min(100,c||0)+"%";const bg=document.getElementById("g"+p+"cmp");bg.className="badge "+(c==null?"":(ok?"ok":"no"));bg.textContent=c==null?"SIN DATOS":(ok?"CUMPLE":"NO");});const ser=aggOperativo('mes',usM);
+function employeeMonthlyData(rows,year){
+ const groups=new Map();
+ rows.filter(r=>r.usable&&String(r.fecha||'').slice(0,4)===String(year)).forEach(r=>{const name=personaBase(r);if(!groups.has(name))groups.set(name,[]);groups.get(name).push(r)});
+ const summarize=items=>({tml:avg(items.map(r=>r.tml).filter(Number.isFinite)),ti:avg(items.map(r=>r.ti).filter(Number.isFinite)),hr:avg(jornadas(items.filter(r=>Number.isFinite(r.horas))).map(r=>r.horas))});
+ return [...groups.entries()].sort(([a],[b])=>a.localeCompare(b,'es')).map(([name,items])=>({name,months:Array.from({length:12},(_,i)=>summarize(items.filter(r=>Number(r.fecha.slice(5,7))===i+1))),total:summarize(items)}));
+}
+function renderEmployeeMonthlyMatrix(){
+ const year=TODAY.slice(0,4),selected=document.getElementById('employeeMatrixMetric').value,metrics=[['tml','TML (min)'],['ti','TI (min)'],['hr','Ruta (h:mm)']].filter(([key])=>selected==='__all'||selected===key),rows=employeeMonthlyData(R.filter(base),year);
+ document.getElementById('employeeMatrixYear').textContent=year;
+ document.getElementById('employeeMatrixHead').innerHTML='<tr><th scope="col">Empleado</th><th scope="col">Indicador</th>'+Array.from({length:12},(_,i)=>'<th scope="col">'+MM[String(i+1).padStart(2,'0')]+'</th>').join('')+'<th scope="col">Promedio anual</th></tr>';
+ document.getElementById('employeeMatrixBody').innerHTML=rows.map(row=>metrics.map(([key,label])=>'<tr><th scope="row" style="text-align:left;white-space:nowrap">'+esc(row.name)+'</th><td style="white-space:nowrap">'+label+'</td>'+[...row.months,row.total].map(values=>'<td>'+(values[key]==null?'?':key==='hr'?hhmmH(values[key]):r1(values[key]))+'</td>').join('')+'</tr>').join('')).join('')||emptyRow(15,'No hay rutas v?lidas en '+year+' para los filtros de Unidad, Sucursal y Chofer seleccionados.');
+}
+document.getElementById('employeeMatrixMetric').addEventListener('change',renderEmployeeMonthlyMatrix);
+function renderMes(){renderEmployeeMonthlyMatrix();const usM=R.filter(r=>r.usable&&full(r));const notice=document.getElementById('monthlyRoutesNotice');notice.style.display=usM.length?'none':'block';if(!usM.length){const months=[...new Set(R.filter(r=>r.usable&&base(r)).map(r=>r.mes))].sort();notice.textContent='No hay rutas validadas para el mes y los filtros seleccionados. '+(months.length?'Meses con rutas disponibles para esta unidad, sucursal y chofer: '+months.map(m=>mLbl(m)+' '+m.slice(0,4)).join(', ')+'.':'No hay rutas disponibles para esta unidad, sucursal y chofer.')}renderCumplimientoMensual(usM);const OC=OBJ_CUMPLIMIENTO;const cmp=(k,o)=>cumplimientoRutas(usM,k,o);[["TI","ti",OBJ.ti],["TML","tml",OBJ.tml]].forEach(([p,k,o])=>{const result=cmp(k,o),c=result.value,ok=c!=null&&c>=OC,col=c==null?C.obj:(ok?C.good:C.bad);document.getElementById("c"+p+"cmp").style.setProperty("--accent",col);document.getElementById("k"+p+"cmp").textContent=c==null?"–":r1(c)+"%";document.getElementById("o"+p+"cmp").textContent=result.total?result.ok+" de "+result.total+" rutas con "+p+" ≤ "+o+" min · objetivo ≥"+OC+"%":"Sin rutas validadas para "+p;if(result.estimated){const note=document.createElement("span");note.className="origin-note";note.textContent=" (incluye "+p+" estimado)";document.getElementById("o"+p+"cmp").appendChild(note)}const b=document.getElementById("b"+p+"cmp");b.style.background=col;b.style.width=Math.min(100,c||0)+"%";const bg=document.getElementById("g"+p+"cmp");bg.className="badge "+(c==null?"":(ok?"ok":"no"));bg.textContent=c==null?"SIN DATOS":(ok?"CUMPLE":"NO");});const ser=aggOperativo('mes',usM);
  const lab=ser.map(s=>mLbl(s.key));
  const mesSelect=chartFilter('mes',ser.map(s=>s.key));
  barGen('chTml',lab,ser.map(s=>s.tml),v=>r1(v)+' min',()=>C.cli,OBJ.tml,true,mesSelect);

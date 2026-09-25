@@ -50,6 +50,8 @@ app.config.update(
     SESSION_COOKIE_SECURE=bool(os.environ.get("RAILWAY_ENVIRONMENT") or os.environ.get("SESSION_COOKIE_SECURE") == "1"),
 )
 app.register_blueprint(pedidos_bp)
+from pdv_distance_api import bp as pdv_distances_bp
+app.register_blueprint(pdv_distances_bp)
 
 _GZIP_CACHE = OrderedDict()
 _GZIP_CACHE_LOCK = threading.RLock()
